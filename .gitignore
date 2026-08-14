@@ -6,6 +6,7 @@ dist/*.map
 
 # Test and tool output
 coverage/
+.playwright-mcp/
 .code-review-graph/
 .factory/artifacts/
 .eslintcache
