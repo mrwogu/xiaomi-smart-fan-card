@@ -4532,7 +4532,9 @@ class XiaomiFanCard extends i$2 {
     }
 
     .theme-industrial {
-      --fan-accent: var(--state-fan-active-color, #e9a23b);
+      /* Amber is this theme's identity, so it does not follow the Home
+         Assistant fan color, which is usually the default accent. */
+      --fan-accent: var(--fan-industrial-accent, #e9a23b);
       --fan-radius-card: 6px;
       --fan-radius-panel: 6px;
       --fan-radius-control: 4px;
