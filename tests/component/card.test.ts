@@ -388,6 +388,80 @@ describe("XiaomiFanCard", () => {
     });
   });
 
+  const capabilityConfig: FanCardConfig = {
+    type: "custom:xiaomi-fan-card",
+    entity: "fan.p76",
+    integration: "xiaomi_miio_fan",
+    header: { show: false },
+    visual: { show: false },
+  };
+
+  const capabilityStates: Record<string, HassEntity> = {
+    "fan.p76": {
+      state: "on",
+      attributes: { friendly_name: "Test fan", model: "xiaomi.fan.p76", percentage: 50 },
+    },
+  };
+
+  it("keeps the capability lookup when hass is replaced mid flight", async () => {
+    let releaseRegistry = (): void => undefined;
+    const gate = new Promise<void>((resolve) => {
+      releaseRegistry = resolve;
+    });
+    const hass = {
+      states: capabilityStates,
+      callService: vi.fn(async () => undefined),
+      callWS: vi.fn(async (message: Record<string, unknown>) => {
+        await gate;
+        return message.type === "get_services" ? services : [];
+      }),
+    } as unknown as HassLike;
+
+    const card = new XiaomiFanCard();
+    card.hass = hass as unknown as HomeAssistant;
+    card.setConfig(capabilityConfig);
+    document.body.append(card);
+    await settle(card);
+
+    card.hass = { ...hass } as unknown as HomeAssistant;
+    await settle(card);
+    releaseRegistry();
+    await settle(card);
+
+    expect(card.shadowRoot?.querySelector(".angle-controls")).toBeTruthy();
+  });
+
+  it("retries the capability lookup after Home Assistant reconnects", async () => {
+    vi.useFakeTimers();
+    let connected = false;
+    const hass = {
+      states: capabilityStates,
+      callService: vi.fn(async () => undefined),
+      callWS: vi.fn(async (message: Record<string, unknown>) => {
+        if (!connected) {
+          throw new Error("connection lost");
+        }
+
+        return message.type === "get_services" ? services : [];
+      }),
+    } as unknown as HassLike;
+
+    const card = new XiaomiFanCard();
+    card.hass = hass as unknown as HomeAssistant;
+    card.setConfig(capabilityConfig);
+    document.body.append(card);
+    await settle(card);
+
+    expect(card.shadowRoot?.querySelector(".angle-controls")).toBeNull();
+
+    connected = true;
+    await vi.advanceTimersByTimeAsync(2100);
+    await settle(card);
+
+    expect(card.shadowRoot?.querySelector(".angle-controls")).toBeTruthy();
+    vi.useRealTimers();
+  });
+
   it("recolors every accent tint from the card style token", async () => {
     const { card } = await renderCard({
       ...baseConfig,

@@ -43,7 +43,15 @@ const findBySuffix = (
   })?.entity_id;
 };
 
-export const resolveRelatedEntities = async (hass: HassLike, entityId: string): Promise<RelatedEntities> => {
+/**
+ * Resolves to undefined when the registry lookup itself failed, which is what
+ * a reconnecting Home Assistant looks like. Callers keep their previous result
+ * in that case instead of collapsing to an empty device.
+ */
+export const resolveRelatedEntities = async (
+  hass: HassLike,
+  entityId: string,
+): Promise<RelatedEntities | undefined> => {
   if (!hass.callWS) {
     return {};
   }
@@ -77,6 +85,6 @@ export const resolveRelatedEntities = async (hass: HassLike, entityId: string): 
 
     return related;
   } catch {
-    return {};
+    return undefined;
   }
 };

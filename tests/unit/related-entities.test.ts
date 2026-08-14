@@ -26,4 +26,39 @@ describe("resolveRelatedEntities", () => {
       temperature: "sensor.example_temperature",
     });
   });
+
+  it("reports a failed registry lookup instead of an empty device", async () => {
+    const hass: HassLike = {
+      states: { "fan.example": { state: "on", attributes: {} } },
+      callService: () => undefined,
+      callWS: async () => {
+        throw new Error("connection lost");
+      },
+    };
+
+    await expect(resolveRelatedEntities(hass, "fan.example")).resolves.toBeUndefined();
+  });
+
+  it("reports an empty device when the fan has no registry siblings", async () => {
+    const hass: HassLike = {
+      states: { "fan.example": { state: "on", attributes: {} } },
+      callService: () => undefined,
+      callWS: async <T>() => [{ entity_id: "fan.example", device_id: "device-1" }] as T,
+    };
+
+    await expect(resolveRelatedEntities(hass, "fan.example")).resolves.toEqual({
+      buzzer: undefined,
+      childLock: undefined,
+      favoriteLevel: undefined,
+      horizontalAngle: undefined,
+      humidity: undefined,
+      ionizer: undefined,
+      led: undefined,
+      sleepMode: undefined,
+      temperature: undefined,
+      timer: undefined,
+      verticalAngle: undefined,
+      verticalSwing: undefined,
+    });
+  });
 });

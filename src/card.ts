@@ -78,6 +78,8 @@ export class XiaomiFanCard extends LitElement {
   private speedDragging = false;
   private serviceLoadKey = "";
   private loadRequestId = 0;
+  private retryTimer?: ReturnType<typeof setTimeout>;
+  private retryDelay = 0;
   private translatorLanguage = "";
   private translator: Translator = createTranslator();
 
@@ -152,26 +154,73 @@ export class XiaomiFanCard extends LitElement {
     }
 
     this.serviceLoadKey = loadKey;
+    void this.loadCapabilities(entityId, loadKey);
+  }
+
+  public connectedCallback(): void {
+    super.connectedCallback();
+    // A card that comes back from a suspended tab or a rebuilt view has to look
+    // the service registry up again instead of trusting a stale lookup.
+    this.serviceLoadKey = "";
+  }
+
+  public disconnectedCallback(): void {
+    super.disconnectedCallback();
+    this.clearCapabilityRetry();
+  }
+
+  private async loadCapabilities(entityId: string, loadKey: string): Promise<void> {
     const hass = asHassLike(this.hass);
     const requestId = ++this.loadRequestId;
-    const requestedHass = this.hass;
     const shouldLoadCustomServices = this.config.integration !== "standard";
-    const services = shouldLoadCustomServices
-      ? loadServiceAvailability(hass)
-      : Promise.resolve<ServiceAvailability>({ loaded: true, names: new Set() });
-    void Promise.all([services, resolveRelatedEntities(hass, entityId)]).then(([services, discovered]) => {
-      if (
-        requestId !== this.loadRequestId ||
-        this.hass !== requestedHass ||
-        this.config.entity !== entityId ||
-        this.serviceLoadKey !== loadKey
-      ) {
+    const [services, discovered] = await Promise.all([
+      shouldLoadCustomServices
+        ? loadServiceAvailability(hass)
+        : Promise.resolve<ServiceAvailability>({ loaded: true, names: new Set() }),
+      resolveRelatedEntities(hass, entityId),
+    ]);
+
+    // hass is replaced on every state update, so only the request, the entity,
+    // and the loader key decide whether this answer is still wanted.
+    if (requestId !== this.loadRequestId || this.config.entity !== entityId || this.serviceLoadKey !== loadKey) {
+      return;
+    }
+
+    if (!services.loaded || discovered === undefined) {
+      // Home Assistant was unreachable. Keeping the previous capabilities stops
+      // the card from degrading to a plain fan until the retry succeeds.
+      this.scheduleCapabilityRetry(entityId, loadKey);
+      return;
+    }
+
+    this.clearCapabilityRetry();
+    this.services = services;
+    this.related = this.withConfiguredRelatedEntities(discovered);
+  }
+
+  private scheduleCapabilityRetry(entityId: string, loadKey: string): void {
+    if (this.retryTimer !== undefined) {
+      return;
+    }
+
+    this.retryDelay = Math.min(this.retryDelay === 0 ? 2000 : this.retryDelay * 2, 30000);
+    this.retryTimer = setTimeout(() => {
+      this.retryTimer = undefined;
+      if (this.config.entity !== entityId || this.serviceLoadKey !== loadKey || !this.hass) {
         return;
       }
 
-      this.services = services;
-      this.related = this.withConfiguredRelatedEntities(discovered);
-    });
+      void this.loadCapabilities(entityId, loadKey);
+    }, this.retryDelay);
+  }
+
+  private clearCapabilityRetry(): void {
+    if (this.retryTimer !== undefined) {
+      clearTimeout(this.retryTimer);
+      this.retryTimer = undefined;
+    }
+
+    this.retryDelay = 0;
   }
 
   protected render() {

@@ -2570,6 +2570,11 @@ const findBySuffix = (entries, allowedDomains, wantedSuffixes) => {
         return hintGroups.some((hints) => hints.every((hint) => searchable.includes(hint.toLowerCase())));
     })?.entity_id;
 };
+/**
+ * Resolves to undefined when the registry lookup itself failed, which is what
+ * a reconnecting Home Assistant looks like. Callers keep their previous result
+ * in that case instead of collapsing to an empty device.
+ */
 const resolveRelatedEntities = async (hass, entityId) => {
     if (!hass.callWS) {
         return {};
@@ -2600,7 +2605,7 @@ const resolveRelatedEntities = async (hass, entityId) => {
         return related;
     }
     catch {
-        return {};
+        return undefined;
     }
 };
 
@@ -2658,6 +2663,7 @@ class XiaomiFanCard extends i$2 {
         this.speedDragging = false;
         this.serviceLoadKey = "";
         this.loadRequestId = 0;
+        this.retryDelay = 0;
         this.translatorLanguage = "";
         this.translator = createTranslator();
         this.onPercentagePreview = (event) => {
@@ -2726,23 +2732,62 @@ class XiaomiFanCard extends i$2 {
             return;
         }
         this.serviceLoadKey = loadKey;
+        void this.loadCapabilities(entityId, loadKey);
+    }
+    connectedCallback() {
+        super.connectedCallback();
+        // A card that comes back from a suspended tab or a rebuilt view has to look
+        // the service registry up again instead of trusting a stale lookup.
+        this.serviceLoadKey = "";
+    }
+    disconnectedCallback() {
+        super.disconnectedCallback();
+        this.clearCapabilityRetry();
+    }
+    async loadCapabilities(entityId, loadKey) {
         const hass = asHassLike(this.hass);
         const requestId = ++this.loadRequestId;
-        const requestedHass = this.hass;
         const shouldLoadCustomServices = this.config.integration !== "standard";
-        const services = shouldLoadCustomServices
-            ? loadServiceAvailability(hass)
-            : Promise.resolve({ loaded: true, names: new Set() });
-        void Promise.all([services, resolveRelatedEntities(hass, entityId)]).then(([services, discovered]) => {
-            if (requestId !== this.loadRequestId ||
-                this.hass !== requestedHass ||
-                this.config.entity !== entityId ||
-                this.serviceLoadKey !== loadKey) {
+        const [services, discovered] = await Promise.all([
+            shouldLoadCustomServices
+                ? loadServiceAvailability(hass)
+                : Promise.resolve({ loaded: true, names: new Set() }),
+            resolveRelatedEntities(hass, entityId),
+        ]);
+        // hass is replaced on every state update, so only the request, the entity,
+        // and the loader key decide whether this answer is still wanted.
+        if (requestId !== this.loadRequestId || this.config.entity !== entityId || this.serviceLoadKey !== loadKey) {
+            return;
+        }
+        if (!services.loaded || discovered === undefined) {
+            // Home Assistant was unreachable. Keeping the previous capabilities stops
+            // the card from degrading to a plain fan until the retry succeeds.
+            this.scheduleCapabilityRetry(entityId, loadKey);
+            return;
+        }
+        this.clearCapabilityRetry();
+        this.services = services;
+        this.related = this.withConfiguredRelatedEntities(discovered);
+    }
+    scheduleCapabilityRetry(entityId, loadKey) {
+        if (this.retryTimer !== undefined) {
+            return;
+        }
+        this.retryDelay = Math.min(this.retryDelay === 0 ? 2000 : this.retryDelay * 2, 30000);
+        this.retryTimer = setTimeout(() => {
+            this.retryTimer = undefined;
+            if (this.config.entity !== entityId || this.serviceLoadKey !== loadKey || !this.hass) {
                 return;
             }
-            this.services = services;
-            this.related = this.withConfiguredRelatedEntities(discovered);
-        });
+            void this.loadCapabilities(entityId, loadKey);
+        }, this.retryDelay);
+    }
+    clearCapabilityRetry() {
+        if (this.retryTimer !== undefined) {
+            clearTimeout(this.retryTimer);
+            this.retryTimer = undefined;
+        }
+        this.retryDelay = 0;
     }
     render() {
         if (!this.hass || !this.config?.entity) {
