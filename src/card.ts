@@ -1,20 +1,25 @@
 import { LitElement, css, html, type CSSResultGroup, type PropertyValues, type TemplateResult } from "lit";
 import { property, state } from "lit/decorators.js";
 import { styleMap } from "lit/directives/style-map.js";
-import { handleAction, hasConfigOrEntityChanged, type HomeAssistant } from "custom-card-helpers";
+import {
+  handleAction,
+  hasConfigOrEntityChanged,
+  type HomeAssistant,
+  type LovelaceCardEditor,
+} from "custom-card-helpers";
 import { createFanAdapter } from "./adapters";
-import { DEFAULT_BLOCK_ORDER, DEFAULT_CONFIG, normalizeCardConfig } from "./config";
+import { DEFAULT_CONFIG, normalizeCardConfig } from "./config";
+import "./editor";
+import { getConfigForm } from "./editor-schema";
 import { loadServiceAvailability } from "./services/service-dispatcher";
 import { resolveRelatedEntities } from "./state/related-entities";
 import { getAirflowAxis } from "./state/visual-state";
 import { createTranslator, type TranslationKey, type TranslationValues, type Translator } from "./translations";
-import { RELATED_ENTITY_DOMAINS } from "./types";
 import type {
   FanAdapter,
   FanCardConfig,
   FanBlock,
   HassLike,
-  FanRelatedEntitiesConfig,
   RelatedEntities,
   ResolvedFanCardConfig,
   ServiceAvailability,
@@ -62,165 +67,12 @@ export class XiaomiFanCard extends LitElement {
   private translatorLanguage = "";
   private translator: Translator = createTranslator();
 
-  public static getConfigForm() {
-    const booleanField = (name: string) => ({ name, selector: { boolean: {} } });
-    const entityField = (name: string, domains: readonly string[]) => ({
-      name,
-      selector: { entity: { domain: domains } },
-    });
-    const selectField = (name: string, options: string[]) => ({
-      name,
-      selector: { select: { options } },
-    });
-    const styleGroup = (name: string) => ({
-      type: "expandable",
-      name,
-      flatten: false,
-      schema: [
-        { name: "background", selector: { text: {} } },
-        { name: "border", selector: { text: {} } },
-        { name: "border_radius", selector: { text: {} } },
-        { name: "color", selector: { text: {} } },
-        { name: "font_size", selector: { text: {} } },
-        { name: "gap", selector: { text: {} } },
-        { name: "height", selector: { text: {} } },
-        { name: "padding", selector: { text: {} } },
-        { name: "shadow", selector: { text: {} } },
-        { name: "size", selector: { text: {} } },
-      ],
-    });
-    const relatedEntityField = (name: keyof FanRelatedEntitiesConfig) =>
-      entityField(name, RELATED_ENTITY_DOMAINS[name]);
+  public static getConfigElement(): LovelaceCardEditor {
+    return document.createElement("xiaomi-fan-card-editor") as LovelaceCardEditor;
+  }
 
-    return {
-      schema: [
-        entityField("entity", ["fan"]),
-        { name: "name", selector: { text: {} } },
-        selectField("integration", ["auto", "standard", "xiaomi_miio", "xiaomi_miio_fan", "xiaomi_miot"]),
-        {
-          type: "expandable",
-          name: "header",
-          flatten: false,
-          schema: [
-            booleanField("show"),
-            selectField("variant", ["full", "compact"]),
-            booleanField("show_eyebrow"),
-            booleanField("show_name"),
-            booleanField("show_status"),
-            booleanField("show_mode"),
-            booleanField("show_model"),
-          ],
-        },
-        {
-          type: "expandable",
-          name: "visual",
-          flatten: false,
-          schema: [
-            booleanField("show"),
-            booleanField("show_graphic"),
-            booleanField("show_power"),
-            booleanField("show_speed"),
-            booleanField("show_details"),
-            selectField("animation", ["auto", "enabled", "disabled"]),
-          ],
-        },
-        {
-          type: "expandable",
-          name: "controls",
-          flatten: false,
-          schema: [
-            booleanField("show"),
-            booleanField("show_speed_slider"),
-            booleanField("show_speed_levels"),
-            booleanField("show_modes"),
-            booleanField("show_preset_mode"),
-            booleanField("show_horizontal_swing"),
-            booleanField("show_vertical_swing"),
-            booleanField("show_sleep"),
-            booleanField("show_cycle"),
-            booleanField("show_horizontal_angle"),
-            booleanField("show_vertical_angle"),
-            booleanField("show_nudge"),
-            booleanField("show_nudge_with_angles"),
-            booleanField("show_direction"),
-            booleanField("show_favorite_level"),
-            booleanField("show_timer"),
-            booleanField("show_child_lock"),
-            booleanField("show_led"),
-            booleanField("show_buzzer"),
-            booleanField("show_ionizer"),
-            selectField("selection_mode", ["auto", "buttons", "select"]),
-            selectField("timer_mode", ["cycle", "select"]),
-            selectField("angle_mode", ["select", "cycle"]),
-          ],
-        },
-        {
-          type: "expandable",
-          name: "details",
-          flatten: false,
-          schema: [
-            booleanField("show"),
-            booleanField("show_horizontal_angle"),
-            booleanField("show_vertical_angle"),
-            booleanField("show_timer"),
-            booleanField("show_timer_when_off"),
-            booleanField("show_temperature"),
-            booleanField("show_humidity"),
-            selectField("position", ["below", "side"]),
-          ],
-        },
-        {
-          type: "expandable",
-          name: "layout",
-          flatten: false,
-          schema: [
-            selectField("theme", ["auto", "mushroom", "minimal", "glass", "industrial"]),
-            selectField("density", ["comfortable", "compact"]),
-            selectField("columns", ["auto", "one", "two"]),
-            {
-              name: "order",
-              selector: {
-                select: {
-                  multiple: true,
-                  options: [...DEFAULT_BLOCK_ORDER],
-                },
-              },
-            },
-          ],
-        },
-        {
-          type: "expandable",
-          name: "styles",
-          flatten: false,
-          schema: [
-            styleGroup("card"),
-            styleGroup("header"),
-            styleGroup("visual"),
-            styleGroup("controls"),
-            styleGroup("details"),
-          ],
-        },
-        {
-          type: "expandable",
-          name: "related_entities",
-          flatten: true,
-          schema: [
-            relatedEntityField("horizontal_angle_entity"),
-            relatedEntityField("vertical_swing_entity"),
-            relatedEntityField("vertical_angle_entity"),
-            relatedEntityField("favorite_level_entity"),
-            relatedEntityField("sleep_mode_entity"),
-            relatedEntityField("timer_entity"),
-            relatedEntityField("child_lock_entity"),
-            relatedEntityField("led_entity"),
-            relatedEntityField("buzzer_entity"),
-            relatedEntityField("ionizer_entity"),
-            relatedEntityField("temperature_entity"),
-            relatedEntityField("humidity_entity"),
-          ],
-        },
-      ],
-    };
+  public static getConfigForm() {
+    return getConfigForm();
   }
 
   public static getStubConfig(): Partial<FanCardConfig> {
@@ -538,8 +390,8 @@ export class XiaomiFanCard extends LitElement {
     }
 
     const hasDetails =
-      (details.show_horizontal_angle && adapter.capabilities.horizontalAngle) ||
-      (details.show_vertical_angle && adapter.capabilities.verticalAngle) ||
+      (details.show_horizontal_angle && adapter.capabilities.horizontalAngle && horizontalAngle !== undefined) ||
+      (details.show_vertical_angle && adapter.capabilities.verticalAngle && verticalAngle !== undefined) ||
       (details.show_timer &&
         adapter.capabilities.timer &&
         (details.show_timer_when_off || Boolean(state.timerMinutes))) ||
@@ -552,7 +404,7 @@ export class XiaomiFanCard extends LitElement {
     return html`
       <div class="visual-meta" style=${styleMap(styleMapFor(this.config.styles.details, "fan-details"))}>
         ${
-          details.show_horizontal_angle
+          details.show_horizontal_angle && adapter.capabilities.horizontalAngle && horizontalAngle !== undefined
             ? html`
                 <span
                   aria-label=${this.t("horizontalAngleValue", {
@@ -568,7 +420,7 @@ export class XiaomiFanCard extends LitElement {
             : ""
         }
         ${
-          details.show_vertical_angle
+          details.show_vertical_angle && adapter.capabilities.verticalAngle && verticalAngle !== undefined
             ? html`
                 <span
                   aria-label=${this.t("verticalAngleValue", {

@@ -1319,80 +1319,186 @@ const normalizeCardConfig = (raw) => {
     };
 };
 
-const suffixes = {
-    sleepMode: ["_sleep_mode"],
-    verticalSwing: ["_vertical_swing", "_vertical_oscillate", "_vertical_oscillation"],
-    horizontalAngle: ["_oscillation_angle", "_horizontal_swing_angle", "_swing_mode_angle", "_horizontal_angle"],
-    verticalAngle: ["_vertical_oscillation_angle", "_vertical_swing_angle", "_vertical_angle"],
-    favoriteLevel: ["_favorite_level", "_favorite_speed"],
-    timer: ["_delay_off_countdown", "_delay_time", "_power_off_time", "_timer"],
-    childLock: ["_child_lock"],
-    led: ["_led", "_led_brightness", "_light"],
-    buzzer: ["_buzzer", "_notification_sound"],
-    ionizer: ["_anion", "_ionizer"],
-    temperature: ["_temperature"],
-    humidity: ["_humidity"],
-};
-const findBySuffix = (entries, allowedDomains, wantedSuffixes) => {
-    const candidates = entries.filter((entry) => {
-        const [domain] = entry.entity_id.split(".");
-        return domain !== undefined && allowedDomains.includes(domain);
-    });
-    const exact = candidates.find((entry) => wantedSuffixes.some((suffix) => entry.entity_id.endsWith(suffix)));
-    if (exact) {
-        return exact.entity_id;
-    }
-    const hintGroups = wantedSuffixes.map((suffix) => suffix.split("_").filter((part) => part.length > 2));
-    return candidates.find((entry) => {
-        const searchable = `${entry.entity_id} ${entry.name ?? ""} ${entry.original_name ?? ""}`.toLowerCase();
-        return hintGroups.some((hints) => hints.every((hint) => searchable.includes(hint.toLowerCase())));
-    })?.entity_id;
-};
-const resolveRelatedEntities = async (hass, entityId) => {
-    if (!hass.callWS) {
-        return {};
-    }
-    try {
-        const registry = await hass.callWS({ type: "config/entity_registry/list" });
-        const primary = registry.find((entry) => entry.entity_id === entityId);
-        if (!primary?.device_id) {
-            return {};
-        }
-        const entries = registry.filter((entry) => entry.device_id === primary.device_id);
-        const related = {};
-        const numeric = ["number", "input_number"];
-        const boolean = ["switch", "input_boolean"];
-        const select = ["select"];
-        related.horizontalAngle = findBySuffix(entries, numeric, suffixes.horizontalAngle);
-        related.sleepMode = findBySuffix(entries, [...boolean, "select"], suffixes.sleepMode);
-        related.verticalSwing = findBySuffix(entries, [...boolean, "select"], suffixes.verticalSwing);
-        related.verticalAngle = findBySuffix(entries, numeric, suffixes.verticalAngle);
-        related.favoriteLevel = findBySuffix(entries, numeric, suffixes.favoriteLevel);
-        related.timer = findBySuffix(entries, numeric, suffixes.timer);
-        related.childLock = findBySuffix(entries, [...boolean, ...select], suffixes.childLock);
-        related.led = findBySuffix(entries, [...boolean, ...select, ...numeric], suffixes.led);
-        related.buzzer = findBySuffix(entries, [...boolean, ...select], suffixes.buzzer);
-        related.ionizer = findBySuffix(entries, [...boolean, ...select], suffixes.ionizer);
-        related.temperature = findBySuffix(entries, ["sensor"], suffixes.temperature);
-        related.humidity = findBySuffix(entries, ["sensor"], suffixes.humidity);
-        return related;
-    }
-    catch {
-        return {};
-    }
+const RELATED_ENTITY_DOMAINS = {
+    horizontal_angle_entity: ["number", "input_number"],
+    vertical_swing_entity: ["switch", "input_boolean", "select"],
+    vertical_angle_entity: ["number", "input_number"],
+    favorite_level_entity: ["number", "input_number"],
+    sleep_mode_entity: ["switch", "input_boolean", "select"],
+    timer_entity: ["number", "input_number"],
+    child_lock_entity: ["switch", "input_boolean", "select"],
+    led_entity: ["switch", "input_boolean", "select", "number", "input_number"],
+    buzzer_entity: ["switch", "input_boolean", "select"],
+    ionizer_entity: ["switch", "input_boolean", "select"],
+    temperature_entity: ["sensor"],
+    humidity_entity: ["sensor"],
 };
 
-const getAirflowAxis = (horizontal, vertical) => {
-    if (horizontal && vertical) {
-        return "dual";
-    }
-    if (horizontal) {
-        return "horizontal";
-    }
-    if (vertical) {
-        return "vertical";
-    }
-    return "still";
+const getConfigForm = () => {
+    const withVisibility = (field, parents) => {
+        if (!parents) {
+            return field;
+        }
+        const names = typeof parents === "string" ? [parents] : parents;
+        return {
+            ...field,
+            visible: names.map((field) => ({ field, value: true })),
+        };
+    };
+    const booleanField = (name, parents) => withVisibility({ name, selector: { boolean: {} } }, parents);
+    const entityField = (name, domains) => ({
+        name,
+        selector: { entity: { domain: domains } },
+    });
+    const selectField = (name, options, parents) => withVisibility({ name, selector: { select: { options, translation_key: name } } }, parents);
+    const styleGroup = (name) => ({
+        type: "expandable",
+        name,
+        flatten: false,
+        schema: [
+            { name: "background", selector: { text: {} } },
+            { name: "border", selector: { text: {} } },
+            { name: "border_radius", selector: { text: {} } },
+            { name: "color", selector: { text: {} } },
+            { name: "font_size", selector: { text: {} } },
+            { name: "gap", selector: { text: {} } },
+            { name: "height", selector: { text: {} } },
+            { name: "padding", selector: { text: {} } },
+            { name: "shadow", selector: { text: {} } },
+            { name: "size", selector: { text: {} } },
+        ],
+    });
+    const relatedEntityField = (name) => entityField(name, RELATED_ENTITY_DOMAINS[name]);
+    return {
+        schema: [
+            entityField("entity", ["fan"]),
+            { name: "name", selector: { text: {} } },
+            selectField("integration", ["auto", "standard", "xiaomi_miio", "xiaomi_miio_fan", "xiaomi_miot"]),
+            {
+                type: "expandable",
+                name: "header",
+                flatten: false,
+                schema: [
+                    booleanField("show"),
+                    selectField("variant", ["full", "compact"], "show"),
+                    booleanField("show_eyebrow", "show"),
+                    booleanField("show_name", "show"),
+                    booleanField("show_status", "show"),
+                    booleanField("show_mode", "show"),
+                    booleanField("show_model", "show"),
+                ],
+            },
+            {
+                type: "expandable",
+                name: "visual",
+                flatten: false,
+                schema: [
+                    booleanField("show"),
+                    booleanField("show_graphic", "show"),
+                    booleanField("show_power", ["show", "show_graphic"]),
+                    booleanField("show_speed", ["show", "show_graphic"]),
+                    booleanField("show_details", "show"),
+                    selectField("animation", ["auto", "enabled", "disabled"], "show"),
+                ],
+            },
+            {
+                type: "expandable",
+                name: "controls",
+                flatten: false,
+                schema: [
+                    booleanField("show"),
+                    booleanField("show_speed_slider", "show"),
+                    booleanField("show_speed_levels", "show"),
+                    booleanField("show_modes", "show"),
+                    booleanField("show_preset_mode", "show"),
+                    booleanField("show_horizontal_swing", "show"),
+                    booleanField("show_vertical_swing", "show"),
+                    booleanField("show_sleep", "show"),
+                    booleanField("show_cycle", "show"),
+                    booleanField("show_horizontal_angle", "show"),
+                    booleanField("show_vertical_angle", "show"),
+                    booleanField("show_nudge", "show"),
+                    booleanField("show_nudge_with_angles", ["show", "show_nudge"]),
+                    booleanField("show_direction", "show"),
+                    booleanField("show_favorite_level", "show"),
+                    booleanField("show_timer", "show"),
+                    booleanField("show_child_lock", "show"),
+                    booleanField("show_led", "show"),
+                    booleanField("show_buzzer", "show"),
+                    booleanField("show_ionizer", "show"),
+                    selectField("selection_mode", ["auto", "buttons", "select"], "show"),
+                    selectField("timer_mode", ["cycle", "select"], "show"),
+                    selectField("angle_mode", ["select", "cycle"], "show"),
+                ],
+            },
+            {
+                type: "expandable",
+                name: "details",
+                flatten: false,
+                schema: [
+                    booleanField("show"),
+                    booleanField("show_horizontal_angle", "show"),
+                    booleanField("show_vertical_angle", "show"),
+                    booleanField("show_timer", "show"),
+                    booleanField("show_timer_when_off", ["show", "show_timer"]),
+                    booleanField("show_temperature", "show"),
+                    booleanField("show_humidity", "show"),
+                    selectField("position", ["below", "side"], "show"),
+                ],
+            },
+            {
+                type: "expandable",
+                name: "layout",
+                flatten: false,
+                schema: [
+                    selectField("theme", ["auto", "mushroom", "minimal", "glass", "industrial"]),
+                    selectField("density", ["comfortable", "compact"]),
+                    selectField("columns", ["auto", "one", "two"]),
+                    {
+                        name: "order",
+                        selector: {
+                            select: {
+                                multiple: true,
+                                translation_key: "order",
+                                options: [...DEFAULT_BLOCK_ORDER],
+                            },
+                        },
+                    },
+                ],
+            },
+            {
+                type: "expandable",
+                name: "styles",
+                flatten: false,
+                schema: [
+                    styleGroup("card"),
+                    styleGroup("header"),
+                    styleGroup("visual"),
+                    styleGroup("controls"),
+                    styleGroup("details"),
+                ],
+            },
+            {
+                type: "expandable",
+                name: "related_entities",
+                flatten: true,
+                schema: [
+                    relatedEntityField("horizontal_angle_entity"),
+                    relatedEntityField("vertical_swing_entity"),
+                    relatedEntityField("vertical_angle_entity"),
+                    relatedEntityField("favorite_level_entity"),
+                    relatedEntityField("sleep_mode_entity"),
+                    relatedEntityField("timer_entity"),
+                    relatedEntityField("child_lock_entity"),
+                    relatedEntityField("led_entity"),
+                    relatedEntityField("buzzer_entity"),
+                    relatedEntityField("ionizer_entity"),
+                    relatedEntityField("temperature_entity"),
+                    relatedEntityField("humidity_entity"),
+                ],
+            },
+        ],
+    };
 };
 
 const english = {
@@ -1513,6 +1619,41 @@ const english = {
     showBuzzer: "Show buzzer",
     showIonizer: "Show ionizer",
     manual: "Manual",
+    show: "Show",
+    variant: "Variant",
+    below: "Below",
+    side: "Side",
+    one: "One",
+    two: "Two",
+    order: "Order",
+    styles: "Styles",
+    card: "Card",
+    nudgeWithAngles: "Nudge with angles",
+    showTimerWhenOff: "Show timer when off",
+    airflowControls: "Airflow controls",
+    positionControls: "Position controls",
+    horizontalAngleEntity: "Horizontal angle entity",
+    verticalSwingEntity: "Vertical oscillation entity",
+    verticalAngleEntity: "Vertical angle entity",
+    favoriteLevelEntity: "Favorite level entity",
+    sleepModeEntity: "Sleep mode entity",
+    timerEntity: "Timer entity",
+    childLockEntity: "Child lock entity",
+    ledEntity: "LED entity",
+    buzzerEntity: "Buzzer entity",
+    ionizerEntity: "Ionizer entity",
+    temperatureEntity: "Temperature entity",
+    humidityEntity: "Humidity entity",
+    background: "Background",
+    border: "Border",
+    borderRadius: "Border radius",
+    color: "Color",
+    fontSize: "Font size",
+    gap: "Gap",
+    height: "Height",
+    padding: "Padding",
+    shadow: "Shadow",
+    size: "Size",
 };
 const TRANSLATIONS = {
     en: english,
@@ -1634,6 +1775,41 @@ const TRANSLATIONS = {
         showBuzzer: "Pokaż brzęczyk",
         showIonizer: "Pokaż jonizator",
         manual: "Ręczny",
+        show: "Pokaż",
+        variant: "Wariant",
+        below: "Poniżej",
+        side: "Z boku",
+        one: "Jeden",
+        two: "Dwa",
+        order: "Kolejność",
+        styles: "Style",
+        card: "Karta",
+        nudgeWithAngles: "Pozycja z kątami",
+        showTimerWhenOff: "Pokaż timer, gdy wentylator jest wyłączony",
+        airflowControls: "Sterowanie nawiewem",
+        positionControls: "Sterowanie pozycją",
+        horizontalAngleEntity: "Encja kąta poziomego",
+        verticalSwingEntity: "Encja pionowej cyrkulacji",
+        verticalAngleEntity: "Encja kąta pionowego",
+        favoriteLevelEntity: "Encja ulubionego poziomu",
+        sleepModeEntity: "Encja trybu snu",
+        timerEntity: "Encja timera",
+        childLockEntity: "Encja blokady rodzicielskiej",
+        ledEntity: "Encja LED",
+        buzzerEntity: "Encja brzęczyka",
+        ionizerEntity: "Encja jonizatora",
+        temperatureEntity: "Encja temperatury",
+        humidityEntity: "Encja wilgotności",
+        background: "Tło",
+        border: "Obramowanie",
+        borderRadius: "Promień obramowania",
+        color: "Kolor",
+        fontSize: "Rozmiar czcionki",
+        gap: "Odstęp",
+        height: "Wysokość",
+        padding: "Wewnętrzny odstęp",
+        shadow: "Cień",
+        size: "Rozmiar",
     },
     es: {
         off: "Apagado",
@@ -1753,6 +1929,41 @@ const TRANSLATIONS = {
         showBuzzer: "Mostrar zumbador",
         showIonizer: "Mostrar ionizador",
         manual: "Manual",
+        show: "Mostrar",
+        variant: "Variante",
+        below: "Debajo",
+        side: "Lateral",
+        one: "Uno",
+        two: "Dos",
+        order: "Orden",
+        styles: "Estilos",
+        card: "Tarjeta",
+        nudgeWithAngles: "Posición con ángulos",
+        showTimerWhenOff: "Mostrar temporizador cuando esté apagado",
+        airflowControls: "Controles del flujo de aire",
+        positionControls: "Controles de posición",
+        horizontalAngleEntity: "Entidad del ángulo horizontal",
+        verticalSwingEntity: "Entidad de oscilación vertical",
+        verticalAngleEntity: "Entidad del ángulo vertical",
+        favoriteLevelEntity: "Entidad del nivel favorito",
+        sleepModeEntity: "Entidad del modo de suspensión",
+        timerEntity: "Entidad del temporizador",
+        childLockEntity: "Entidad del bloqueo infantil",
+        ledEntity: "Entidad LED",
+        buzzerEntity: "Entidad del zumbador",
+        ionizerEntity: "Entidad del ionizador",
+        temperatureEntity: "Entidad de temperatura",
+        humidityEntity: "Entidad de humedad",
+        background: "Fondo",
+        border: "Borde",
+        borderRadius: "Radio del borde",
+        color: "Color",
+        fontSize: "Tamaño de fuente",
+        gap: "Espacio",
+        height: "Altura",
+        padding: "Relleno",
+        shadow: "Sombra",
+        size: "Tamaño",
     },
     fr: {
         off: "Éteint",
@@ -1872,6 +2083,41 @@ const TRANSLATIONS = {
         showBuzzer: "Afficher l'avertisseur",
         showIonizer: "Afficher l'ioniseur",
         manual: "Manuel",
+        show: "Afficher",
+        variant: "Variante",
+        below: "Dessous",
+        side: "Côté",
+        one: "Un",
+        two: "Deux",
+        order: "Ordre",
+        styles: "Styles",
+        card: "Carte",
+        nudgeWithAngles: "Position avec angles",
+        showTimerWhenOff: "Afficher la minuterie lorsque le ventilateur est éteint",
+        airflowControls: "Commandes du flux d'air",
+        positionControls: "Commandes de position",
+        horizontalAngleEntity: "Entité de l'angle horizontal",
+        verticalSwingEntity: "Entité d'oscillation verticale",
+        verticalAngleEntity: "Entité de l'angle vertical",
+        favoriteLevelEntity: "Entité du niveau favori",
+        sleepModeEntity: "Entité du mode sommeil",
+        timerEntity: "Entité de la minuterie",
+        childLockEntity: "Entité du verrouillage enfant",
+        ledEntity: "Entité LED",
+        buzzerEntity: "Entité de l'avertisseur",
+        ionizerEntity: "Entité de l'ioniseur",
+        temperatureEntity: "Entité de température",
+        humidityEntity: "Entité d'humidité",
+        background: "Arrière-plan",
+        border: "Bordure",
+        borderRadius: "Rayon de bordure",
+        color: "Couleur",
+        fontSize: "Taille de police",
+        gap: "Espacement",
+        height: "Hauteur",
+        padding: "Marge intérieure",
+        shadow: "Ombre",
+        size: "Taille",
     },
     it: {
         off: "Spento",
@@ -1991,6 +2237,41 @@ const TRANSLATIONS = {
         showBuzzer: "Mostra cicalino",
         showIonizer: "Mostra ionizzatore",
         manual: "Manuale",
+        show: "Mostra",
+        variant: "Variante",
+        below: "Sotto",
+        side: "Lato",
+        one: "Uno",
+        two: "Due",
+        order: "Ordine",
+        styles: "Stili",
+        card: "Scheda",
+        nudgeWithAngles: "Posizione con angoli",
+        showTimerWhenOff: "Mostra timer quando spento",
+        airflowControls: "Controlli del flusso d'aria",
+        positionControls: "Controlli posizione",
+        horizontalAngleEntity: "Entità angolo orizzontale",
+        verticalSwingEntity: "Entità oscillazione verticale",
+        verticalAngleEntity: "Entità angolo verticale",
+        favoriteLevelEntity: "Entità livello preferito",
+        sleepModeEntity: "Entità modalità riposo",
+        timerEntity: "Entità timer",
+        childLockEntity: "Entità blocco bambini",
+        ledEntity: "Entità LED",
+        buzzerEntity: "Entità cicalino",
+        ionizerEntity: "Entità ionizzatore",
+        temperatureEntity: "Entità temperatura",
+        humidityEntity: "Entità umidità",
+        background: "Sfondo",
+        border: "Bordo",
+        borderRadius: "Raggio bordo",
+        color: "Colore",
+        fontSize: "Dimensione carattere",
+        gap: "Spaziatura",
+        height: "Altezza",
+        padding: "Spaziatura interna",
+        shadow: "Ombra",
+        size: "Dimensione",
     },
 };
 const isSupportedLanguage = (language) => Object.prototype.hasOwnProperty.call(TRANSLATIONS, language);
@@ -2007,19 +2288,255 @@ const createTranslator = (language) => {
     };
 };
 
-const RELATED_ENTITY_DOMAINS = {
-    horizontal_angle_entity: ["number", "input_number"],
-    vertical_swing_entity: ["switch", "input_boolean", "select"],
-    vertical_angle_entity: ["number", "input_number"],
-    favorite_level_entity: ["number", "input_number"],
-    sleep_mode_entity: ["switch", "input_boolean", "select"],
-    timer_entity: ["number", "input_number"],
-    child_lock_entity: ["switch", "input_boolean", "select"],
-    led_entity: ["switch", "input_boolean", "select", "number", "input_number"],
-    buzzer_entity: ["switch", "input_boolean", "select"],
-    ionizer_entity: ["switch", "input_boolean", "select"],
-    temperature_entity: ["sensor"],
-    humidity_entity: ["sensor"],
+const FIELD_TRANSLATIONS = {
+    entity: "editorFanEntity",
+    name: "cardName",
+    integration: "integration",
+    header: "header",
+    visual: "visual",
+    controls: "controls",
+    details: "details",
+    layout: "layout",
+    styles: "styles",
+    related_entities: "relatedEntities",
+    show: "show",
+    variant: "variant",
+    show_eyebrow: "eyebrow",
+    show_name: "name",
+    show_status: "status",
+    show_mode: "mode",
+    show_model: "model",
+    show_graphic: "graphic",
+    show_power: "power",
+    show_speed: "speed",
+    show_details: "details",
+    animation: "animation",
+    show_speed_slider: "slider",
+    show_speed_levels: "levels",
+    show_modes: "modes",
+    show_preset_mode: "preset",
+    show_horizontal_swing: "swing",
+    show_vertical_swing: "swing",
+    show_sleep: "sleep",
+    show_cycle: "cycle",
+    show_horizontal_angle: "horizontalAngle",
+    show_vertical_angle: "verticalAngle",
+    show_nudge: "nudge",
+    show_nudge_with_angles: "nudgeWithAngles",
+    show_direction: "direction",
+    show_favorite_level: "favorite",
+    show_timer: "showTimer",
+    show_timer_when_off: "showTimerWhenOff",
+    show_child_lock: "showChildLock",
+    show_led: "showLed",
+    show_buzzer: "showBuzzer",
+    show_ionizer: "showIonizer",
+    selection_mode: "selectionMode",
+    timer_mode: "timerMode",
+    angle_mode: "angleMode",
+    position: "position",
+    show_temperature: "temperature",
+    show_humidity: "humidity",
+    theme: "visualTheme",
+    density: "density",
+    columns: "columns",
+    order: "order",
+    card: "card",
+    header_style: "header",
+    visual_style: "visual",
+    controls_style: "controls",
+    details_style: "details",
+    background: "background",
+    border: "border",
+    border_radius: "borderRadius",
+    color: "color",
+    font_size: "fontSize",
+    gap: "gap",
+    height: "height",
+    padding: "padding",
+    shadow: "shadow",
+    size: "size",
+    horizontal_angle_entity: "horizontalAngleEntity",
+    vertical_swing_entity: "verticalSwingEntity",
+    vertical_angle_entity: "verticalAngleEntity",
+    favorite_level_entity: "favoriteLevelEntity",
+    sleep_mode_entity: "sleepModeEntity",
+    timer_entity: "timerEntity",
+    child_lock_entity: "childLockEntity",
+    led_entity: "ledEntity",
+    buzzer_entity: "buzzerEntity",
+    ionizer_entity: "ionizerEntity",
+    temperature_entity: "temperatureEntity",
+    humidity_entity: "humidityEntity",
+};
+const OPTION_TRANSLATIONS = {
+    "integration.auto": "autoDetect",
+    "integration.standard": "standardFan",
+    "integration.xiaomi_miio": "nativeXiaomiHome",
+    "integration.xiaomi_miio_fan": "xiaomiMiioFan",
+    "integration.xiaomi_miot": "xiaomiMiot",
+    "variant.full": "full",
+    "variant.compact": "compact",
+    "animation.auto": "auto",
+    "animation.enabled": "enabled",
+    "animation.disabled": "disabled",
+    "selection_mode.auto": "auto",
+    "selection_mode.buttons": "buttons",
+    "selection_mode.select": "select",
+    "timer_mode.cycle": "cycle",
+    "timer_mode.select": "select",
+    "angle_mode.select": "select",
+    "angle_mode.cycle": "cycle",
+    "position.below": "below",
+    "position.side": "side",
+    "theme.auto": "auto",
+    "theme.mushroom": "mushroom",
+    "theme.minimal": "minimal",
+    "theme.glass": "glass",
+    "theme.industrial": "industrial",
+    "density.comfortable": "comfortable",
+    "density.compact": "compact",
+    "columns.auto": "auto",
+    "columns.one": "one",
+    "columns.two": "two",
+    "order.header": "header",
+    "order.visual": "visual",
+    "order.airflow": "airflowControls",
+    "order.position": "positionControls",
+    "order.features": "fanFeatures",
+};
+class XiaomiFanCardEditor extends i$2 {
+    constructor() {
+        super(...arguments);
+        this.config = normalizeCardConfig(DEFAULT_CONFIG);
+        this.translatorLanguage = "";
+        this.translator = createTranslator();
+        this.computeLabel = (schema) => {
+            const key = FIELD_TRANSLATIONS[schema.name];
+            return key ? this.t(key) : schema.name;
+        };
+        this.localizeValue = (key) => {
+            const match = /^(.+)\.options\.([^.]*)$/.exec(key);
+            if (!match) {
+                return "";
+            }
+            const translationKey = OPTION_TRANSLATIONS[`${match[1]}.${match[2]}`];
+            return translationKey ? this.t(translationKey) : "";
+        };
+        this.handleValueChanged = (event) => {
+            event.stopPropagation();
+            fireEvent(this, "config-changed", { config: event.detail.value });
+        };
+    }
+    setConfig(config) {
+        this.config = normalizeCardConfig(config);
+    }
+    render() {
+        const { schema } = getConfigForm();
+        return b `
+      <ha-form
+        .hass=${this.hass}
+        .data=${this.config}
+        .schema=${schema}
+        .computeLabel=${this.computeLabel}
+        .localizeValue=${this.localizeValue}
+        @value-changed=${this.handleValueChanged}
+      ></ha-form>
+    `;
+    }
+    t(key) {
+        const language = this.hass?.language ?? "";
+        if (language !== this.translatorLanguage) {
+            this.translatorLanguage = language;
+            this.translator = createTranslator(language);
+        }
+        return this.translator(key);
+    }
+}
+__decorate([
+    n$1({ attribute: false })
+], XiaomiFanCardEditor.prototype, "hass", void 0);
+__decorate([
+    r()
+], XiaomiFanCardEditor.prototype, "config", void 0);
+if (!customElements.get("xiaomi-fan-card-editor")) {
+    customElements.define("xiaomi-fan-card-editor", XiaomiFanCardEditor);
+}
+
+const suffixes = {
+    sleepMode: ["_sleep_mode"],
+    verticalSwing: ["_vertical_swing", "_vertical_oscillate", "_vertical_oscillation"],
+    horizontalAngle: ["_oscillation_angle", "_horizontal_swing_angle", "_swing_mode_angle", "_horizontal_angle"],
+    verticalAngle: ["_vertical_oscillation_angle", "_vertical_swing_angle", "_vertical_angle"],
+    favoriteLevel: ["_favorite_level", "_favorite_speed"],
+    timer: ["_delay_off_countdown", "_delay_time", "_power_off_time", "_timer"],
+    childLock: ["_child_lock"],
+    led: ["_led", "_led_brightness", "_light"],
+    buzzer: ["_buzzer", "_notification_sound"],
+    ionizer: ["_anion", "_ionizer"],
+    temperature: ["_temperature"],
+    humidity: ["_humidity"],
+};
+const findBySuffix = (entries, allowedDomains, wantedSuffixes) => {
+    const candidates = entries.filter((entry) => {
+        const [domain] = entry.entity_id.split(".");
+        return domain !== undefined && allowedDomains.includes(domain);
+    });
+    const exact = candidates.find((entry) => wantedSuffixes.some((suffix) => entry.entity_id.endsWith(suffix)));
+    if (exact) {
+        return exact.entity_id;
+    }
+    const hintGroups = wantedSuffixes.map((suffix) => suffix.split("_").filter((part) => part.length > 2));
+    return candidates.find((entry) => {
+        const searchable = `${entry.entity_id} ${entry.name ?? ""} ${entry.original_name ?? ""}`.toLowerCase();
+        return hintGroups.some((hints) => hints.every((hint) => searchable.includes(hint.toLowerCase())));
+    })?.entity_id;
+};
+const resolveRelatedEntities = async (hass, entityId) => {
+    if (!hass.callWS) {
+        return {};
+    }
+    try {
+        const registry = await hass.callWS({ type: "config/entity_registry/list" });
+        const primary = registry.find((entry) => entry.entity_id === entityId);
+        if (!primary?.device_id) {
+            return {};
+        }
+        const entries = registry.filter((entry) => entry.device_id === primary.device_id);
+        const related = {};
+        const numeric = ["number", "input_number"];
+        const boolean = ["switch", "input_boolean"];
+        const select = ["select"];
+        related.horizontalAngle = findBySuffix(entries, numeric, suffixes.horizontalAngle);
+        related.sleepMode = findBySuffix(entries, [...boolean, "select"], suffixes.sleepMode);
+        related.verticalSwing = findBySuffix(entries, [...boolean, "select"], suffixes.verticalSwing);
+        related.verticalAngle = findBySuffix(entries, numeric, suffixes.verticalAngle);
+        related.favoriteLevel = findBySuffix(entries, numeric, suffixes.favoriteLevel);
+        related.timer = findBySuffix(entries, numeric, suffixes.timer);
+        related.childLock = findBySuffix(entries, [...boolean, ...select], suffixes.childLock);
+        related.led = findBySuffix(entries, [...boolean, ...select, ...numeric], suffixes.led);
+        related.buzzer = findBySuffix(entries, [...boolean, ...select], suffixes.buzzer);
+        related.ionizer = findBySuffix(entries, [...boolean, ...select], suffixes.ionizer);
+        related.temperature = findBySuffix(entries, ["sensor"], suffixes.temperature);
+        related.humidity = findBySuffix(entries, ["sensor"], suffixes.humidity);
+        return related;
+    }
+    catch {
+        return {};
+    }
+};
+
+const getAirflowAxis = (horizontal, vertical) => {
+    if (horizontal && vertical) {
+        return "dual";
+    }
+    if (horizontal) {
+        return "horizontal";
+    }
+    if (vertical) {
+        return "vertical";
+    }
+    return "still";
 };
 
 const TIMER_STEPS = [0, 60, 120, 180, 240, 300, 360, 420, 480];
@@ -2060,163 +2577,11 @@ class XiaomiFanCard extends i$2 {
             }
         };
     }
+    static getConfigElement() {
+        return document.createElement("xiaomi-fan-card-editor");
+    }
     static getConfigForm() {
-        const booleanField = (name) => ({ name, selector: { boolean: {} } });
-        const entityField = (name, domains) => ({
-            name,
-            selector: { entity: { domain: domains } },
-        });
-        const selectField = (name, options) => ({
-            name,
-            selector: { select: { options } },
-        });
-        const styleGroup = (name) => ({
-            type: "expandable",
-            name,
-            flatten: false,
-            schema: [
-                { name: "background", selector: { text: {} } },
-                { name: "border", selector: { text: {} } },
-                { name: "border_radius", selector: { text: {} } },
-                { name: "color", selector: { text: {} } },
-                { name: "font_size", selector: { text: {} } },
-                { name: "gap", selector: { text: {} } },
-                { name: "height", selector: { text: {} } },
-                { name: "padding", selector: { text: {} } },
-                { name: "shadow", selector: { text: {} } },
-                { name: "size", selector: { text: {} } },
-            ],
-        });
-        const relatedEntityField = (name) => entityField(name, RELATED_ENTITY_DOMAINS[name]);
-        return {
-            schema: [
-                entityField("entity", ["fan"]),
-                { name: "name", selector: { text: {} } },
-                selectField("integration", ["auto", "standard", "xiaomi_miio", "xiaomi_miio_fan", "xiaomi_miot"]),
-                {
-                    type: "expandable",
-                    name: "header",
-                    flatten: false,
-                    schema: [
-                        booleanField("show"),
-                        selectField("variant", ["full", "compact"]),
-                        booleanField("show_eyebrow"),
-                        booleanField("show_name"),
-                        booleanField("show_status"),
-                        booleanField("show_mode"),
-                        booleanField("show_model"),
-                    ],
-                },
-                {
-                    type: "expandable",
-                    name: "visual",
-                    flatten: false,
-                    schema: [
-                        booleanField("show"),
-                        booleanField("show_graphic"),
-                        booleanField("show_power"),
-                        booleanField("show_speed"),
-                        booleanField("show_details"),
-                        selectField("animation", ["auto", "enabled", "disabled"]),
-                    ],
-                },
-                {
-                    type: "expandable",
-                    name: "controls",
-                    flatten: false,
-                    schema: [
-                        booleanField("show"),
-                        booleanField("show_speed_slider"),
-                        booleanField("show_speed_levels"),
-                        booleanField("show_modes"),
-                        booleanField("show_preset_mode"),
-                        booleanField("show_horizontal_swing"),
-                        booleanField("show_vertical_swing"),
-                        booleanField("show_sleep"),
-                        booleanField("show_cycle"),
-                        booleanField("show_horizontal_angle"),
-                        booleanField("show_vertical_angle"),
-                        booleanField("show_nudge"),
-                        booleanField("show_nudge_with_angles"),
-                        booleanField("show_direction"),
-                        booleanField("show_favorite_level"),
-                        booleanField("show_timer"),
-                        booleanField("show_child_lock"),
-                        booleanField("show_led"),
-                        booleanField("show_buzzer"),
-                        booleanField("show_ionizer"),
-                        selectField("selection_mode", ["auto", "buttons", "select"]),
-                        selectField("timer_mode", ["cycle", "select"]),
-                        selectField("angle_mode", ["select", "cycle"]),
-                    ],
-                },
-                {
-                    type: "expandable",
-                    name: "details",
-                    flatten: false,
-                    schema: [
-                        booleanField("show"),
-                        booleanField("show_horizontal_angle"),
-                        booleanField("show_vertical_angle"),
-                        booleanField("show_timer"),
-                        booleanField("show_timer_when_off"),
-                        booleanField("show_temperature"),
-                        booleanField("show_humidity"),
-                        selectField("position", ["below", "side"]),
-                    ],
-                },
-                {
-                    type: "expandable",
-                    name: "layout",
-                    flatten: false,
-                    schema: [
-                        selectField("theme", ["auto", "mushroom", "minimal", "glass", "industrial"]),
-                        selectField("density", ["comfortable", "compact"]),
-                        selectField("columns", ["auto", "one", "two"]),
-                        {
-                            name: "order",
-                            selector: {
-                                select: {
-                                    multiple: true,
-                                    options: [...DEFAULT_BLOCK_ORDER],
-                                },
-                            },
-                        },
-                    ],
-                },
-                {
-                    type: "expandable",
-                    name: "styles",
-                    flatten: false,
-                    schema: [
-                        styleGroup("card"),
-                        styleGroup("header"),
-                        styleGroup("visual"),
-                        styleGroup("controls"),
-                        styleGroup("details"),
-                    ],
-                },
-                {
-                    type: "expandable",
-                    name: "related_entities",
-                    flatten: true,
-                    schema: [
-                        relatedEntityField("horizontal_angle_entity"),
-                        relatedEntityField("vertical_swing_entity"),
-                        relatedEntityField("vertical_angle_entity"),
-                        relatedEntityField("favorite_level_entity"),
-                        relatedEntityField("sleep_mode_entity"),
-                        relatedEntityField("timer_entity"),
-                        relatedEntityField("child_lock_entity"),
-                        relatedEntityField("led_entity"),
-                        relatedEntityField("buzzer_entity"),
-                        relatedEntityField("ionizer_entity"),
-                        relatedEntityField("temperature_entity"),
-                        relatedEntityField("humidity_entity"),
-                    ],
-                },
-            ],
-        };
+        return getConfigForm();
     }
     static getStubConfig() {
         return {
@@ -2475,8 +2840,8 @@ class XiaomiFanCard extends i$2 {
         if (!details.show) {
             return "";
         }
-        const hasDetails = (details.show_horizontal_angle && adapter.capabilities.horizontalAngle) ||
-            (details.show_vertical_angle && adapter.capabilities.verticalAngle) ||
+        const hasDetails = (details.show_horizontal_angle && adapter.capabilities.horizontalAngle && horizontalAngle !== undefined) ||
+            (details.show_vertical_angle && adapter.capabilities.verticalAngle && verticalAngle !== undefined) ||
             (details.show_timer &&
                 adapter.capabilities.timer &&
                 (details.show_timer_when_off || Boolean(state.timerMinutes))) ||
@@ -2487,7 +2852,7 @@ class XiaomiFanCard extends i$2 {
         }
         return b `
       <div class="visual-meta" style=${o(styleMapFor(this.config.styles.details, "fan-details"))}>
-        ${details.show_horizontal_angle
+        ${details.show_horizontal_angle && adapter.capabilities.horizontalAngle && horizontalAngle !== undefined
             ? b `
                 <span
                   aria-label=${this.t("horizontalAngleValue", {
@@ -2499,7 +2864,7 @@ class XiaomiFanCard extends i$2 {
                 >
               `
             : ""}
-        ${details.show_vertical_angle
+        ${details.show_vertical_angle && adapter.capabilities.verticalAngle && verticalAngle !== undefined
             ? b `
                 <span
                   aria-label=${this.t("verticalAngleValue", {

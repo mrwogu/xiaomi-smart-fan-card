@@ -16,7 +16,7 @@ const services = {
   },
 };
 
-const createHass = (timerValue = "120") => {
+const createHass = (timerValue = "120", verticalAngleValue = "30") => {
   const callService = vi.fn(
     async (_domain: string, _service: string, _serviceData?: Record<string, unknown>): Promise<void> => undefined,
   );
@@ -41,7 +41,7 @@ const createHass = (timerValue = "120") => {
       attributes: { min: 30, max: 120, step: 30 },
     },
     "number.fan_vertical": {
-      state: "30",
+      state: verticalAngleValue,
       attributes: { min: 30, max: 100, step: 10 },
     },
     "number.fan_timer": {
@@ -105,8 +105,9 @@ const settle = async (card: XiaomiFanCard): Promise<void> => {
 const renderCard = async (
   config: FanCardConfig,
   timerValue = "120",
+  verticalAngleValue = "30",
 ): Promise<{ card: XiaomiFanCard; callService: ReturnType<typeof vi.fn> }> => {
-  const { hass, callService } = createHass(timerValue);
+  const { hass, callService } = createHass(timerValue, verticalAngleValue);
   const card = new XiaomiFanCard();
   card.hass = hass as unknown as HomeAssistant;
   card.setConfig(config);
@@ -241,6 +242,26 @@ describe("XiaomiFanCard", () => {
     expect(card.shadowRoot?.querySelector(".visual-meta")).toBeNull();
   });
 
+  it("hides unavailable angle details", async () => {
+    const { card } = await renderCard(
+      {
+        ...baseConfig,
+        visual: { show: true, show_graphic: false, show_details: true },
+        details: {
+          show_horizontal_angle: false,
+          show_vertical_angle: true,
+          show_timer: false,
+          show_temperature: false,
+          show_humidity: false,
+        },
+      },
+      "0",
+      "unavailable",
+    );
+
+    expect(card.shadowRoot?.querySelector(".visual-meta")).toBeNull();
+  });
+
   it("keeps active timer details and supports side placement", async () => {
     const { card } = await renderCard({
       ...baseConfig,
@@ -282,10 +303,38 @@ describe("XiaomiFanCard", () => {
     const timer = related.schema.find((field) => field.name === "timer_entity") as {
       selector: { entity: { domain: string[] } };
     };
+    const header = schema.find((field) => field.name === "header") as {
+      schema: Array<Record<string, unknown>>;
+    };
+    const controls = schema.find((field) => field.name === "controls") as {
+      schema: Array<Record<string, unknown>>;
+    };
 
     expect(entity.selector.entity.domain).toEqual(["fan"]);
     expect(related.schema).toHaveLength(12);
     expect(timer.selector.entity.domain).toEqual(["number", "input_number"]);
     expect(details.schema.some((field) => field.name === "show_timer_when_off")).toBe(true);
+    expect(header.schema.find((field) => field.name === "show_name")?.visible).toEqual([
+      { field: "show", value: true },
+    ]);
+    expect(controls.schema.find((field) => field.name === "show_timer")?.visible).toEqual([
+      { field: "show", value: true },
+    ]);
+  });
+
+  it("localizes native editor labels and option values", async () => {
+    const editor = (await XiaomiFanCard.getConfigElement()) as unknown as {
+      hass?: HomeAssistant;
+      setConfig: (config: FanCardConfig) => void;
+      computeLabel: (schema: { name: string }) => string;
+      localizeValue: (key: string) => string;
+    };
+    editor.hass = { language: "pl" } as HomeAssistant;
+    editor.setConfig(baseConfig);
+
+    expect(editor.computeLabel({ name: "header" })).toBe("Nagłówek");
+    expect(editor.computeLabel({ name: "show_horizontal_angle" })).toBe("Kąt poziomy");
+    expect(editor.localizeValue("angle_mode.options.cycle")).toBe("Cykl");
+    expect(editor.localizeValue("integration.options.xiaomi_miio_fan")).toBe("Wentylator Xiaomi Miio");
   });
 });
