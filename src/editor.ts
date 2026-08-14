@@ -3,12 +3,18 @@ import { property, state } from "lit/decorators.js";
 import { fireEvent } from "custom-card-helpers";
 import type { HomeAssistant, LovelaceCardEditor } from "custom-card-helpers";
 import { DEFAULT_CONFIG } from "./config";
+import { createTranslator, type TranslationKey, type TranslationValues, type Translator } from "./translations";
 import type { FanCardConfig } from "./types";
+
+type BooleanConfigKey =
+  "disable_animation" | "show_timer" | "show_child_lock" | "show_led" | "show_buzzer" | "show_ionizer";
 
 export class XiaomiFanCardEditor extends LitElement implements LovelaceCardEditor {
   @property({ attribute: false }) public hass?: HomeAssistant;
 
   @state() private config: Partial<FanCardConfig> = {};
+  private translatorLanguage = "";
+  private translator: Translator = createTranslator();
 
   public setConfig(config: FanCardConfig): void {
     this.config = config;
@@ -25,9 +31,9 @@ export class XiaomiFanCardEditor extends LitElement implements LovelaceCardEdito
     return html`
       <div class="form">
         <label>
-          <span>Fan entity</span>
+          <span>${this.t("editorFanEntity")}</span>
           <select .value=${config.entity} @change=${this.onEntityChange}>
-            <option value="">Select fan entity</option>
+            <option value="">${this.t("selectFanEntity")}</option>
             ${entityIds.map(
               (entityId) =>
                 html`<option value=${entityId} ?selected=${entityId === config.entity}>${entityId}</option>`,
@@ -35,44 +41,54 @@ export class XiaomiFanCardEditor extends LitElement implements LovelaceCardEdito
           </select>
         </label>
         <label>
-          <span>Card name</span>
+          <span>${this.t("cardName")}</span>
           <input
             value=${config.name ?? ""}
-            placeholder="Xiaomi Fan"
+            placeholder=${this.t("xiaomiFan")}
             @change=${(event: Event) => this.onTextChange(event, "name")}
           />
         </label>
         <label>
-          <span>Visual theme</span>
+          <span>${this.t("visualTheme")}</span>
           <select .value=${config.theme} @change=${(event: Event) => this.onTextChange(event, "theme")}>
-            <option value="auto">Auto</option>
-            <option value="mushroom">Mushroom</option>
-            <option value="minimal">Minimal</option>
-            <option value="glass">Glass</option>
-            <option value="industrial">Industrial</option>
+            <option value="auto">${this.t("auto")}</option>
+            <option value="mushroom">${this.t("mushroom")}</option>
+            <option value="minimal">${this.t("minimal")}</option>
+            <option value="glass">${this.t("glass")}</option>
+            <option value="industrial">${this.t("industrial")}</option>
           </select>
         </label>
         <label>
-          <span>Integration</span>
+          <span>${this.t("integration")}</span>
           <select .value=${config.integration} @change=${(event: Event) => this.onTextChange(event, "integration")}>
-            <option value="auto">Auto detect</option>
-            <option value="standard">Standard fan</option>
-            <option value="xiaomi_miio">Native Xiaomi Home (xiaomi_miio)</option>
-            <option value="xiaomi_miio_fan">Xiaomi Miio fan</option>
-            <option value="xiaomi_miot">Xiaomi Miot</option>
+            <option value="auto">${this.t("autoDetect")}</option>
+            <option value="standard">${this.t("standardFan")}</option>
+            <option value="xiaomi_miio">${this.t("nativeXiaomiHome")}</option>
+            <option value="xiaomi_miio_fan">${this.t("xiaomiMiioFan")}</option>
+            <option value="xiaomi_miot">${this.t("xiaomiMiot")}</option>
           </select>
         </label>
-        ${this.booleanField("disable_animation", "Disable animation", config.disable_animation)}
-        ${this.booleanField("show_timer", "Show timer", config.show_timer)}
-        ${this.booleanField("show_child_lock", "Show child lock", config.show_child_lock)}
-        ${this.booleanField("show_led", "Show LED", config.show_led)}
-        ${this.booleanField("show_buzzer", "Show buzzer", config.show_buzzer)}
-        ${this.booleanField("show_ionizer", "Show ionizer", config.show_ionizer)}
+        ${this.booleanField("disable_animation", "disableAnimation", config.disable_animation)}
+        ${this.booleanField("show_timer", "showTimer", config.show_timer)}
+        ${this.booleanField("show_child_lock", "showChildLock", config.show_child_lock)}
+        ${this.booleanField("show_led", "showLed", config.show_led)}
+        ${this.booleanField("show_buzzer", "showBuzzer", config.show_buzzer)}
+        ${this.booleanField("show_ionizer", "showIonizer", config.show_ionizer)}
       </div>
     `;
   }
 
-  private booleanField(key: keyof FanCardConfig, label: string, checked: boolean | undefined) {
+  private t(key: TranslationKey, values?: TranslationValues): string {
+    const language = this.hass?.language ?? "";
+    if (language !== this.translatorLanguage) {
+      this.translatorLanguage = language;
+      this.translator = createTranslator(language);
+    }
+
+    return this.translator(key, values);
+  }
+
+  private booleanField(key: BooleanConfigKey, labelKey: TranslationKey, checked: boolean | undefined) {
     return html`
       <label class="checkbox">
         <input
@@ -80,7 +96,7 @@ export class XiaomiFanCardEditor extends LitElement implements LovelaceCardEdito
           .checked=${checked === true}
           @change=${(event: Event) => this.onBooleanChange(event, key)}
         />
-        <span>${label}</span>
+        <span>${this.t(labelKey)}</span>
       </label>
     `;
   }
@@ -89,15 +105,16 @@ export class XiaomiFanCardEditor extends LitElement implements LovelaceCardEdito
     this.updateConfig("entity", (event.currentTarget as HTMLSelectElement).value);
   };
 
-  private onTextChange = (event: Event, key: "name" | "theme" | "integration"): void => {
-    this.updateConfig(key, (event.currentTarget as HTMLInputElement | HTMLSelectElement).value);
+  private onTextChange = <K extends "name" | "theme" | "integration">(event: Event, key: K): void => {
+    const value = (event.currentTarget as HTMLInputElement | HTMLSelectElement).value as FanCardConfig[K];
+    this.updateConfig(key, value);
   };
 
-  private onBooleanChange = (event: Event, key: keyof FanCardConfig): void => {
+  private onBooleanChange = (event: Event, key: BooleanConfigKey): void => {
     this.updateConfig(key, (event.currentTarget as HTMLInputElement).checked);
   };
 
-  private updateConfig(key: keyof FanCardConfig, value: unknown): void {
+  private updateConfig<K extends keyof FanCardConfig>(key: K, value: FanCardConfig[K]): void {
     const next = { ...this.config, [key]: value };
     if (value === DEFAULT_CONFIG[key as keyof typeof DEFAULT_CONFIG]) {
       delete next[key];

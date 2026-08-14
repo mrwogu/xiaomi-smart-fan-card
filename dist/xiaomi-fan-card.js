@@ -962,15 +962,410 @@ const DEFAULT_CONFIG = {
     show_ionizer: true,
 };
 
+const english = {
+    off: "Off",
+    on: "On",
+    hoursMinutes: "{hours}h {minutes}m",
+    hoursOnly: "{hours}h",
+    minutesOnly: "{minutes}m",
+    chooseFanEntity: "Choose a fan entity in card editor.",
+    fanEntityUnavailable: "Fan entity unavailable: {entity}",
+    fanCommandFailed: "Fan command failed.",
+    open: "Open {title}",
+    xiaomiAirCirculation: "XIAOMI AIR CIRCULATION",
+    naturalBreeze: "Natural breeze",
+    straightAirflow: "Straight airflow",
+    running: "Running",
+    standby: "Standby",
+    fanStatus: "Fan status",
+    fanLabel: "Fan",
+    turnFanOff: "Turn fan off",
+    turnFanOn: "Turn fan on",
+    airflow: "AIRFLOW",
+    speedLevel: "Speed level {level}",
+    fanSpeedPercentage: "Fan speed percentage",
+    speedLevels: "Speed levels",
+    setSpeedLevel: "Set speed level {level}",
+    horizontal: "Horizontal",
+    vertical: "Vertical",
+    sleep: "Sleep",
+    cycle: "Cycle",
+    mode: "Mode",
+    normal: "Normal",
+    natural: "Natural",
+    presetMode: "Preset mode",
+    horizontalAngle: "Horizontal angle",
+    verticalAngle: "Vertical angle",
+    position: "Position",
+    moveFanUp: "Move fan up",
+    moveFanLeft: "Move fan left",
+    moveFanRight: "Move fan right",
+    moveFanDown: "Move fan down",
+    direction: "Direction",
+    forward: "Forward",
+    reverse: "Reverse",
+    favoriteLevel: "Favorite level",
+    timer: "Timer",
+    timerOff: "OFF {timer}",
+    noTimer: "NO TIMER",
+    childLock: "Child lock",
+    led: "LED",
+    buzzer: "Buzzer",
+    ionizer: "Ionizer",
+    fanFeatures: "Fan features",
+    editorFanEntity: "Fan entity",
+    selectFanEntity: "Select fan entity",
+    cardName: "Card name",
+    xiaomiFan: "Xiaomi Fan",
+    visualTheme: "Visual theme",
+    auto: "Auto",
+    mushroom: "Mushroom",
+    minimal: "Minimal",
+    glass: "Glass",
+    industrial: "Industrial",
+    integration: "Integration",
+    autoDetect: "Auto detect",
+    standardFan: "Standard fan",
+    nativeXiaomiHome: "Native Xiaomi Home (xiaomi_miio)",
+    xiaomiMiioFan: "Xiaomi Miio fan",
+    xiaomiMiot: "Xiaomi Miot",
+    disableAnimation: "Disable animation",
+    showTimer: "Show timer",
+    showChildLock: "Show child lock",
+    showLed: "Show LED",
+    showBuzzer: "Show buzzer",
+    showIonizer: "Show ionizer",
+    manual: "Manual",
+};
+const TRANSLATIONS = {
+    en: english,
+    pl: {
+        off: "Wył.",
+        on: "Wł.",
+        hoursMinutes: "{hours} godz. {minutes} min",
+        hoursOnly: "{hours} godz.",
+        minutesOnly: "{minutes} min",
+        chooseFanEntity: "Wybierz encję wentylatora w edytorze karty.",
+        fanEntityUnavailable: "Encja wentylatora niedostępna: {entity}",
+        fanCommandFailed: "Polecenie wentylatora nie powiodło się.",
+        open: "Otwórz {title}",
+        xiaomiAirCirculation: "CYRKULACJA POWIETRZA XIAOMI",
+        naturalBreeze: "Naturalny nawiew",
+        straightAirflow: "Prosty nawiew",
+        running: "Działa",
+        standby: "Czuwanie",
+        fanStatus: "Stan wentylatora",
+        fanLabel: "WENTYLATOR",
+        turnFanOff: "Wyłącz wentylator",
+        turnFanOn: "Włącz wentylator",
+        airflow: "NAWIEW",
+        speedLevel: "Poziom prędkości {level}",
+        fanSpeedPercentage: "Procentowa prędkość wentylatora",
+        speedLevels: "Poziomy prędkości",
+        setSpeedLevel: "Ustaw poziom prędkości {level}",
+        horizontal: "Poziomo",
+        vertical: "Pionowo",
+        sleep: "Sen",
+        cycle: "Cykl",
+        mode: "Tryb",
+        normal: "Normalny",
+        natural: "Naturalny",
+        presetMode: "Tryb wstępny",
+        horizontalAngle: "Kąt poziomy",
+        verticalAngle: "Kąt pionowy",
+        position: "Pozycja",
+        moveFanUp: "Przesuń wentylator w górę",
+        moveFanLeft: "Przesuń wentylator w lewo",
+        moveFanRight: "Przesuń wentylator w prawo",
+        moveFanDown: "Przesuń wentylator w dół",
+        direction: "Kierunek",
+        forward: "Do przodu",
+        reverse: "Wstecz",
+        favoriteLevel: "Ulubiony poziom",
+        timer: "Wyłącznik czasowy",
+        timerOff: "WYŁ. {timer}",
+        noTimer: "BRAK WYŁĄCZNIKA CZASOWEGO",
+        childLock: "Blokada rodzicielska",
+        led: "LED",
+        buzzer: "Brzęczyk",
+        ionizer: "Jonizator",
+        fanFeatures: "Funkcje wentylatora",
+        editorFanEntity: "Encja wentylatora",
+        selectFanEntity: "Wybierz encję wentylatora",
+        cardName: "Nazwa karty",
+        xiaomiFan: "Wentylator Xiaomi",
+        visualTheme: "Motyw wizualny",
+        auto: "Automatyczny",
+        mushroom: "Mushroom",
+        minimal: "Minimalny",
+        glass: "Szkło",
+        industrial: "Industrialny",
+        integration: "Integracja",
+        autoDetect: "Wykryj automatycznie",
+        standardFan: "Standardowy wentylator",
+        nativeXiaomiHome: "Natywny Xiaomi Home (xiaomi_miio)",
+        xiaomiMiioFan: "Wentylator Xiaomi Miio",
+        xiaomiMiot: "Xiaomi Miot",
+        disableAnimation: "Wyłącz animację",
+        showTimer: "Pokaż wyłącznik czasowy",
+        showChildLock: "Pokaż blokadę rodzicielską",
+        showLed: "Pokaż LED",
+        showBuzzer: "Pokaż brzęczyk",
+        showIonizer: "Pokaż jonizator",
+        manual: "Ręczny",
+    },
+    es: {
+        off: "Apagado",
+        on: "Encendido",
+        hoursMinutes: "{hours} h {minutes} min",
+        hoursOnly: "{hours} h",
+        minutesOnly: "{minutes} min",
+        chooseFanEntity: "Selecciona una entidad de ventilador en el editor de tarjetas.",
+        fanEntityUnavailable: "Entidad del ventilador no disponible: {entity}",
+        fanCommandFailed: "Falló el comando del ventilador.",
+        open: "Abrir {title}",
+        xiaomiAirCirculation: "CIRCULACIÓN DE AIRE XIAOMI",
+        naturalBreeze: "Brisa natural",
+        straightAirflow: "Flujo de aire directo",
+        running: "En marcha",
+        standby: "En espera",
+        fanStatus: "Estado del ventilador",
+        fanLabel: "VENTILADOR",
+        turnFanOff: "Apagar ventilador",
+        turnFanOn: "Encender ventilador",
+        airflow: "FLUJO DE AIRE",
+        speedLevel: "Nivel de velocidad {level}",
+        fanSpeedPercentage: "Porcentaje de velocidad del ventilador",
+        speedLevels: "Niveles de velocidad",
+        setSpeedLevel: "Establecer nivel de velocidad {level}",
+        horizontal: "Horizontal",
+        vertical: "Vertical",
+        sleep: "Sueño",
+        cycle: "Ciclo",
+        mode: "Modo",
+        normal: "Normal",
+        natural: "Natural",
+        presetMode: "Modo preestablecido",
+        horizontalAngle: "Ángulo horizontal",
+        verticalAngle: "Ángulo vertical",
+        position: "Posición",
+        moveFanUp: "Mover ventilador arriba",
+        moveFanLeft: "Mover ventilador a la izquierda",
+        moveFanRight: "Mover ventilador a la derecha",
+        moveFanDown: "Mover ventilador abajo",
+        direction: "Dirección",
+        forward: "Hacia delante",
+        reverse: "Hacia atrás",
+        favoriteLevel: "Nivel favorito",
+        timer: "Temporizador",
+        timerOff: "APAGADO {timer}",
+        noTimer: "SIN TEMPORIZADOR",
+        childLock: "Bloqueo infantil",
+        led: "LED",
+        buzzer: "Zumbador",
+        ionizer: "Ionizador",
+        fanFeatures: "Funciones del ventilador",
+        editorFanEntity: "Entidad del ventilador",
+        selectFanEntity: "Seleccionar entidad del ventilador",
+        cardName: "Nombre de la tarjeta",
+        xiaomiFan: "Ventilador Xiaomi",
+        visualTheme: "Tema visual",
+        auto: "Automático",
+        mushroom: "Mushroom",
+        minimal: "Minimalista",
+        glass: "Cristal",
+        industrial: "Industrial",
+        integration: "Integración",
+        autoDetect: "Detectar automáticamente",
+        standardFan: "Ventilador estándar",
+        nativeXiaomiHome: "Xiaomi Home nativo (xiaomi_miio)",
+        xiaomiMiioFan: "Ventilador Xiaomi Miio",
+        xiaomiMiot: "Xiaomi Miot",
+        disableAnimation: "Desactivar animación",
+        showTimer: "Mostrar temporizador",
+        showChildLock: "Mostrar bloqueo infantil",
+        showLed: "Mostrar LED",
+        showBuzzer: "Mostrar zumbador",
+        showIonizer: "Mostrar ionizador",
+        manual: "Manual",
+    },
+    fr: {
+        off: "Éteint",
+        on: "Activé",
+        hoursMinutes: "{hours} h {minutes} min",
+        hoursOnly: "{hours} h",
+        minutesOnly: "{minutes} min",
+        chooseFanEntity: "Sélectionnez une entité de ventilateur dans l'éditeur de carte.",
+        fanEntityUnavailable: "Entité du ventilateur indisponible : {entity}",
+        fanCommandFailed: "La commande du ventilateur a échoué.",
+        open: "Ouvrir {title}",
+        xiaomiAirCirculation: "CIRCULATION D'AIR XIAOMI",
+        naturalBreeze: "Brise naturelle",
+        straightAirflow: "Flux d'air direct",
+        running: "En marche",
+        standby: "Veille",
+        fanStatus: "État du ventilateur",
+        fanLabel: "VENTILATEUR",
+        turnFanOff: "Éteindre le ventilateur",
+        turnFanOn: "Allumer le ventilateur",
+        airflow: "FLUX D'AIR",
+        speedLevel: "Niveau de vitesse {level}",
+        fanSpeedPercentage: "Pourcentage de vitesse du ventilateur",
+        speedLevels: "Niveaux de vitesse",
+        setSpeedLevel: "Régler le niveau de vitesse {level}",
+        horizontal: "Horizontal",
+        vertical: "Vertical",
+        sleep: "Sommeil",
+        cycle: "Cycle",
+        mode: "Mode",
+        normal: "Normal",
+        natural: "Naturel",
+        presetMode: "Mode préréglé",
+        horizontalAngle: "Angle horizontal",
+        verticalAngle: "Angle vertical",
+        position: "Position",
+        moveFanUp: "Déplacer le ventilateur vers le haut",
+        moveFanLeft: "Déplacer le ventilateur vers la gauche",
+        moveFanRight: "Déplacer le ventilateur vers la droite",
+        moveFanDown: "Déplacer le ventilateur vers le bas",
+        direction: "Direction",
+        forward: "Vers l'avant",
+        reverse: "Vers l'arrière",
+        favoriteLevel: "Niveau favori",
+        timer: "Minuterie",
+        timerOff: "ARRÊT {timer}",
+        noTimer: "AUCUNE MINUTERIE",
+        childLock: "Verrouillage enfant",
+        led: "LED",
+        buzzer: "Avertisseur",
+        ionizer: "Ioniseur",
+        fanFeatures: "Fonctions du ventilateur",
+        editorFanEntity: "Entité du ventilateur",
+        selectFanEntity: "Sélectionner une entité de ventilateur",
+        cardName: "Nom de la carte",
+        xiaomiFan: "Ventilateur Xiaomi",
+        visualTheme: "Thème visuel",
+        auto: "Automatique",
+        mushroom: "Mushroom",
+        minimal: "Minimal",
+        glass: "Verre",
+        industrial: "Industriel",
+        integration: "Intégration",
+        autoDetect: "Détection automatique",
+        standardFan: "Ventilateur standard",
+        nativeXiaomiHome: "Xiaomi Home natif (xiaomi_miio)",
+        xiaomiMiioFan: "Ventilateur Xiaomi Miio",
+        xiaomiMiot: "Xiaomi Miot",
+        disableAnimation: "Désactiver l'animation",
+        showTimer: "Afficher la minuterie",
+        showChildLock: "Afficher le verrouillage enfant",
+        showLed: "Afficher la LED",
+        showBuzzer: "Afficher l'avertisseur",
+        showIonizer: "Afficher l'ioniseur",
+        manual: "Manuel",
+    },
+    it: {
+        off: "Spento",
+        on: "Acceso",
+        hoursMinutes: "{hours} h {minutes} min",
+        hoursOnly: "{hours} h",
+        minutesOnly: "{minutes} min",
+        chooseFanEntity: "Seleziona un'entità ventilatore nell'editor della scheda.",
+        fanEntityUnavailable: "Entità ventilatore non disponibile: {entity}",
+        fanCommandFailed: "Il comando del ventilatore non ha funzionato.",
+        open: "Apri {title}",
+        xiaomiAirCirculation: "CIRCOLAZIONE DELL'ARIA XIAOMI",
+        naturalBreeze: "Brezza naturale",
+        straightAirflow: "Flusso d'aria diretto",
+        running: "In funzione",
+        standby: "Standby",
+        fanStatus: "Stato del ventilatore",
+        fanLabel: "VENTILATORE",
+        turnFanOff: "Spegni il ventilatore",
+        turnFanOn: "Accendi il ventilatore",
+        airflow: "FLUSSO D'ARIA",
+        speedLevel: "Livello velocità {level}",
+        fanSpeedPercentage: "Percentuale velocità ventilatore",
+        speedLevels: "Livelli velocità",
+        setSpeedLevel: "Imposta livello velocità {level}",
+        horizontal: "Orizzontale",
+        vertical: "Verticale",
+        sleep: "Riposo",
+        cycle: "Ciclo",
+        mode: "Modalità",
+        normal: "Normale",
+        natural: "Naturale",
+        presetMode: "Modalità preimpostata",
+        horizontalAngle: "Angolo orizzontale",
+        verticalAngle: "Angolo verticale",
+        position: "Posizione",
+        moveFanUp: "Sposta il ventilatore in alto",
+        moveFanLeft: "Sposta il ventilatore a sinistra",
+        moveFanRight: "Sposta il ventilatore a destra",
+        moveFanDown: "Sposta il ventilatore in basso",
+        direction: "Direzione",
+        forward: "Avanti",
+        reverse: "Indietro",
+        favoriteLevel: "Livello preferito",
+        timer: "Timer",
+        timerOff: "SPENTO {timer}",
+        noTimer: "NESSUN TIMER",
+        childLock: "Blocco bambini",
+        led: "LED",
+        buzzer: "Cicalino",
+        ionizer: "Ionizzatore",
+        fanFeatures: "Funzioni del ventilatore",
+        editorFanEntity: "Entità ventilatore",
+        selectFanEntity: "Seleziona entità ventilatore",
+        cardName: "Nome della scheda",
+        xiaomiFan: "Ventilatore Xiaomi",
+        visualTheme: "Tema visivo",
+        auto: "Automatico",
+        mushroom: "Mushroom",
+        minimal: "Minimale",
+        glass: "Vetro",
+        industrial: "Industriale",
+        integration: "Integrazione",
+        autoDetect: "Rilevamento automatico",
+        standardFan: "Ventilatore standard",
+        nativeXiaomiHome: "Xiaomi Home nativo (xiaomi_miio)",
+        xiaomiMiioFan: "Ventilatore Xiaomi Miio",
+        xiaomiMiot: "Xiaomi Miot",
+        disableAnimation: "Disabilita animazione",
+        showTimer: "Mostra timer",
+        showChildLock: "Mostra blocco bambini",
+        showLed: "Mostra LED",
+        showBuzzer: "Mostra cicalino",
+        showIonizer: "Mostra ionizzatore",
+        manual: "Manuale",
+    },
+};
+const isSupportedLanguage = (language) => Object.prototype.hasOwnProperty.call(TRANSLATIONS, language);
+const baseLanguage = (language) => language?.trim().toLowerCase().replace("_", "-").split("-")[0] ?? "en";
+const createTranslator = (language) => {
+    const normalizedLanguage = baseLanguage(language);
+    const dictionary = isSupportedLanguage(normalizedLanguage) ? TRANSLATIONS[normalizedLanguage] : TRANSLATIONS.en;
+    return (key, values) => {
+        const template = dictionary[key] ?? TRANSLATIONS.en[key];
+        if (!values || Object.keys(values).length === 0) {
+            return template;
+        }
+        return template.replace(/\{(\w+)\}/g, (placeholder, name) => Object.prototype.hasOwnProperty.call(values, name) ? String(values[name]) : placeholder);
+    };
+};
+
 class XiaomiFanCardEditor extends i {
     constructor() {
         super(...arguments);
         this.config = {};
+        this.translatorLanguage = "";
+        this.translator = createTranslator();
         this.onEntityChange = (event) => {
             this.updateConfig("entity", event.currentTarget.value);
         };
         this.onTextChange = (event, key) => {
-            this.updateConfig(key, event.currentTarget.value);
+            const value = event.currentTarget.value;
+            this.updateConfig(key, value);
         };
         this.onBooleanChange = (event, key) => {
             this.updateConfig(key, event.currentTarget.checked);
@@ -988,50 +1383,58 @@ class XiaomiFanCardEditor extends i {
         return b `
       <div class="form">
         <label>
-          <span>Fan entity</span>
+          <span>${this.t("editorFanEntity")}</span>
           <select .value=${config.entity} @change=${this.onEntityChange}>
-            <option value="">Select fan entity</option>
+            <option value="">${this.t("selectFanEntity")}</option>
             ${entityIds.map((entityId) => b `<option value=${entityId} ?selected=${entityId === config.entity}>${entityId}</option>`)}
           </select>
         </label>
         <label>
-          <span>Card name</span>
+          <span>${this.t("cardName")}</span>
           <input
             value=${config.name ?? ""}
-            placeholder="Xiaomi Fan"
+            placeholder=${this.t("xiaomiFan")}
             @change=${(event) => this.onTextChange(event, "name")}
           />
         </label>
         <label>
-          <span>Visual theme</span>
+          <span>${this.t("visualTheme")}</span>
           <select .value=${config.theme} @change=${(event) => this.onTextChange(event, "theme")}>
-            <option value="auto">Auto</option>
-            <option value="mushroom">Mushroom</option>
-            <option value="minimal">Minimal</option>
-            <option value="glass">Glass</option>
-            <option value="industrial">Industrial</option>
+            <option value="auto">${this.t("auto")}</option>
+            <option value="mushroom">${this.t("mushroom")}</option>
+            <option value="minimal">${this.t("minimal")}</option>
+            <option value="glass">${this.t("glass")}</option>
+            <option value="industrial">${this.t("industrial")}</option>
           </select>
         </label>
         <label>
-          <span>Integration</span>
+          <span>${this.t("integration")}</span>
           <select .value=${config.integration} @change=${(event) => this.onTextChange(event, "integration")}>
-            <option value="auto">Auto detect</option>
-            <option value="standard">Standard fan</option>
-            <option value="xiaomi_miio">Native Xiaomi Home (xiaomi_miio)</option>
-            <option value="xiaomi_miio_fan">Xiaomi Miio fan</option>
-            <option value="xiaomi_miot">Xiaomi Miot</option>
+            <option value="auto">${this.t("autoDetect")}</option>
+            <option value="standard">${this.t("standardFan")}</option>
+            <option value="xiaomi_miio">${this.t("nativeXiaomiHome")}</option>
+            <option value="xiaomi_miio_fan">${this.t("xiaomiMiioFan")}</option>
+            <option value="xiaomi_miot">${this.t("xiaomiMiot")}</option>
           </select>
         </label>
-        ${this.booleanField("disable_animation", "Disable animation", config.disable_animation)}
-        ${this.booleanField("show_timer", "Show timer", config.show_timer)}
-        ${this.booleanField("show_child_lock", "Show child lock", config.show_child_lock)}
-        ${this.booleanField("show_led", "Show LED", config.show_led)}
-        ${this.booleanField("show_buzzer", "Show buzzer", config.show_buzzer)}
-        ${this.booleanField("show_ionizer", "Show ionizer", config.show_ionizer)}
+        ${this.booleanField("disable_animation", "disableAnimation", config.disable_animation)}
+        ${this.booleanField("show_timer", "showTimer", config.show_timer)}
+        ${this.booleanField("show_child_lock", "showChildLock", config.show_child_lock)}
+        ${this.booleanField("show_led", "showLed", config.show_led)}
+        ${this.booleanField("show_buzzer", "showBuzzer", config.show_buzzer)}
+        ${this.booleanField("show_ionizer", "showIonizer", config.show_ionizer)}
       </div>
     `;
     }
-    booleanField(key, label, checked) {
+    t(key, values) {
+        const language = this.hass?.language ?? "";
+        if (language !== this.translatorLanguage) {
+            this.translatorLanguage = language;
+            this.translator = createTranslator(language);
+        }
+        return this.translator(key, values);
+    }
+    booleanField(key, labelKey, checked) {
         return b `
       <label class="checkbox">
         <input
@@ -1039,7 +1442,7 @@ class XiaomiFanCardEditor extends i {
           .checked=${checked === true}
           @change=${(event) => this.onBooleanChange(event, key)}
         />
-        <span>${label}</span>
+        <span>${this.t(labelKey)}</span>
       </label>
     `;
     }
@@ -1169,14 +1572,6 @@ const resolveRelatedEntities = async (hass, entityId) => {
 
 const TIMER_STEPS = [0, 60, 120, 180, 240, 300, 360, 420, 480];
 const asHassLike = (hass) => hass;
-const displayTimer = (minutes) => {
-    if (!minutes) {
-        return "Off";
-    }
-    const hours = Math.floor(minutes / 60);
-    const remainder = minutes % 60;
-    return hours > 0 ? `${hours}h${remainder > 0 ? ` ${remainder}m` : ""}` : `${remainder}m`;
-};
 class XiaomiFanCard extends i {
     constructor() {
         super(...arguments);
@@ -1186,6 +1581,8 @@ class XiaomiFanCard extends i {
         this.actionError = "";
         this.serviceLoadKey = "";
         this.loadRequestId = 0;
+        this.translatorLanguage = "";
+        this.translator = createTranslator();
         this.onHeaderClick = () => {
             if (this.hass && this.config) {
                 handleAction(this, this.hass, this.config);
@@ -1270,7 +1667,7 @@ class XiaomiFanCard extends i {
     }
     render() {
         if (!this.hass || !this.config?.entity) {
-            return b `<ha-card><div class="empty">Choose a fan entity in card editor.</div></ha-card>`;
+            return b `<ha-card><div class="empty">${this.t("chooseFanEntity")}</div></ha-card>`;
         }
         const adapter = createFanAdapter(asHassLike(this.hass), this.config.entity, this.services, this.config.integration, this.related);
         if (!adapter.state.available) {
@@ -1278,7 +1675,7 @@ class XiaomiFanCard extends i {
         <ha-card class="card ${this.themeClass}">
           <div class="empty" role="status">
             <ha-icon icon="mdi:fan-alert"></ha-icon>
-            <span>Fan entity unavailable: ${this.config.entity}</span>
+            <span>${this.t("fanEntityUnavailable", { entity: this.config.entity })}</span>
           </div>
         </ha-card>
       `;
@@ -1294,6 +1691,26 @@ class XiaomiFanCard extends i {
     get themeClass() {
         const theme = this.config.theme ?? "auto";
         return `theme-${theme}`;
+    }
+    t(key, values) {
+        const language = this.hass?.language ?? "";
+        if (language !== this.translatorLanguage) {
+            this.translatorLanguage = language;
+            this.translator = createTranslator(language);
+        }
+        return this.translator(key, values);
+    }
+    displayTimer(minutes) {
+        if (!minutes) {
+            return this.t("off");
+        }
+        const hours = Math.floor(minutes / 60);
+        const remainder = minutes % 60;
+        return hours > 0
+            ? remainder > 0
+                ? this.t("hoursMinutes", { hours, minutes: remainder })
+                : this.t("hoursOnly", { hours })
+            : this.t("minutesOnly", { minutes: remainder });
     }
     withConfiguredRelatedEntities(discovered) {
         return {
@@ -1333,25 +1750,25 @@ class XiaomiFanCard extends i {
     execute(action) {
         this.actionError = "";
         void action().catch((error) => {
-            this.actionError = error instanceof Error ? error.message : "Fan command failed.";
+            this.actionError = error instanceof Error ? error.message : this.t("fanCommandFailed");
         });
     }
     renderHeader(adapter) {
         const state = adapter.state;
         const title = this.config.name || state.friendlyName;
-        const modeLabel = state.mode === "natural" ? "Natural breeze" : "Straight airflow";
+        const modeLabel = state.mode === "natural" ? this.t("naturalBreeze") : this.t("straightAirflow");
         return b `
       <header class="header">
-        <button class="title-button" @click=${this.onHeaderClick} aria-label="Open ${title}">
-          <span class="eyebrow">XIAOMI AIR CIRCULATION</span>
+        <button class="title-button" @click=${this.onHeaderClick} aria-label=${this.t("open", { title })}>
+          <span class="eyebrow">${this.t("xiaomiAirCirculation")}</span>
           <span class="title">${title}</span>
           <span class="subtitle">
             <span class="status-dot ${state.isOn ? "on" : ""}"></span>
-            ${state.isOn ? "Running" : "Standby"} · ${modeLabel}
+            ${state.isOn ? this.t("running") : this.t("standby")} · ${modeLabel}
           </span>
         </button>
         <span class="model-badge"
-          >${adapter.profile.known ? (adapter.profile.model?.split(".").at(-1) ?? "XIAOMI") : "FAN"}</span
+          >${adapter.profile.known ? (adapter.profile.model?.split(".").at(-1) ?? "XIAOMI") : this.t("fanLabel")}</span
         >
       </header>
     `;
@@ -1362,7 +1779,7 @@ class XiaomiFanCard extends i {
         const style = `--speed:${speed}; --spin-duration:${Math.max(1.8, 12 - speed / 11)}s;`;
         const direction = state.verticalSwing ? "vertical" : state.horizontalSwing ? "horizontal" : "still";
         return b `
-      <section class="visual-section" aria-label="Fan status">
+      <section class="visual-section" aria-label=${this.t("fanStatus")}>
         <div
           class="airflow-visual ${direction} ${state.isOn ? "running" : ""} ${this.config.disable_animation ? "no-motion" : ""}"
           style=${style}
@@ -1381,20 +1798,22 @@ class XiaomiFanCard extends i {
           <button
             class="power-button ${state.isOn ? "active" : ""}"
             @click=${() => this.execute(() => adapter.togglePower())}
-            aria-label=${state.isOn ? "Turn fan off" : "Turn fan on"}
+            aria-label=${state.isOn ? this.t("turnFanOff") : this.t("turnFanOn")}
             aria-pressed=${state.isOn}
           >
             <ha-icon icon="mdi:power"></ha-icon>
           </button>
           <span class="speed-readout">
             <strong>${state.percentage}</strong>
-            <small>% AIRFLOW</small>
+            <small>% ${this.t("airflow")}</small>
           </span>
         </div>
         <div class="visual-meta">
           <span>${state.horizontalAngle !== undefined ? `H ${state.horizontalAngle}°` : "H -"}</span>
           <span>${state.verticalAngle !== undefined ? `V ${state.verticalAngle}°` : "V -"}</span>
-          <span>${state.timerMinutes ? `OFF ${displayTimer(state.timerMinutes)}` : "NO TIMER"}</span>
+          <span
+            >${state.timerMinutes ? this.t("timerOff", { timer: this.displayTimer(state.timerMinutes) }) : this.t("noTimer")}</span
+          >
           ${state.temperature !== undefined ? b `<span>${state.temperature}°C</span>` : ""}
           ${state.humidity !== undefined ? b `<span>${state.humidity}% RH</span>` : ""}
         </div>
@@ -1405,11 +1824,11 @@ class XiaomiFanCard extends i {
         const state = adapter.state;
         const levelLabels = Array.from({ length: adapter.capabilities.speedLevels }, (_, index) => index + 1);
         return b `
-      <section class="controls airflow-controls" aria-label="Airflow controls">
+      <section class="controls airflow-controls" aria-label=${this.t("airflow")}>
         <div class="section-heading">
           <div>
-            <span class="eyebrow">AIRFLOW</span>
-            <strong>Speed level ${state.level || 0}</strong>
+            <span class="eyebrow">${this.t("airflow")}</span>
+            <strong>${this.t("speedLevel", { level: state.level || 0 })}</strong>
           </div>
           <span class="value">${state.percentage}%</span>
         </div>
@@ -1421,14 +1840,14 @@ class XiaomiFanCard extends i {
           step="1"
           .value=${String(state.percentage)}
           @change=${(event) => this.onPercentageChange(event, adapter)}
-          aria-label="Fan speed percentage"
+          aria-label=${this.t("fanSpeedPercentage")}
         />
-        <div class="level-row" role="group" aria-label="Speed levels">
+        <div class="level-row" role="group" aria-label=${this.t("speedLevels")}>
           ${levelLabels.map((level) => b `
               <button
                 class="level-button ${state.level === level ? "selected" : ""}"
                 @click=${() => this.execute(() => adapter.setPercentage(Math.round((level / adapter.capabilities.speedLevels) * 100)))}
-                aria-label="Set speed level ${level}"
+                aria-label=${this.t("setSpeedLevel", { level })}
                 aria-pressed=${state.level === level}
               >
                 ${level}
@@ -1445,7 +1864,7 @@ class XiaomiFanCard extends i {
                     aria-pressed=${state.horizontalSwing}
                   >
                     <ha-icon icon="mdi:rotate-3d-variant"></ha-icon>
-                    Horizontal
+                    ${this.t("horizontal")}
                   </button>
                 `
             : ""}
@@ -1457,7 +1876,7 @@ class XiaomiFanCard extends i {
                     aria-pressed=${state.verticalSwing}
                   >
                     <ha-icon icon="mdi:swap-vertical"></ha-icon>
-                    Vertical
+                    ${this.t("vertical")}
                   </button>
                 `
             : ""}
@@ -1469,7 +1888,7 @@ class XiaomiFanCard extends i {
                     aria-pressed=${state.sleepMode}
                   >
                     <ha-icon icon="mdi:power-sleep"></ha-icon>
-                    Sleep
+                    ${this.t("sleep")}
                   </button>
                 `
             : ""}
@@ -1481,7 +1900,7 @@ class XiaomiFanCard extends i {
                     aria-pressed=${state.horizontalSwing && state.verticalSwing}
                   >
                     <ha-icon icon="mdi:autorenew"></ha-icon>
-                    Cycle
+                    ${this.t("cycle")}
                   </button>
                 `
             : ""}
@@ -1504,15 +1923,15 @@ class XiaomiFanCard extends i {
         if (adapter.capabilities.naturalMode) {
             return b `
         <div class="mode-section">
-          <span class="control-label">Mode</span>
-          <div class="mode-row" role="group" aria-label="Fan mode">
+          <span class="control-label">${this.t("mode")}</span>
+          <div class="mode-row" role="group" aria-label=${this.t("mode")}>
             <button
               class="mode-button ${state.mode === "normal" ? "selected" : ""}"
               @click=${() => this.execute(() => adapter.setMode("normal"))}
               aria-pressed=${state.mode === "normal"}
             >
               <span class="mode-icon"><ha-icon icon="mdi:weather-windy"></ha-icon></span>
-              <span>Normal</span>
+              <span>${this.t("normal")}</span>
             </button>
             <button
               class="mode-button ${state.mode === "natural" ? "selected" : ""}"
@@ -1520,7 +1939,7 @@ class XiaomiFanCard extends i {
               aria-pressed=${state.mode === "natural"}
             >
               <span class="mode-icon"><ha-icon icon="mdi:leaf"></ha-icon></span>
-              <span>Natural</span>
+              <span>${this.t("natural")}</span>
             </button>
           </div>
         </div>
@@ -1536,7 +1955,7 @@ class XiaomiFanCard extends i {
         const current = adapter.state.presetMode ?? modes[0] ?? "";
         return b `
       <label class="feature-select mode-select">
-        <span>Preset mode</span>
+        <span>${this.t("presetMode")}</span>
         <select
           .value=${current}
           @change=${(event) => this.execute(() => adapter.setPresetMode(event.currentTarget.value))}
@@ -1550,26 +1969,26 @@ class XiaomiFanCard extends i {
         const state = adapter.state;
         const features = [];
         if (adapter.capabilities.horizontalAngle) {
-            features.push(this.renderAngleControl("Horizontal angle", state.horizontalAngle, adapter.capabilities.horizontalAngles, (angle) => this.execute(() => adapter.setHorizontalAngle(angle))));
+            features.push(this.renderAngleControl(this.t("horizontalAngle"), state.horizontalAngle, adapter.capabilities.horizontalAngles, (angle) => this.execute(() => adapter.setHorizontalAngle(angle))));
         }
         if (adapter.capabilities.verticalAngle) {
-            features.push(this.renderAngleControl("Vertical angle", state.verticalAngle, adapter.capabilities.verticalAngles, (angle) => this.execute(() => adapter.setVerticalAngle(angle))));
+            features.push(this.renderAngleControl(this.t("verticalAngle"), state.verticalAngle, adapter.capabilities.verticalAngles, (angle) => this.execute(() => adapter.setVerticalAngle(angle))));
         }
         if (adapter.capabilities.directionNudge) {
             features.push(b `
         <div class="nudge-control">
-          <span>Position</span>
+          <span>${this.t("position")}</span>
           <div class="nudge-grid">
-            <button @click=${() => this.execute(() => adapter.nudge("up"))} aria-label="Move fan up">
+            <button @click=${() => this.execute(() => adapter.nudge("up"))} aria-label=${this.t("moveFanUp")}>
               <ha-icon icon="mdi:chevron-up"></ha-icon>
             </button>
-            <button @click=${() => this.execute(() => adapter.nudge("left"))} aria-label="Move fan left">
+            <button @click=${() => this.execute(() => adapter.nudge("left"))} aria-label=${this.t("moveFanLeft")}>
               <ha-icon icon="mdi:chevron-left"></ha-icon>
             </button>
-            <button @click=${() => this.execute(() => adapter.nudge("right"))} aria-label="Move fan right">
+            <button @click=${() => this.execute(() => adapter.nudge("right"))} aria-label=${this.t("moveFanRight")}>
               <ha-icon icon="mdi:chevron-right"></ha-icon>
             </button>
-            <button @click=${() => this.execute(() => adapter.nudge("down"))} aria-label="Move fan down">
+            <button @click=${() => this.execute(() => adapter.nudge("down"))} aria-label=${this.t("moveFanDown")}>
               <ha-icon icon="mdi:chevron-down"></ha-icon>
             </button>
           </div>
@@ -1581,14 +2000,17 @@ class XiaomiFanCard extends i {
             features.push(b `
         <button class="feature-button" @click=${() => this.execute(() => adapter.setDirection(direction))}>
           <ha-icon icon="mdi:rotate-orbit"></ha-icon>
-          <span><small>Direction</small><strong>${state.direction ?? "Forward"}</strong></span>
+          <span>
+            <small>${this.t("direction")}</small>
+            <strong>${state.direction === "reverse" ? this.t("reverse") : this.t("forward")}</strong>
+          </span>
         </button>
       `);
         }
         if (adapter.capabilities.favoriteLevel) {
             features.push(b `
         <label class="feature-select">
-          <span>Favorite level</span>
+          <span>${this.t("favoriteLevel")}</span>
           <input
             type="number"
             min="1"
@@ -1605,7 +2027,7 @@ class XiaomiFanCard extends i {
             features.push(b `
         <button class="feature-button" @click=${() => this.execute(() => adapter.setTimer(nextTimer))}>
           <ha-icon icon="mdi:timer-outline"></ha-icon>
-          <span><small>Timer</small><strong>${displayTimer(state.timerMinutes)}</strong></span>
+          <span><small>${this.t("timer")}</small><strong>${this.displayTimer(state.timerMinutes)}</strong></span>
         </button>
       `);
         }
@@ -1616,7 +2038,9 @@ class XiaomiFanCard extends i {
           @click=${() => this.execute(() => adapter.setChildLock(!state.childLock))}
         >
           <ha-icon icon="mdi:lock${state.childLock ? "" : "-open-outline"}"></ha-icon>
-          <span><small>Child lock</small><strong>${state.childLock ? "On" : "Off"}</strong></span>
+          <span>
+            <small>${this.t("childLock")}</small><strong>${state.childLock ? this.t("on") : this.t("off")}</strong>
+          </span>
         </button>
       `);
         }
@@ -1627,7 +2051,7 @@ class XiaomiFanCard extends i {
           @click=${() => this.execute(() => adapter.setLed(!state.led))}
         >
           <ha-icon icon="mdi:led-outline"></ha-icon>
-          <span><small>LED</small><strong>${state.led ? "On" : "Off"}</strong></span>
+          <span><small>${this.t("led")}</small><strong>${state.led ? this.t("on") : this.t("off")}</strong></span>
         </button>
       `);
         }
@@ -1638,7 +2062,7 @@ class XiaomiFanCard extends i {
           @click=${() => this.execute(() => adapter.setBuzzer(!state.buzzer))}
         >
           <ha-icon icon="mdi:bell-outline"></ha-icon>
-          <span><small>Buzzer</small><strong>${state.buzzer ? "On" : "Off"}</strong></span>
+          <span><small>${this.t("buzzer")}</small><strong>${state.buzzer ? this.t("on") : this.t("off")}</strong></span>
         </button>
       `);
         }
@@ -1649,12 +2073,14 @@ class XiaomiFanCard extends i {
           @click=${() => this.execute(() => adapter.setIonizer(!state.ionizer))}
         >
           <ha-icon icon="mdi:air-filter"></ha-icon>
-          <span><small>Ionizer</small><strong>${state.ionizer ? "On" : "Off"}</strong></span>
+          <span>
+            <small>${this.t("ionizer")}</small><strong>${state.ionizer ? this.t("on") : this.t("off")}</strong>
+          </span>
         </button>
       `);
         }
         return features.length > 0
-            ? b `<section class="controls feature-controls" aria-label="Fan features">${features}</section>`
+            ? b `<section class="controls feature-controls" aria-label=${this.t("fanFeatures")}>${features}</section>`
             : "";
     }
     renderAngleControl(label, value, angles, onChange) {

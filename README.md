@@ -53,6 +53,20 @@ name: Living Room Fan
 theme: auto
 ```
 
+## Languages
+
+The card and its visual editor follow Home Assistant's language setting from
+`hass.language`. Regional codes such as `pl-PL` use the base language. Unsupported
+languages fall back to English.
+
+| Language | Home Assistant code | Card UI | Visual editor |
+| -------- | ------------------- | ------- | ------------- |
+| English  | `en`                | Yes     | Yes           |
+| Polish   | `pl`                | Yes     | Yes           |
+| Spanish  | `es`                | Yes     | Yes           |
+| French   | `fr`                | Yes     | Yes           |
+| Italian  | `it`                | Yes     | Yes           |
+
 ## See it in action
 
 The HACS panel renders this README as the repository landing page. Replace the

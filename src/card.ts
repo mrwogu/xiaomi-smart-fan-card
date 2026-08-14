@@ -11,21 +11,12 @@ import { DEFAULT_CONFIG } from "./config";
 import "./editor";
 import { loadServiceAvailability } from "./services/service-dispatcher";
 import { resolveRelatedEntities } from "./state/related-entities";
+import { createTranslator, type TranslationKey, type TranslationValues, type Translator } from "./translations";
 import type { FanAdapter, FanCardConfig, HassLike, RelatedEntities, ServiceAvailability } from "./types";
 
 const TIMER_STEPS = [0, 60, 120, 180, 240, 300, 360, 420, 480];
 
 const asHassLike = (hass: HomeAssistant): HassLike => hass as unknown as HassLike;
-
-const displayTimer = (minutes: number | undefined): string => {
-  if (!minutes) {
-    return "Off";
-  }
-
-  const hours = Math.floor(minutes / 60);
-  const remainder = minutes % 60;
-  return hours > 0 ? `${hours}h${remainder > 0 ? ` ${remainder}m` : ""}` : `${remainder}m`;
-};
 
 export class XiaomiFanCard extends LitElement {
   @property({ attribute: false }) public hass!: HomeAssistant;
@@ -40,6 +31,8 @@ export class XiaomiFanCard extends LitElement {
 
   private serviceLoadKey = "";
   private loadRequestId = 0;
+  private translatorLanguage = "";
+  private translator: Translator = createTranslator();
 
   public static async getConfigElement(): Promise<LovelaceCardEditor> {
     await import("./editor");
@@ -137,7 +130,7 @@ export class XiaomiFanCard extends LitElement {
 
   protected render() {
     if (!this.hass || !this.config?.entity) {
-      return html`<ha-card><div class="empty">Choose a fan entity in card editor.</div></ha-card>`;
+      return html`<ha-card><div class="empty">${this.t("chooseFanEntity")}</div></ha-card>`;
     }
 
     const adapter = createFanAdapter(
@@ -152,7 +145,7 @@ export class XiaomiFanCard extends LitElement {
         <ha-card class="card ${this.themeClass}">
           <div class="empty" role="status">
             <ha-icon icon="mdi:fan-alert"></ha-icon>
-            <span>Fan entity unavailable: ${this.config.entity}</span>
+            <span>${this.t("fanEntityUnavailable", { entity: this.config.entity })}</span>
           </div>
         </ha-card>
       `;
@@ -170,6 +163,30 @@ export class XiaomiFanCard extends LitElement {
   private get themeClass(): string {
     const theme = this.config.theme ?? "auto";
     return `theme-${theme}`;
+  }
+
+  private t(key: TranslationKey, values?: TranslationValues): string {
+    const language = this.hass?.language ?? "";
+    if (language !== this.translatorLanguage) {
+      this.translatorLanguage = language;
+      this.translator = createTranslator(language);
+    }
+
+    return this.translator(key, values);
+  }
+
+  private displayTimer(minutes: number | undefined): string {
+    if (!minutes) {
+      return this.t("off");
+    }
+
+    const hours = Math.floor(minutes / 60);
+    const remainder = minutes % 60;
+    return hours > 0
+      ? remainder > 0
+        ? this.t("hoursMinutes", { hours, minutes: remainder })
+        : this.t("hoursOnly", { hours })
+      : this.t("minutesOnly", { minutes: remainder });
   }
 
   private withConfiguredRelatedEntities(discovered: RelatedEntities): RelatedEntities {
@@ -212,27 +229,27 @@ export class XiaomiFanCard extends LitElement {
   private execute(action: () => Promise<void>): void {
     this.actionError = "";
     void action().catch((error: unknown) => {
-      this.actionError = error instanceof Error ? error.message : "Fan command failed.";
+      this.actionError = error instanceof Error ? error.message : this.t("fanCommandFailed");
     });
   }
 
   private renderHeader(adapter: FanAdapter) {
     const state = adapter.state;
     const title = this.config.name || state.friendlyName;
-    const modeLabel = state.mode === "natural" ? "Natural breeze" : "Straight airflow";
+    const modeLabel = state.mode === "natural" ? this.t("naturalBreeze") : this.t("straightAirflow");
 
     return html`
       <header class="header">
-        <button class="title-button" @click=${this.onHeaderClick} aria-label="Open ${title}">
-          <span class="eyebrow">XIAOMI AIR CIRCULATION</span>
+        <button class="title-button" @click=${this.onHeaderClick} aria-label=${this.t("open", { title })}>
+          <span class="eyebrow">${this.t("xiaomiAirCirculation")}</span>
           <span class="title">${title}</span>
           <span class="subtitle">
             <span class="status-dot ${state.isOn ? "on" : ""}"></span>
-            ${state.isOn ? "Running" : "Standby"} · ${modeLabel}
+            ${state.isOn ? this.t("running") : this.t("standby")} · ${modeLabel}
           </span>
         </button>
         <span class="model-badge"
-          >${adapter.profile.known ? (adapter.profile.model?.split(".").at(-1) ?? "XIAOMI") : "FAN"}</span
+          >${adapter.profile.known ? (adapter.profile.model?.split(".").at(-1) ?? "XIAOMI") : this.t("fanLabel")}</span
         >
       </header>
     `;
@@ -245,7 +262,7 @@ export class XiaomiFanCard extends LitElement {
     const direction = state.verticalSwing ? "vertical" : state.horizontalSwing ? "horizontal" : "still";
 
     return html`
-      <section class="visual-section" aria-label="Fan status">
+      <section class="visual-section" aria-label=${this.t("fanStatus")}>
         <div
           class="airflow-visual ${direction} ${state.isOn ? "running" : ""} ${
             this.config.disable_animation ? "no-motion" : ""
@@ -266,20 +283,22 @@ export class XiaomiFanCard extends LitElement {
           <button
             class="power-button ${state.isOn ? "active" : ""}"
             @click=${() => this.execute(() => adapter.togglePower())}
-            aria-label=${state.isOn ? "Turn fan off" : "Turn fan on"}
+            aria-label=${state.isOn ? this.t("turnFanOff") : this.t("turnFanOn")}
             aria-pressed=${state.isOn}
           >
             <ha-icon icon="mdi:power"></ha-icon>
           </button>
           <span class="speed-readout">
             <strong>${state.percentage}</strong>
-            <small>% AIRFLOW</small>
+            <small>% ${this.t("airflow")}</small>
           </span>
         </div>
         <div class="visual-meta">
           <span>${state.horizontalAngle !== undefined ? `H ${state.horizontalAngle}°` : "H -"}</span>
           <span>${state.verticalAngle !== undefined ? `V ${state.verticalAngle}°` : "V -"}</span>
-          <span>${state.timerMinutes ? `OFF ${displayTimer(state.timerMinutes)}` : "NO TIMER"}</span>
+          <span
+            >${state.timerMinutes ? this.t("timerOff", { timer: this.displayTimer(state.timerMinutes) }) : this.t("noTimer")}</span
+          >
           ${state.temperature !== undefined ? html`<span>${state.temperature}°C</span>` : ""}
           ${state.humidity !== undefined ? html`<span>${state.humidity}% RH</span>` : ""}
         </div>
@@ -292,11 +311,11 @@ export class XiaomiFanCard extends LitElement {
     const levelLabels = Array.from({ length: adapter.capabilities.speedLevels }, (_, index) => index + 1);
 
     return html`
-      <section class="controls airflow-controls" aria-label="Airflow controls">
+      <section class="controls airflow-controls" aria-label=${this.t("airflow")}>
         <div class="section-heading">
           <div>
-            <span class="eyebrow">AIRFLOW</span>
-            <strong>Speed level ${state.level || 0}</strong>
+            <span class="eyebrow">${this.t("airflow")}</span>
+            <strong>${this.t("speedLevel", { level: state.level || 0 })}</strong>
           </div>
           <span class="value">${state.percentage}%</span>
         </div>
@@ -308,9 +327,9 @@ export class XiaomiFanCard extends LitElement {
           step="1"
           .value=${String(state.percentage)}
           @change=${(event: Event) => this.onPercentageChange(event, adapter)}
-          aria-label="Fan speed percentage"
+          aria-label=${this.t("fanSpeedPercentage")}
         />
-        <div class="level-row" role="group" aria-label="Speed levels">
+        <div class="level-row" role="group" aria-label=${this.t("speedLevels")}>
           ${levelLabels.map(
             (level) => html`
               <button
@@ -319,7 +338,7 @@ export class XiaomiFanCard extends LitElement {
                   this.execute(() =>
                     adapter.setPercentage(Math.round((level / adapter.capabilities.speedLevels) * 100)),
                   )}
-                aria-label="Set speed level ${level}"
+                aria-label=${this.t("setSpeedLevel", { level })}
                 aria-pressed=${state.level === level}
               >
                 ${level}
@@ -338,7 +357,7 @@ export class XiaomiFanCard extends LitElement {
                     aria-pressed=${state.horizontalSwing}
                   >
                     <ha-icon icon="mdi:rotate-3d-variant"></ha-icon>
-                    Horizontal
+                    ${this.t("horizontal")}
                   </button>
                 `
               : ""
@@ -352,7 +371,7 @@ export class XiaomiFanCard extends LitElement {
                     aria-pressed=${state.verticalSwing}
                   >
                     <ha-icon icon="mdi:swap-vertical"></ha-icon>
-                    Vertical
+                    ${this.t("vertical")}
                   </button>
                 `
               : ""
@@ -366,7 +385,7 @@ export class XiaomiFanCard extends LitElement {
                     aria-pressed=${state.sleepMode}
                   >
                     <ha-icon icon="mdi:power-sleep"></ha-icon>
-                    Sleep
+                    ${this.t("sleep")}
                   </button>
                 `
               : ""
@@ -380,7 +399,7 @@ export class XiaomiFanCard extends LitElement {
                     aria-pressed=${state.horizontalSwing && state.verticalSwing}
                   >
                     <ha-icon icon="mdi:autorenew"></ha-icon>
-                    Cycle
+                    ${this.t("cycle")}
                   </button>
                 `
               : ""
@@ -408,15 +427,15 @@ export class XiaomiFanCard extends LitElement {
     if (adapter.capabilities.naturalMode) {
       return html`
         <div class="mode-section">
-          <span class="control-label">Mode</span>
-          <div class="mode-row" role="group" aria-label="Fan mode">
+          <span class="control-label">${this.t("mode")}</span>
+          <div class="mode-row" role="group" aria-label=${this.t("mode")}>
             <button
               class="mode-button ${state.mode === "normal" ? "selected" : ""}"
               @click=${() => this.execute(() => adapter.setMode("normal"))}
               aria-pressed=${state.mode === "normal"}
             >
               <span class="mode-icon"><ha-icon icon="mdi:weather-windy"></ha-icon></span>
-              <span>Normal</span>
+              <span>${this.t("normal")}</span>
             </button>
             <button
               class="mode-button ${state.mode === "natural" ? "selected" : ""}"
@@ -424,7 +443,7 @@ export class XiaomiFanCard extends LitElement {
               aria-pressed=${state.mode === "natural"}
             >
               <span class="mode-icon"><ha-icon icon="mdi:leaf"></ha-icon></span>
-              <span>Natural</span>
+              <span>${this.t("natural")}</span>
             </button>
           </div>
         </div>
@@ -443,7 +462,7 @@ export class XiaomiFanCard extends LitElement {
     const current = adapter.state.presetMode ?? modes[0] ?? "";
     return html`
       <label class="feature-select mode-select">
-        <span>Preset mode</span>
+        <span>${this.t("presetMode")}</span>
         <select
           .value=${current}
           @change=${(event: Event) =>
@@ -462,7 +481,7 @@ export class XiaomiFanCard extends LitElement {
     if (adapter.capabilities.horizontalAngle) {
       features.push(
         this.renderAngleControl(
-          "Horizontal angle",
+          this.t("horizontalAngle"),
           state.horizontalAngle,
           adapter.capabilities.horizontalAngles,
           (angle) => this.execute(() => adapter.setHorizontalAngle(angle)),
@@ -472,8 +491,11 @@ export class XiaomiFanCard extends LitElement {
 
     if (adapter.capabilities.verticalAngle) {
       features.push(
-        this.renderAngleControl("Vertical angle", state.verticalAngle, adapter.capabilities.verticalAngles, (angle) =>
-          this.execute(() => adapter.setVerticalAngle(angle)),
+        this.renderAngleControl(
+          this.t("verticalAngle"),
+          state.verticalAngle,
+          adapter.capabilities.verticalAngles,
+          (angle) => this.execute(() => adapter.setVerticalAngle(angle)),
         ),
       );
     }
@@ -481,18 +503,18 @@ export class XiaomiFanCard extends LitElement {
     if (adapter.capabilities.directionNudge) {
       features.push(html`
         <div class="nudge-control">
-          <span>Position</span>
+          <span>${this.t("position")}</span>
           <div class="nudge-grid">
-            <button @click=${() => this.execute(() => adapter.nudge("up"))} aria-label="Move fan up">
+            <button @click=${() => this.execute(() => adapter.nudge("up"))} aria-label=${this.t("moveFanUp")}>
               <ha-icon icon="mdi:chevron-up"></ha-icon>
             </button>
-            <button @click=${() => this.execute(() => adapter.nudge("left"))} aria-label="Move fan left">
+            <button @click=${() => this.execute(() => adapter.nudge("left"))} aria-label=${this.t("moveFanLeft")}>
               <ha-icon icon="mdi:chevron-left"></ha-icon>
             </button>
-            <button @click=${() => this.execute(() => adapter.nudge("right"))} aria-label="Move fan right">
+            <button @click=${() => this.execute(() => adapter.nudge("right"))} aria-label=${this.t("moveFanRight")}>
               <ha-icon icon="mdi:chevron-right"></ha-icon>
             </button>
-            <button @click=${() => this.execute(() => adapter.nudge("down"))} aria-label="Move fan down">
+            <button @click=${() => this.execute(() => adapter.nudge("down"))} aria-label=${this.t("moveFanDown")}>
               <ha-icon icon="mdi:chevron-down"></ha-icon>
             </button>
           </div>
@@ -505,7 +527,10 @@ export class XiaomiFanCard extends LitElement {
       features.push(html`
         <button class="feature-button" @click=${() => this.execute(() => adapter.setDirection(direction))}>
           <ha-icon icon="mdi:rotate-orbit"></ha-icon>
-          <span><small>Direction</small><strong>${state.direction ?? "Forward"}</strong></span>
+          <span>
+            <small>${this.t("direction")}</small>
+            <strong>${state.direction === "reverse" ? this.t("reverse") : this.t("forward")}</strong>
+          </span>
         </button>
       `);
     }
@@ -513,7 +538,7 @@ export class XiaomiFanCard extends LitElement {
     if (adapter.capabilities.favoriteLevel) {
       features.push(html`
         <label class="feature-select">
-          <span>Favorite level</span>
+          <span>${this.t("favoriteLevel")}</span>
           <input
             type="number"
             min="1"
@@ -532,7 +557,7 @@ export class XiaomiFanCard extends LitElement {
       features.push(html`
         <button class="feature-button" @click=${() => this.execute(() => adapter.setTimer(nextTimer))}>
           <ha-icon icon="mdi:timer-outline"></ha-icon>
-          <span><small>Timer</small><strong>${displayTimer(state.timerMinutes)}</strong></span>
+          <span><small>${this.t("timer")}</small><strong>${this.displayTimer(state.timerMinutes)}</strong></span>
         </button>
       `);
     }
@@ -544,7 +569,9 @@ export class XiaomiFanCard extends LitElement {
           @click=${() => this.execute(() => adapter.setChildLock(!state.childLock))}
         >
           <ha-icon icon="mdi:lock${state.childLock ? "" : "-open-outline"}"></ha-icon>
-          <span><small>Child lock</small><strong>${state.childLock ? "On" : "Off"}</strong></span>
+          <span>
+            <small>${this.t("childLock")}</small><strong>${state.childLock ? this.t("on") : this.t("off")}</strong>
+          </span>
         </button>
       `);
     }
@@ -556,7 +583,7 @@ export class XiaomiFanCard extends LitElement {
           @click=${() => this.execute(() => adapter.setLed(!state.led))}
         >
           <ha-icon icon="mdi:led-outline"></ha-icon>
-          <span><small>LED</small><strong>${state.led ? "On" : "Off"}</strong></span>
+          <span><small>${this.t("led")}</small><strong>${state.led ? this.t("on") : this.t("off")}</strong></span>
         </button>
       `);
     }
@@ -568,7 +595,7 @@ export class XiaomiFanCard extends LitElement {
           @click=${() => this.execute(() => adapter.setBuzzer(!state.buzzer))}
         >
           <ha-icon icon="mdi:bell-outline"></ha-icon>
-          <span><small>Buzzer</small><strong>${state.buzzer ? "On" : "Off"}</strong></span>
+          <span><small>${this.t("buzzer")}</small><strong>${state.buzzer ? this.t("on") : this.t("off")}</strong></span>
         </button>
       `);
     }
@@ -580,13 +607,15 @@ export class XiaomiFanCard extends LitElement {
           @click=${() => this.execute(() => adapter.setIonizer(!state.ionizer))}
         >
           <ha-icon icon="mdi:air-filter"></ha-icon>
-          <span><small>Ionizer</small><strong>${state.ionizer ? "On" : "Off"}</strong></span>
+          <span>
+            <small>${this.t("ionizer")}</small><strong>${state.ionizer ? this.t("on") : this.t("off")}</strong>
+          </span>
         </button>
       `);
     }
 
     return features.length > 0
-      ? html`<section class="controls feature-controls" aria-label="Fan features">${features}</section>`
+      ? html`<section class="controls feature-controls" aria-label=${this.t("fanFeatures")}>${features}</section>`
       : "";
   }
 
