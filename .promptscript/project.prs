@@ -11,6 +11,7 @@
 @use ./knowledge
 @use ./workflows
 @use ./agents
+@use github.com/nextlevelbuilder/ui-ux-pro-max-skill/.claude/skills/ui-ux-pro-max
 
 @identity {
   """

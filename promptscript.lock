@@ -4,3 +4,16 @@ dependencies:
     version: latest
     commit: 49965622f3b083d1620443e05a37968c7447570f
     integrity: sha256-pending
+  github.com/nextlevelbuilder/ui-ux-pro-max-skill/.claude/skills/ui-ux-pro-max:
+    version: latest
+    commit: a38d04c3d5c298c851dbe5e6ee1965ee3de42cb5
+    integrity: sha256-ea087c341bfb5b23195c7302027268ede86da802554c18a5c4896a6017b439f9
+    source: md
+    fetchedAt: 2026-08-14T16:10:42.064Z
+  https://github.com/nextlevelbuilder/ui-ux-pro-max-skill:
+    version: latest
+    commit: a38d04c3d5c298c851dbe5e6ee1965ee3de42cb5
+    integrity: sha256-pending
+    source: md
+    skills:
+      - github.com/nextlevelbuilder/ui-ux-pro-max-skill/.claude/skills/ui-ux-pro-max
