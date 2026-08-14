@@ -11,7 +11,7 @@ Capability-aware. Five themes. Native visual editor. No telemetry.
 [![codecov](https://codecov.io/gh/mrwogu/xiaomi-smart-fan-card/branch/main/graph/badge.svg)](https://codecov.io/gh/mrwogu/xiaomi-smart-fan-card)
 [![Latest release](https://img.shields.io/github/v/release/mrwogu/xiaomi-smart-fan-card)](https://github.com/mrwogu/xiaomi-smart-fan-card/releases)
 
-<img src="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/hero-light-dark.webp" alt="The default card with the airflow graphic, speed slider, mode buttons, angle controls, and device toggles, shown in Home Assistant light and dark mode" width="440">
+<img src="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/hero-light-dark.webp" alt="The default card side by side in Home Assistant light and dark mode, with the airflow graphic, speed slider, mode buttons, angle controls, and device toggles" width="720">
 
 <sub>Default configuration, light and dark, nothing but the entity set.</sub>
 
