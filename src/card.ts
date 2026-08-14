@@ -306,6 +306,20 @@ export class XiaomiFanCard extends LitElement {
       : this.t("minutesOnly", { minutes: remainder });
   }
 
+  private relatedAngleValue(axis: "horizontal" | "vertical", fallback: number | undefined): number | undefined {
+    const entityId =
+      axis === "horizontal"
+        ? (this.config.horizontal_angle_entity ?? this.related.horizontalAngle)
+        : (this.config.vertical_angle_entity ?? this.related.verticalAngle);
+    const raw = entityId ? this.hass?.states[entityId]?.state : undefined;
+    if (typeof raw !== "string" || raw.trim() === "") {
+      return fallback;
+    }
+
+    const value = Number(raw);
+    return Number.isFinite(value) ? value : fallback;
+  }
+
   private withConfiguredRelatedEntities(discovered: RelatedEntities): RelatedEntities {
     return {
       ...discovered,
@@ -450,6 +464,8 @@ export class XiaomiFanCard extends LitElement {
   private renderDetails(adapter: FanAdapter) {
     const state = adapter.state;
     const details = this.config.details;
+    const horizontalAngle = this.relatedAngleValue("horizontal", state.horizontalAngle);
+    const verticalAngle = this.relatedAngleValue("vertical", state.verticalAngle);
 
     if (!details.show) {
       return "";
@@ -472,11 +488,11 @@ export class XiaomiFanCard extends LitElement {
             ? html`
                 <span
                   aria-label=${this.t("horizontalAngleValue", {
-                    value: state.horizontalAngle ?? this.t("unavailable"),
+                    value: horizontalAngle ?? this.t("unavailable"),
                   })}
                   >${
-                    state.horizontalAngle !== undefined
-                      ? this.t("horizontalAngleShort", { value: state.horizontalAngle })
+                    horizontalAngle !== undefined
+                      ? this.t("horizontalAngleShort", { value: horizontalAngle })
                       : this.t("horizontalAngleUnavailable")
                   }</span
                 >
@@ -488,11 +504,11 @@ export class XiaomiFanCard extends LitElement {
             ? html`
                 <span
                   aria-label=${this.t("verticalAngleValue", {
-                    value: state.verticalAngle ?? this.t("unavailable"),
+                    value: verticalAngle ?? this.t("unavailable"),
                   })}
                   >${
-                    state.verticalAngle !== undefined
-                      ? this.t("verticalAngleShort", { value: state.verticalAngle })
+                    verticalAngle !== undefined
+                      ? this.t("verticalAngleShort", { value: verticalAngle })
                       : this.t("verticalAngleUnavailable")
                   }</span
                 >
@@ -599,7 +615,7 @@ export class XiaomiFanCard extends LitElement {
                     @click=${() => this.execute(() => adapter.setHorizontalSwing(!state.horizontalSwing))}
                     aria-pressed=${state.horizontalSwing}
                   >
-                    <ha-icon icon="mdi:rotate-3d-variant"></ha-icon>
+                    <ha-icon icon="mdi:arrow-left-right"></ha-icon>
                     ${this.t("horizontal")}
                   </button>
                 `
@@ -773,13 +789,16 @@ export class XiaomiFanCard extends LitElement {
   private renderFeatureControls(adapter: FanAdapter) {
     const state = adapter.state;
     const controls = this.config.controls;
+    const horizontalAngle = this.relatedAngleValue("horizontal", state.horizontalAngle);
+    const verticalAngle = this.relatedAngleValue("vertical", state.verticalAngle);
+    const angleFeatures: unknown[] = [];
     const features: unknown[] = [];
 
     if (controls.show_horizontal_angle && adapter.capabilities.horizontalAngle) {
-      features.push(
+      angleFeatures.push(
         this.renderAngleControl(
           this.t("horizontalAngle"),
-          state.horizontalAngle,
+          horizontalAngle,
           adapter.capabilities.horizontalAngles,
           (angle) => this.execute(() => adapter.setHorizontalAngle(angle)),
         ),
@@ -787,18 +806,15 @@ export class XiaomiFanCard extends LitElement {
     }
 
     if (controls.show_vertical_angle && adapter.capabilities.verticalAngle) {
-      features.push(
-        this.renderAngleControl(
-          this.t("verticalAngle"),
-          state.verticalAngle,
-          adapter.capabilities.verticalAngles,
-          (angle) => this.execute(() => adapter.setVerticalAngle(angle)),
+      angleFeatures.push(
+        this.renderAngleControl(this.t("verticalAngle"), verticalAngle, adapter.capabilities.verticalAngles, (angle) =>
+          this.execute(() => adapter.setVerticalAngle(angle)),
         ),
       );
     }
 
     if (controls.show_nudge && adapter.capabilities.directionNudge) {
-      features.push(html`
+      angleFeatures.push(html`
         <div class="nudge-control">
           <span>${this.t("position")}</span>
           <div class="nudge-grid">
@@ -909,9 +925,18 @@ export class XiaomiFanCard extends LitElement {
       `);
     }
 
-    return features.length > 0
-      ? html`<section class="controls feature-controls" aria-label=${this.t("fanFeatures")}>${features}</section>`
-      : "";
+    return html`
+      ${
+        angleFeatures.length > 0
+          ? html`<section class="controls angle-controls" aria-label=${this.t("position")}>${angleFeatures}</section>`
+          : ""
+      }
+      ${
+        features.length > 0
+          ? html`<section class="controls feature-controls" aria-label=${this.t("fanFeatures")}>${features}</section>`
+          : ""
+      }
+    `;
   }
 
   private renderTimerCycleButton(adapter: FanAdapter, current: number | undefined, steps: number[] | undefined) {
@@ -1073,6 +1098,27 @@ export class XiaomiFanCard extends LitElement {
     .header-compact .header {
       gap: 10px;
       padding-bottom: 0;
+    }
+
+    .header-full .header {
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--fan-border);
+    }
+
+    .header-full .title-button {
+      gap: 8px;
+    }
+
+    .header-full .eyebrow {
+      color: var(--fan-accent);
+    }
+
+    .header-full .title {
+      font-size: 22px;
+    }
+
+    .header-full .subtitle {
+      font-size: 13px;
     }
 
     .title-button {
@@ -1487,6 +1533,7 @@ export class XiaomiFanCard extends LitElement {
       --mdc-icon-size: 16px;
     }
 
+    .angle-controls,
     .feature-controls {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1766,25 +1813,30 @@ export class XiaomiFanCard extends LitElement {
       --fan-control-height: 48px;
     }
 
+    .columns-one .angle-controls,
     .columns-one .feature-controls {
       grid-template-columns: minmax(0, 1fr);
     }
 
+    .columns-two .angle-controls,
     .columns-two .feature-controls {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     @container (max-width: 419px) {
+      .angle-controls,
       .feature-controls {
         grid-template-columns: minmax(0, 1fr);
       }
 
+      .columns-two .angle-controls,
       .columns-two .feature-controls {
         grid-template-columns: minmax(0, 1fr);
       }
     }
 
     @media (max-width: 419px) {
+      .angle-controls,
       .feature-controls {
         grid-template-columns: minmax(0, 1fr);
       }

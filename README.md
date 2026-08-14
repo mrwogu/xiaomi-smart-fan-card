@@ -205,20 +205,142 @@ related_entities:
   led_entity: select.xiaomi_fan_led
 ```
 
-### Nested groups
+### Complete parameter reference
 
-| Group              | Main options                                                                                                |
-| ------------------ | ----------------------------------------------------------------------------------------------------------- |
-| `header`           | `show`, `variant`, `show_eyebrow`, `show_name`, `show_status`, `show_mode`, `show_model`                    |
-| `visual`           | `show`, `show_graphic`, `show_power`, `show_speed`, `show_details`, `animation`                             |
-| `controls`         | `show`, speed and mode flags, swing and angle flags, optional feature flags, `selection_mode`, `timer_mode` |
-| `details`          | `show`, `show_horizontal_angle`, `show_vertical_angle`, `show_timer`, `show_temperature`, `show_humidity`   |
-| `layout`           | `theme`, `density` (`comfortable` or `compact`), `columns` (`auto`, `one`, `two`)                           |
-| `related_entities` | Manual entity IDs for optional controls and sensors                                                         |
+Nested values take precedence over the legacy top-level aliases. `type` is
+required by Lovelace. The defaults below apply after configuration
+normalization.
+
+#### Top-level parameters
+
+| Parameter                  | Default              | Description                                                                                |
+| -------------------------- | -------------------- | ------------------------------------------------------------------------------------------ |
+| `type`                     | required             | Must be `custom:xiaomi-fan-card`.                                                          |
+| `entity`                   | required             | Primary Home Assistant `fan` entity.                                                       |
+| `entity_id`                | legacy alias         | Alias for `entity`.                                                                        |
+| `name`                     | entity friendly name | Card title.                                                                                |
+| `integration`              | `auto`               | Adapter selection: `auto`, `standard`, `xiaomi_miio`, `xiaomi_miio_fan`, or `xiaomi_miot`. |
+| `platform`                 | none                 | Legacy alias for `integration`.                                                            |
+| `theme`                    | `auto`               | Legacy alias for `layout.theme`.                                                           |
+| `disable_animation`        | `false`              | Disable decorative airflow and rotor motion.                                               |
+| `show_sleep`               | `true`               | Legacy alias for `controls.show_sleep`.                                                    |
+| `show_timer`               | `true`               | Legacy alias for `controls.show_timer`.                                                    |
+| `show_child_lock`          | `true`               | Legacy alias for `controls.show_child_lock`.                                               |
+| `show_led`                 | `true`               | Legacy alias for `controls.show_led`.                                                      |
+| `show_buzzer`              | `true`               | Legacy alias for `controls.show_buzzer`.                                                   |
+| `show_ionizer`             | `true`               | Legacy alias for `controls.show_ionizer`.                                                  |
+| `sleep_mode`               | none                 | Legacy alias for `show_sleep`.                                                             |
+| `force_sleep_mode_support` | none                 | Legacy alias for `show_sleep`.                                                             |
+| `hide_led_button`          | `false`              | Legacy option. Set to `true` to force `controls.show_led: false`.                          |
+
+#### Legacy top-level related-entity aliases
+
+These keys are still accepted for older YAML configurations. The nested
+`related_entities` values take precedence when both forms are present.
+
+| Parameter                 | Default   | Description                                                    |
+| ------------------------- | --------- | -------------------------------------------------------------- |
+| `horizontal_angle_entity` | automatic | Related horizontal angle `number` or `input_number` entity.    |
+| `vertical_swing_entity`   | automatic | Related vertical swing `switch`, `input_boolean`, or `select`. |
+| `vertical_angle_entity`   | automatic | Related vertical angle `number` or `input_number` entity.      |
+| `favorite_level_entity`   | automatic | Related favorite level `number` or `input_number` entity.      |
+| `sleep_mode_entity`       | automatic | Related sleep mode `switch`, `input_boolean`, or `select`.     |
+| `timer_entity`            | automatic | Related timer `number` or `input_number` entity.               |
+| `child_lock_entity`       | automatic | Related child lock `switch`, `input_boolean`, or `select`.     |
+| `led_entity`              | automatic | Related LED switch, select, or numeric entity.                 |
+| `buzzer_entity`           | automatic | Related buzzer `switch`, `input_boolean`, or `select`.         |
+| `ionizer_entity`          | automatic | Related ionizer `switch`, `input_boolean`, or `select`.        |
+| `temperature_entity`      | automatic | Related temperature `sensor` entity.                           |
+| `humidity_entity`         | automatic | Related humidity `sensor` entity.                              |
+
+#### `header`
+
+| Parameter             | Default                     | Description                                                                         |
+| --------------------- | --------------------------- | ----------------------------------------------------------------------------------- |
+| `header.show`         | `true`                      | Show the card header.                                                               |
+| `header.variant`      | `compact`                   | `compact` keeps secondary metadata minimal; `full` shows the expanded header style. |
+| `header.show_eyebrow` | `false` (`true` for `full`) | Show the Xiaomi Air Circulation eyebrow.                                            |
+| `header.show_name`    | `true`                      | Show the fan name.                                                                  |
+| `header.show_status`  | `true`                      | Show running or standby status.                                                     |
+| `header.show_mode`    | `false` (`true` for `full`) | Show the current airflow mode.                                                      |
+| `header.show_model`   | `false` (`true` for `full`) | Show the known model badge.                                                         |
+
+#### `visual`
+
+| Parameter             | Default | Description                                    |
+| --------------------- | ------- | ---------------------------------------------- |
+| `visual.show`         | `true`  | Show the visual status section.                |
+| `visual.show_graphic` | `true`  | Show the animated fan graphic.                 |
+| `visual.show_power`   | `true`  | Show the central power button.                 |
+| `visual.show_speed`   | `true`  | Show the percentage readout.                   |
+| `visual.show_details` | `true`  | Show angles, timer, temperature, and humidity. |
+| `visual.animation`    | `auto`  | `auto`, `enabled`, or `disabled`.              |
+
+#### `controls`
+
+| Parameter                        | Default  | Description                                                   |
+| -------------------------------- | -------- | ------------------------------------------------------------- |
+| `controls.show`                  | `true`   | Show interactive controls.                                    |
+| `controls.show_speed_slider`     | `true`   | Show the percentage slider.                                   |
+| `controls.show_speed_levels`     | `true`   | Show speed level buttons or a selector.                       |
+| `controls.show_modes`            | `true`   | Show normal, natural, and preset mode controls.               |
+| `controls.show_preset_mode`      | `true`   | Include generic preset modes.                                 |
+| `controls.show_horizontal_swing` | `true`   | Show the horizontal oscillation toggle.                       |
+| `controls.show_vertical_swing`   | `true`   | Show the vertical oscillation toggle when available.          |
+| `controls.show_sleep`            | `true`   | Show the sleep mode control when available.                   |
+| `controls.show_cycle`            | `true`   | Show the combined horizontal and vertical cycle toggle.       |
+| `controls.show_horizontal_angle` | `true`   | Show the horizontal angle selector.                           |
+| `controls.show_vertical_angle`   | `true`   | Show the vertical angle selector when available.              |
+| `controls.show_nudge`            | `true`   | Show directional nudge buttons when available.                |
+| `controls.show_direction`        | `true`   | Show forward or reverse direction for standard fan entities.  |
+| `controls.show_favorite_level`   | `true`   | Show the favorite level number control when available.        |
+| `controls.show_timer`            | `true`   | Show the timer control next to the optional feature controls. |
+| `controls.show_child_lock`       | `true`   | Show the child lock control when available.                   |
+| `controls.show_led`              | `true`   | Show the LED control when available.                          |
+| `controls.show_buzzer`           | `true`   | Show the buzzer control when available.                       |
+| `controls.show_ionizer`          | `true`   | Show the ionizer control when available.                      |
+| `controls.selection_mode`        | `auto`   | Speed level presentation: `auto`, `buttons`, or `select`.     |
+| `controls.timer_mode`            | `select` | Timer presentation: `select` or `cycle`.                      |
+
+#### `details`
+
+| Parameter                       | Default | Description                              |
+| ------------------------------- | ------- | ---------------------------------------- |
+| `details.show`                  | `true`  | Show the metadata row below the graphic. |
+| `details.show_horizontal_angle` | `true`  | Show the current horizontal angle.       |
+| `details.show_vertical_angle`   | `true`  | Show the current vertical angle.         |
+| `details.show_timer`            | `true`  | Show the current timer value.            |
+| `details.show_temperature`      | `true`  | Show temperature when available.         |
+| `details.show_humidity`         | `true`  | Show humidity when available.            |
+
+#### `layout`
+
+| Parameter        | Default       | Description                                              |
+| ---------------- | ------------- | -------------------------------------------------------- |
+| `layout.theme`   | `auto`        | `auto`, `mushroom`, `minimal`, `glass`, or `industrial`. |
+| `layout.density` | `comfortable` | Control sizing: `comfortable` or `compact`.              |
+| `layout.columns` | `auto`        | Feature columns: `auto`, `one`, or `two`.                |
+
+#### `related_entities`
+
+| Parameter                                  | Default   | Description                                                      |
+| ------------------------------------------ | --------- | ---------------------------------------------------------------- |
+| `related_entities.horizontal_angle_entity` | automatic | `number` or `input_number` for the horizontal angle.             |
+| `related_entities.vertical_swing_entity`   | automatic | `switch`, `input_boolean`, or `select` for vertical oscillation. |
+| `related_entities.vertical_angle_entity`   | automatic | `number` or `input_number` for the vertical angle.               |
+| `related_entities.favorite_level_entity`   | automatic | `number` or `input_number` for the favorite level.               |
+| `related_entities.sleep_mode_entity`       | automatic | `switch`, `input_boolean`, or `select` for sleep mode.           |
+| `related_entities.timer_entity`            | automatic | `number` or `input_number` for the timer.                        |
+| `related_entities.child_lock_entity`       | automatic | `switch`, `input_boolean`, or `select` for child lock.           |
+| `related_entities.led_entity`              | automatic | LED `switch`, `input_boolean`, `select`, or numeric entity.      |
+| `related_entities.buzzer_entity`           | automatic | `switch`, `input_boolean`, or `select` for the buzzer.           |
+| `related_entities.ionizer_entity`          | automatic | `switch`, `input_boolean`, or `select` for the ionizer.          |
+| `related_entities.temperature_entity`      | automatic | `sensor` for temperature.                                        |
+| `related_entities.humidity_entity`         | automatic | `sensor` for humidity.                                           |
 
 `selection_mode` is `auto`, `buttons`, or `select`. `timer_mode` is `select` or
-`cycle`. The default header is compact and hides the eyebrow, model, and mode
-until enabled.
+`cycle`. The full header also enables its eyebrow, mode, and known model badge
+by default, while each `show_*` option can still override that behavior.
 
 Timer controls use minutes. Related numeric timer entities with
 `unit_of_measurement` set to `s`, `sec`, `second`, or `seconds` are converted
@@ -230,32 +352,6 @@ For Xiaomi LED brightness controls, the custom Xiaomi service contract is
 `*_led_brightness` number with a `0..2` range uses the same mapping. Other
 switch, select, and number entities use their exposed Home Assistant
 contract.
-
-| Key                       | Default     | Description                                                                                                                     |
-| ------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `entity`                  | required    | Fan entity                                                                                                                      |
-| `name`                    | entity name | Card title                                                                                                                      |
-| `theme`                   | `auto`      | `auto`, `mushroom`, `minimal`, `glass`, `industrial`                                                                            |
-| `integration`             | `auto`      | `auto` uses standard fan actions; select `standard`, `xiaomi_miio`, `xiaomi_miio_fan`, or `xiaomi_miot` for an explicit adapter |
-| `disable_animation`       | `false`     | Disable decorative motion                                                                                                       |
-| `show_sleep`              | `true`      | Show a sleep preset when exposed                                                                                                |
-| `show_timer`              | `true`      | Show timer control                                                                                                              |
-| `show_child_lock`         | `true`      | Show child lock control                                                                                                         |
-| `show_led`                | `true`      | Show LED control                                                                                                                |
-| `show_buzzer`             | `true`      | Show buzzer control                                                                                                             |
-| `show_ionizer`            | `true`      | Show ionizer control                                                                                                            |
-| `horizontal_angle_entity` | automatic   | Override related horizontal angle `number` entity                                                                               |
-| `vertical_swing_entity`   | automatic   | Override related vertical swing `switch`, `input_boolean`, or `select` entity                                                   |
-| `vertical_angle_entity`   | automatic   | Override related vertical angle `number` entity                                                                                 |
-| `timer_entity`            | automatic   | Override related timer `number` entity                                                                                          |
-| `child_lock_entity`       | automatic   | Override related child lock `switch`, `input_boolean`, or `select` entity                                                       |
-| `led_entity`              | automatic   | Override related LED `switch`, `input_boolean`, `select`, or numeric entity                                                     |
-| `buzzer_entity`           | automatic   | Override related buzzer `switch`, `input_boolean`, or `select` entity                                                           |
-| `ionizer_entity`          | automatic   | Override related ionizer `switch`, `input_boolean`, or `select` entity                                                          |
-| `favorite_level_entity`   | automatic   | Override related favorite level `number` entity                                                                                 |
-| `sleep_mode_entity`       | automatic   | Override related sleep mode `switch` or `select` entity                                                                         |
-| `temperature_entity`      | automatic   | Override related temperature `sensor` entity                                                                                    |
-| `humidity_entity`         | automatic   | Override related humidity `sensor` entity                                                                                       |
 
 ### Configuration compatibility
 

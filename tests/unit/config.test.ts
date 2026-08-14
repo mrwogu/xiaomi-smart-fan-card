@@ -55,6 +55,19 @@ describe("normalizeCardConfig", () => {
     expect(config.layout.columns).toBe("one");
   });
 
+  it("expands the full header defaults", () => {
+    const config = normalizeCardConfig({
+      type: "custom:xiaomi-fan-card",
+      entity: "fan.example",
+      header: { variant: "full" },
+    });
+
+    expect(config.header.variant).toBe("full");
+    expect(config.header.show_eyebrow).toBe(true);
+    expect(config.header.show_mode).toBe(true);
+    expect(config.header.show_model).toBe(true);
+  });
+
   it("falls back safely for invalid enum values", () => {
     const config = normalizeCardConfig({
       type: "custom:xiaomi-fan-card",
