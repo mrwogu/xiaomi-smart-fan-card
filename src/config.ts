@@ -1,19 +1,39 @@
 import type {
   FanAnimationMode,
+  FanBlock,
   FanCardConfig,
+  FanAngleMode,
   FanColumns,
   FanControlsConfig,
   FanDensity,
+  FanDetailsPosition,
   FanDetailsConfig,
   FanHeaderConfig,
   FanHeaderVariant,
   FanLayoutConfig,
   FanSelectionMode,
+  FanStyleBlock,
+  FanStylesConfig,
   FanTheme,
   FanTimerMode,
   FanVisualConfig,
   ResolvedFanCardConfig,
 } from "./types";
+
+export const DEFAULT_BLOCK_ORDER: readonly FanBlock[] = ["header", "visual", "airflow", "position", "features"];
+
+const STYLE_TOKEN_KEYS: readonly (keyof FanStyleBlock)[] = [
+  "background",
+  "border",
+  "border_radius",
+  "color",
+  "font_size",
+  "gap",
+  "height",
+  "padding",
+  "shadow",
+  "size",
+];
 
 type RelatedEntitiesConfigKey =
   | "horizontal_angle_entity"
@@ -64,6 +84,7 @@ export const DEFAULT_CONFIG = {
     show_horizontal_angle: true,
     show_vertical_angle: true,
     show_nudge: true,
+    show_nudge_with_angles: false,
     show_direction: true,
     show_favorite_level: true,
     show_timer: true,
@@ -73,20 +94,25 @@ export const DEFAULT_CONFIG = {
     show_ionizer: true,
     selection_mode: "auto",
     timer_mode: "select",
+    angle_mode: "select",
   },
   details: {
     show: true,
     show_horizontal_angle: true,
     show_vertical_angle: true,
     show_timer: true,
+    show_timer_when_off: true,
     show_temperature: true,
     show_humidity: true,
+    position: "below",
   },
   layout: {
     theme: "auto",
     density: "comfortable",
     columns: "auto",
+    order: [...DEFAULT_BLOCK_ORDER],
   },
+  styles: {},
   disable_animation: false,
   show_sleep: true,
   show_timer: true,
@@ -166,6 +192,7 @@ const normalizeControls = (
     show_horizontal_angle: booleanValue(input.show_horizontal_angle, true),
     show_vertical_angle: booleanValue(input.show_vertical_angle, true),
     show_nudge: booleanValue(input.show_nudge, true),
+    show_nudge_with_angles: booleanValue(input.show_nudge_with_angles, false),
     show_direction: booleanValue(input.show_direction, true),
     show_favorite_level: booleanValue(input.show_favorite_level, true),
     show_timer: booleanValue(input.show_timer, legacy.showTimer),
@@ -175,6 +202,7 @@ const normalizeControls = (
     show_ionizer: booleanValue(input.show_ionizer, legacy.showIonizer),
     selection_mode: enumValue<FanSelectionMode>(input.selection_mode, ["auto", "buttons", "select"], "auto"),
     timer_mode: enumValue<FanTimerMode>(input.timer_mode, ["cycle", "select"], "select"),
+    angle_mode: enumValue<FanAngleMode>(input.angle_mode, ["cycle", "select"], "select"),
   };
 };
 
@@ -186,9 +214,25 @@ const normalizeDetails = (value: unknown): Required<FanDetailsConfig> => {
     show_horizontal_angle: booleanValue(input.show_horizontal_angle, true),
     show_vertical_angle: booleanValue(input.show_vertical_angle, true),
     show_timer: booleanValue(input.show_timer, true),
+    show_timer_when_off: booleanValue(input.show_timer_when_off, true),
     show_temperature: booleanValue(input.show_temperature, true),
     show_humidity: booleanValue(input.show_humidity, true),
+    position: enumValue<FanDetailsPosition>(input.position, ["below", "side"], "below"),
   };
+};
+
+const normalizeOrder = (value: unknown): FanBlock[] => {
+  if (!Array.isArray(value)) {
+    return [...DEFAULT_BLOCK_ORDER];
+  }
+
+  const selected = value.filter(
+    (item): item is FanBlock => typeof item === "string" && DEFAULT_BLOCK_ORDER.includes(item as FanBlock),
+  );
+  return [
+    ...selected.filter((item, index) => selected.indexOf(item) === index),
+    ...DEFAULT_BLOCK_ORDER.filter((item) => !selected.includes(item)),
+  ];
 };
 
 const normalizeLayout = (value: unknown, theme: unknown): Required<FanLayoutConfig> => {
@@ -198,6 +242,33 @@ const normalizeLayout = (value: unknown, theme: unknown): Required<FanLayoutConf
     theme: themeValue(input.theme ?? theme),
     density: enumValue<FanDensity>(input.density, ["comfortable", "compact"], "comfortable"),
     columns: enumValue<FanColumns>(input.columns, ["auto", "one", "two"], "auto"),
+    order: normalizeOrder(input.order),
+  };
+};
+
+const normalizeStyleBlock = (value: unknown): FanStyleBlock => {
+  const input = recordValue(value);
+  const tokens: FanStyleBlock = {};
+
+  for (const key of STYLE_TOKEN_KEYS) {
+    const token = input[key];
+    if (typeof token === "string" && token.trim() !== "") {
+      tokens[key] = token;
+    }
+  }
+
+  return tokens;
+};
+
+const normalizeStyles = (value: unknown): Required<FanStylesConfig> => {
+  const input = recordValue(value);
+
+  return {
+    card: normalizeStyleBlock(input.card),
+    header: normalizeStyleBlock(input.header),
+    visual: normalizeStyleBlock(input.visual),
+    controls: normalizeStyleBlock(input.controls),
+    details: normalizeStyleBlock(input.details),
   };
 };
 
@@ -257,6 +328,7 @@ export const normalizeCardConfig = (raw: Partial<FanCardConfig> | undefined): Re
     controls,
     details: normalizeDetails(source.details),
     layout: normalizeLayout(source.layout, source.theme),
+    styles: normalizeStyles(source.styles),
     horizontal_angle_entity: relatedEntity("horizontal_angle_entity"),
     vertical_swing_entity: relatedEntity("vertical_swing_entity"),
     vertical_angle_entity: relatedEntity("vertical_angle_entity"),

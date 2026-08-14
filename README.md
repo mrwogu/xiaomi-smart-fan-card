@@ -109,6 +109,10 @@ device identifiers, tokens, and personal dashboard information.
 Controls are shown only when the primary entity, related entities, model
 profile, or registered service makes them actionable.
 
+Nudge arrows are hidden by default when horizontal or vertical angle controls
+are available, because both controls can target the same fan position. Set
+`controls.show_nudge_with_angles: true` to display both.
+
 ## Supported integrations
 
 ### Native Xiaomi Home (`xiaomi_miio`)
@@ -171,6 +175,7 @@ layout:
   theme: mushroom
   density: comfortable
   columns: auto
+  order: [header, visual, airflow, position, features]
 header:
   variant: compact
   show: true
@@ -188,18 +193,27 @@ controls:
   show: true
   selection_mode: auto
   timer_mode: select
+  angle_mode: select
   show_speed_slider: true
   show_speed_levels: true
   show_horizontal_swing: true
   show_vertical_swing: true
+  show_nudge_with_angles: false
   show_timer: true
 details:
   show: true
   show_horizontal_angle: true
   show_vertical_angle: true
   show_timer: true
+  show_timer_when_off: true
   show_temperature: true
   show_humidity: true
+  position: below
+styles:
+  card:
+    border: 1px solid rgba(120, 140, 180, 0.35)
+  controls:
+    border_radius: 18px
 related_entities:
   timer_entity: number.xiaomi_fan_timer
   led_entity: select.xiaomi_fan_led
@@ -278,48 +292,61 @@ These keys are still accepted for older YAML configurations. The nested
 
 #### `controls`
 
-| Parameter                        | Default  | Description                                                   |
-| -------------------------------- | -------- | ------------------------------------------------------------- |
-| `controls.show`                  | `true`   | Show interactive controls.                                    |
-| `controls.show_speed_slider`     | `true`   | Show the percentage slider.                                   |
-| `controls.show_speed_levels`     | `true`   | Show speed level buttons or a selector.                       |
-| `controls.show_modes`            | `true`   | Show normal, natural, and preset mode controls.               |
-| `controls.show_preset_mode`      | `true`   | Include generic preset modes.                                 |
-| `controls.show_horizontal_swing` | `true`   | Show the horizontal oscillation toggle.                       |
-| `controls.show_vertical_swing`   | `true`   | Show the vertical oscillation toggle when available.          |
-| `controls.show_sleep`            | `true`   | Show the sleep mode control when available.                   |
-| `controls.show_cycle`            | `true`   | Show the combined horizontal and vertical cycle toggle.       |
-| `controls.show_horizontal_angle` | `true`   | Show the horizontal angle selector.                           |
-| `controls.show_vertical_angle`   | `true`   | Show the vertical angle selector when available.              |
-| `controls.show_nudge`            | `true`   | Show directional nudge buttons when available.                |
-| `controls.show_direction`        | `true`   | Show forward or reverse direction for standard fan entities.  |
-| `controls.show_favorite_level`   | `true`   | Show the favorite level number control when available.        |
-| `controls.show_timer`            | `true`   | Show the timer control next to the optional feature controls. |
-| `controls.show_child_lock`       | `true`   | Show the child lock control when available.                   |
-| `controls.show_led`              | `true`   | Show the LED control when available.                          |
-| `controls.show_buzzer`           | `true`   | Show the buzzer control when available.                       |
-| `controls.show_ionizer`          | `true`   | Show the ionizer control when available.                      |
-| `controls.selection_mode`        | `auto`   | Speed level presentation: `auto`, `buttons`, or `select`.     |
-| `controls.timer_mode`            | `select` | Timer presentation: `select` or `cycle`.                      |
+| Parameter                         | Default  | Description                                                   |
+| --------------------------------- | -------- | ------------------------------------------------------------- |
+| `controls.show`                   | `true`   | Show interactive controls.                                    |
+| `controls.show_speed_slider`      | `true`   | Show the percentage slider.                                   |
+| `controls.show_speed_levels`      | `true`   | Show speed level buttons or a selector.                       |
+| `controls.show_modes`             | `true`   | Show normal, natural, and preset mode controls.               |
+| `controls.show_preset_mode`       | `true`   | Include generic preset modes.                                 |
+| `controls.show_horizontal_swing`  | `true`   | Show the horizontal oscillation toggle.                       |
+| `controls.show_vertical_swing`    | `true`   | Show the vertical oscillation toggle when available.          |
+| `controls.show_sleep`             | `true`   | Show the sleep mode control when available.                   |
+| `controls.show_cycle`             | `true`   | Show the combined horizontal and vertical cycle toggle.       |
+| `controls.show_horizontal_angle`  | `true`   | Show the horizontal angle selector.                           |
+| `controls.show_vertical_angle`    | `true`   | Show the vertical angle selector when available.              |
+| `controls.show_nudge`             | `true`   | Show directional nudge buttons when available.                |
+| `controls.show_nudge_with_angles` | `false`  | Keep nudge buttons visible when angle controls are shown.     |
+| `controls.show_direction`         | `true`   | Show forward or reverse direction for standard fan entities.  |
+| `controls.show_favorite_level`    | `true`   | Show the favorite level number control when available.        |
+| `controls.show_timer`             | `true`   | Show the timer control next to the optional feature controls. |
+| `controls.show_child_lock`        | `true`   | Show the child lock control when available.                   |
+| `controls.show_led`               | `true`   | Show the LED control when available.                          |
+| `controls.show_buzzer`            | `true`   | Show the buzzer control when available.                       |
+| `controls.show_ionizer`           | `true`   | Show the ionizer control when available.                      |
+| `controls.selection_mode`         | `auto`   | Speed level presentation: `auto`, `buttons`, or `select`.     |
+| `controls.timer_mode`             | `select` | Timer presentation: `select` or `cycle`.                      |
+| `controls.angle_mode`             | `select` | Angle presentation: `select` or `cycle`.                      |
 
 #### `details`
 
-| Parameter                       | Default | Description                              |
-| ------------------------------- | ------- | ---------------------------------------- |
-| `details.show`                  | `true`  | Show the metadata row below the graphic. |
-| `details.show_horizontal_angle` | `true`  | Show the current horizontal angle.       |
-| `details.show_vertical_angle`   | `true`  | Show the current vertical angle.         |
-| `details.show_timer`            | `true`  | Show the current timer value.            |
-| `details.show_temperature`      | `true`  | Show temperature when available.         |
-| `details.show_humidity`         | `true`  | Show humidity when available.            |
+| Parameter                       | Default | Description                                               |
+| ------------------------------- | ------- | --------------------------------------------------------- |
+| `details.show`                  | `true`  | Show the metadata row below the graphic.                  |
+| `details.show_horizontal_angle` | `true`  | Show the current horizontal angle.                        |
+| `details.show_vertical_angle`   | `true`  | Show the current vertical angle.                          |
+| `details.show_timer`            | `true`  | Show the current timer value.                             |
+| `details.show_timer_when_off`   | `true`  | Keep the `NO TIMER` detail visible when the timer is off. |
+| `details.show_temperature`      | `true`  | Show temperature when available.                          |
+| `details.show_humidity`         | `true`  | Show humidity when available.                             |
+| `details.position`              | `below` | Place details below the graphic or beside it with `side`. |
 
 #### `layout`
 
-| Parameter        | Default       | Description                                              |
-| ---------------- | ------------- | -------------------------------------------------------- |
-| `layout.theme`   | `auto`        | `auto`, `mushroom`, `minimal`, `glass`, or `industrial`. |
-| `layout.density` | `comfortable` | Control sizing: `comfortable` or `compact`.              |
-| `layout.columns` | `auto`        | Feature columns: `auto`, `one`, or `two`.                |
+| Parameter        | Default       | Description                                                                  |
+| ---------------- | ------------- | ---------------------------------------------------------------------------- |
+| `layout.theme`   | `auto`        | `auto`, `mushroom`, `minimal`, `glass`, or `industrial`.                     |
+| `layout.density` | `comfortable` | Control sizing: `comfortable` or `compact`.                                  |
+| `layout.columns` | `auto`        | Feature columns: `auto`, `one`, or `two`.                                    |
+| `layout.order`   | default       | Block order using `header`, `visual`, `airflow`, `position`, and `features`. |
+
+#### `styles`
+
+`styles` contains typed CSS token groups for `card`, `header`, `visual`,
+`controls`, and `details`. Each group accepts `background`, `border`,
+`border_radius`, `color`, `font_size`, `gap`, `height`, `padding`, `shadow`,
+and `size`. Values are CSS values, for example `18px`, `0.8rem`, or
+`1px solid rgba(120, 140, 180, 0.35)`. Unsupported keys are ignored.
 
 #### `related_entities`
 
@@ -338,9 +365,20 @@ These keys are still accepted for older YAML configurations. The nested
 | `related_entities.temperature_entity`      | automatic | `sensor` for temperature.                                        |
 | `related_entities.humidity_entity`         | automatic | `sensor` for humidity.                                           |
 
-`selection_mode` is `auto`, `buttons`, or `select`. `timer_mode` is `select` or
-`cycle`. The full header also enables its eyebrow, mode, and known model badge
-by default, while each `show_*` option can still override that behavior.
+`selection_mode` is `auto`, `buttons`, or `select`. `timer_mode` and `angle_mode`
+are `select` or `cycle`. The default block order is `header`, `visual`,
+`airflow`, `position`, `features`; omitted blocks are appended in that order.
+The full header also enables its eyebrow, mode, and known model badge by default,
+while each `show_*` option can still override that behavior.
+
+When `details.show_timer_when_off` is `false`, the inactive timer detail is
+hidden while an active timer remains visible. `details.position: side` places
+temperature, humidity, angle, and timer details beside the graphic on wide
+cards and falls back below the graphic on narrow cards.
+
+The visual editor uses Home Assistant's native form schema. The fan and related
+entity fields therefore use Home Assistant entity selectors with domain filters,
+search, and the current entity registry instead of a card-maintained list.
 
 Timer controls use minutes. Related numeric timer entities with
 `unit_of_measurement` set to `s`, `sec`, `second`, or `seconds` are converted

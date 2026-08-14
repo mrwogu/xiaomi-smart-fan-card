@@ -114,7 +114,31 @@ export type FanColumns = "auto" | "one" | "two";
 export type FanHeaderVariant = "full" | "compact";
 export type FanSelectionMode = "auto" | "buttons" | "select";
 export type FanTimerMode = "cycle" | "select";
+export type FanAngleMode = "cycle" | "select";
 export type FanAnimationMode = "auto" | "enabled" | "disabled";
+export type FanDetailsPosition = "below" | "side";
+export type FanBlock = "header" | "visual" | "airflow" | "position" | "features";
+
+export interface FanStyleBlock {
+  background?: string;
+  border?: string;
+  border_radius?: string;
+  color?: string;
+  font_size?: string;
+  gap?: string;
+  height?: string;
+  padding?: string;
+  shadow?: string;
+  size?: string;
+}
+
+export interface FanStylesConfig {
+  card?: FanStyleBlock;
+  header?: FanStyleBlock;
+  visual?: FanStyleBlock;
+  controls?: FanStyleBlock;
+  details?: FanStyleBlock;
+}
 
 export interface FanHeaderConfig {
   show?: boolean;
@@ -148,6 +172,7 @@ export interface FanControlsConfig {
   show_horizontal_angle?: boolean;
   show_vertical_angle?: boolean;
   show_nudge?: boolean;
+  show_nudge_with_angles?: boolean;
   show_direction?: boolean;
   show_favorite_level?: boolean;
   show_timer?: boolean;
@@ -157,6 +182,7 @@ export interface FanControlsConfig {
   show_ionizer?: boolean;
   selection_mode?: FanSelectionMode;
   timer_mode?: FanTimerMode;
+  angle_mode?: FanAngleMode;
 }
 
 export interface FanDetailsConfig {
@@ -164,14 +190,17 @@ export interface FanDetailsConfig {
   show_horizontal_angle?: boolean;
   show_vertical_angle?: boolean;
   show_timer?: boolean;
+  show_timer_when_off?: boolean;
   show_temperature?: boolean;
   show_humidity?: boolean;
+  position?: FanDetailsPosition;
 }
 
 export interface FanLayoutConfig {
   theme?: FanTheme;
   density?: FanDensity;
   columns?: FanColumns;
+  order?: FanBlock[];
 }
 
 export interface FanRelatedEntitiesConfig {
@@ -217,6 +246,7 @@ export interface FanCardConfig extends LovelaceCardConfig {
   controls?: FanControlsConfig;
   details?: FanDetailsConfig;
   layout?: FanLayoutConfig;
+  styles?: FanStylesConfig;
   related_entities?: FanRelatedEntitiesConfig;
   disable_animation?: boolean;
   force_sleep_mode_support?: boolean;
@@ -258,6 +288,7 @@ export interface ResolvedFanCardConfig extends FanCardConfig {
   controls: Required<FanControlsConfig>;
   details: Required<FanDetailsConfig>;
   layout: Required<FanLayoutConfig>;
+  styles: Required<FanStylesConfig>;
 }
 
 export interface FanAdapter {

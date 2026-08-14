@@ -32,15 +32,29 @@ describe("normalizeCardConfig", () => {
         show_led: true,
         selection_mode: "select",
         timer_mode: "cycle",
+        angle_mode: "cycle",
+        show_nudge_with_angles: true,
       },
       details: {
         show: false,
         show_temperature: false,
+        show_timer_when_off: false,
+        position: "side",
       },
       layout: {
         theme: "industrial",
         density: "compact",
         columns: "one",
+        order: ["features", "visual", "features", "unknown"] as never,
+      },
+      styles: {
+        card: {
+          border: "1px solid red",
+          unknown: "ignored",
+        } as never,
+        details: {
+          gap: "8px",
+        },
       },
     });
 
@@ -48,11 +62,19 @@ describe("normalizeCardConfig", () => {
     expect(config.controls.show_led).toBe(true);
     expect(config.details.show).toBe(false);
     expect(config.details.show_temperature).toBe(false);
+    expect(config.details.show_timer_when_off).toBe(false);
+    expect(config.details.position).toBe("side");
     expect(config.controls.selection_mode).toBe("select");
     expect(config.controls.timer_mode).toBe("cycle");
+    expect(config.controls.angle_mode).toBe("cycle");
+    expect(config.controls.show_nudge_with_angles).toBe(true);
     expect(config.layout.theme).toBe("industrial");
     expect(config.layout.density).toBe("compact");
     expect(config.layout.columns).toBe("one");
+    expect(config.layout.order).toEqual(["features", "visual", "header", "airflow", "position"]);
+    expect(config.styles.card.border).toBe("1px solid red");
+    expect(config.styles.details.gap).toBe("8px");
+    expect("unknown" in config.styles.card).toBe(false);
   });
 
   it("expands the full header defaults", () => {
@@ -75,7 +97,8 @@ describe("normalizeCardConfig", () => {
       theme: "unknown" as never,
       integration: "unknown" as never,
       header: { variant: "large" as never },
-      controls: { selection_mode: "grid" as never },
+      controls: { selection_mode: "grid" as never, angle_mode: "grid" as never },
+      details: { position: "inline" as never },
       layout: { density: "dense" as never },
     });
 
@@ -83,7 +106,12 @@ describe("normalizeCardConfig", () => {
     expect(config.integration).toBe("auto");
     expect(config.header.variant).toBe("compact");
     expect(config.controls.selection_mode).toBe("auto");
+    expect(config.controls.angle_mode).toBe("select");
+    expect(config.controls.show_nudge_with_angles).toBe(false);
+    expect(config.details.position).toBe("below");
+    expect(config.details.show_timer_when_off).toBe(true);
     expect(config.layout.density).toBe("comfortable");
+    expect(config.layout.order).toEqual(["header", "visual", "airflow", "position", "features"]);
   });
 
   it("accepts related entity groups from editor schemas", () => {
