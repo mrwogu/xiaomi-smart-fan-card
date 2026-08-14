@@ -61,7 +61,6 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
-      id-token: write
     steps:
       - name: Download coverage artifact
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
@@ -70,9 +69,11 @@ jobs:
           path: coverage
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7 # v5.5.1
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
+          disable_search: true
           files: coverage/lcov.info
           flags: unit
           fail_ci_if_error: true
-          use_oidc: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          version: v11.3.1

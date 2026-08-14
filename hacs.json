@@ -1,4 +1,5 @@
 {
   "name": "Xiaomi Fan Card",
+  "render_readme": true,
   "filename": "xiaomi-fan-card.js"
 }
