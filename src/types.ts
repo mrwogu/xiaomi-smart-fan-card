@@ -35,6 +35,15 @@ export interface ServiceAvailability {
   names: ReadonlySet<string>;
 }
 
+export type TimerUnit = "min" | "s";
+
+export interface TimerSpec {
+  unit: TimerUnit;
+  min: number;
+  max: number;
+  step: number;
+}
+
 export interface FanModelProfile {
   model?: string;
   label: string;
@@ -64,6 +73,7 @@ export interface FanCapabilities {
   naturalMode: boolean;
   timer: boolean;
   timerSteps?: number[];
+  timerSpec?: TimerSpec;
   childLock: boolean;
   led: boolean;
   buzzer: boolean;
@@ -98,14 +108,116 @@ export interface NormalizedFanState {
   humidity?: string;
 }
 
+export type FanTheme = "auto" | "mushroom" | "minimal" | "glass" | "industrial";
+export type FanDensity = "comfortable" | "compact";
+export type FanColumns = "auto" | "one" | "two";
+export type FanHeaderVariant = "full" | "compact";
+export type FanSelectionMode = "auto" | "buttons" | "select";
+export type FanTimerMode = "cycle" | "select";
+export type FanAnimationMode = "auto" | "enabled" | "disabled";
+
+export interface FanHeaderConfig {
+  show?: boolean;
+  variant?: FanHeaderVariant;
+  show_eyebrow?: boolean;
+  show_name?: boolean;
+  show_status?: boolean;
+  show_mode?: boolean;
+  show_model?: boolean;
+}
+
+export interface FanVisualConfig {
+  show?: boolean;
+  show_graphic?: boolean;
+  show_power?: boolean;
+  show_speed?: boolean;
+  show_details?: boolean;
+  animation?: FanAnimationMode;
+}
+
+export interface FanControlsConfig {
+  show?: boolean;
+  show_speed_slider?: boolean;
+  show_speed_levels?: boolean;
+  show_modes?: boolean;
+  show_preset_mode?: boolean;
+  show_horizontal_swing?: boolean;
+  show_vertical_swing?: boolean;
+  show_sleep?: boolean;
+  show_cycle?: boolean;
+  show_horizontal_angle?: boolean;
+  show_vertical_angle?: boolean;
+  show_nudge?: boolean;
+  show_direction?: boolean;
+  show_favorite_level?: boolean;
+  show_timer?: boolean;
+  show_child_lock?: boolean;
+  show_led?: boolean;
+  show_buzzer?: boolean;
+  show_ionizer?: boolean;
+  selection_mode?: FanSelectionMode;
+  timer_mode?: FanTimerMode;
+}
+
+export interface FanDetailsConfig {
+  show?: boolean;
+  show_horizontal_angle?: boolean;
+  show_vertical_angle?: boolean;
+  show_timer?: boolean;
+  show_temperature?: boolean;
+  show_humidity?: boolean;
+}
+
+export interface FanLayoutConfig {
+  theme?: FanTheme;
+  density?: FanDensity;
+  columns?: FanColumns;
+}
+
+export interface FanRelatedEntitiesConfig {
+  horizontal_angle_entity?: string;
+  vertical_swing_entity?: string;
+  vertical_angle_entity?: string;
+  timer_entity?: string;
+  child_lock_entity?: string;
+  led_entity?: string;
+  buzzer_entity?: string;
+  ionizer_entity?: string;
+  sleep_mode_entity?: string;
+  favorite_level_entity?: string;
+  temperature_entity?: string;
+  humidity_entity?: string;
+}
+
+export const RELATED_ENTITY_DOMAINS = {
+  horizontal_angle_entity: ["number", "input_number"],
+  vertical_swing_entity: ["switch", "input_boolean", "select"],
+  vertical_angle_entity: ["number", "input_number"],
+  favorite_level_entity: ["number", "input_number"],
+  sleep_mode_entity: ["switch", "input_boolean", "select"],
+  timer_entity: ["number", "input_number"],
+  child_lock_entity: ["switch", "input_boolean", "select"],
+  led_entity: ["switch", "input_boolean", "select", "number", "input_number"],
+  buzzer_entity: ["switch", "input_boolean", "select"],
+  ionizer_entity: ["switch", "input_boolean", "select"],
+  temperature_entity: ["sensor"],
+  humidity_entity: ["sensor"],
+} as const satisfies Record<keyof FanRelatedEntitiesConfig, readonly string[]>;
+
 export interface FanCardConfig extends LovelaceCardConfig {
   type: string;
   entity: string;
   entity_id?: string;
   name?: string;
-  theme?: "auto" | "mushroom" | "minimal" | "glass" | "industrial";
+  theme?: FanTheme;
   integration?: "auto" | "standard" | "xiaomi_miio" | "xiaomi_miio_fan" | "xiaomi_miot";
   platform?: "default" | "xiaomi_miio" | "xiaomi_miio_fan" | "xiaomi_miot";
+  header?: FanHeaderConfig;
+  visual?: FanVisualConfig;
+  controls?: FanControlsConfig;
+  details?: FanDetailsConfig;
+  layout?: FanLayoutConfig;
+  related_entities?: FanRelatedEntitiesConfig;
   disable_animation?: boolean;
   force_sleep_mode_support?: boolean;
   sleep_mode?: boolean;
@@ -128,6 +240,24 @@ export interface FanCardConfig extends LovelaceCardConfig {
   favorite_level_entity?: string;
   temperature_entity?: string;
   humidity_entity?: string;
+}
+
+export interface ResolvedFanCardConfig extends FanCardConfig {
+  entity: string;
+  integration: NonNullable<FanCardConfig["integration"]>;
+  theme: FanTheme;
+  disable_animation: boolean;
+  show_sleep: boolean;
+  show_timer: boolean;
+  show_child_lock: boolean;
+  show_led: boolean;
+  show_buzzer: boolean;
+  show_ionizer: boolean;
+  header: Required<FanHeaderConfig>;
+  visual: Required<FanVisualConfig>;
+  controls: Required<FanControlsConfig>;
+  details: Required<FanDetailsConfig>;
+  layout: Required<FanLayoutConfig>;
 }
 
 export interface FanAdapter {

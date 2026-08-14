@@ -160,6 +160,77 @@ instead of presenting a non-working action.
 
 ## Configuration
 
+The visual editor exposes the same nested groups as YAML. Nested values take
+precedence over legacy top-level flags.
+
+```yaml
+type: custom:xiaomi-fan-card
+entity: fan.xiaomi_smart_fan
+integration: auto
+layout:
+  theme: mushroom
+  density: comfortable
+  columns: auto
+header:
+  variant: compact
+  show: true
+  show_name: true
+  show_status: true
+  show_mode: false
+visual:
+  show: true
+  show_graphic: true
+  show_power: true
+  show_speed: true
+  show_details: true
+  animation: auto
+controls:
+  show: true
+  selection_mode: auto
+  timer_mode: select
+  show_speed_slider: true
+  show_speed_levels: true
+  show_horizontal_swing: true
+  show_vertical_swing: true
+  show_timer: true
+details:
+  show: true
+  show_horizontal_angle: true
+  show_vertical_angle: true
+  show_timer: true
+  show_temperature: true
+  show_humidity: true
+related_entities:
+  timer_entity: number.xiaomi_fan_timer
+  led_entity: select.xiaomi_fan_led
+```
+
+### Nested groups
+
+| Group              | Main options                                                                                                |
+| ------------------ | ----------------------------------------------------------------------------------------------------------- |
+| `header`           | `show`, `variant`, `show_eyebrow`, `show_name`, `show_status`, `show_mode`, `show_model`                    |
+| `visual`           | `show`, `show_graphic`, `show_power`, `show_speed`, `show_details`, `animation`                             |
+| `controls`         | `show`, speed and mode flags, swing and angle flags, optional feature flags, `selection_mode`, `timer_mode` |
+| `details`          | `show`, `show_horizontal_angle`, `show_vertical_angle`, `show_timer`, `show_temperature`, `show_humidity`   |
+| `layout`           | `theme`, `density` (`comfortable` or `compact`), `columns` (`auto`, `one`, `two`)                           |
+| `related_entities` | Manual entity IDs for optional controls and sensors                                                         |
+
+`selection_mode` is `auto`, `buttons`, or `select`. `timer_mode` is `select` or
+`cycle`. The default header is compact and hides the eyebrow, model, and mode
+until enabled.
+
+Timer controls use minutes. Related numeric timer entities with
+`unit_of_measurement` set to `s`, `sec`, `second`, or `seconds` are converted
+to and from minutes. Other or missing units are treated as minutes. The card
+preserves a live timer value that is not one of the configured steps.
+
+For Xiaomi LED brightness controls, the custom Xiaomi service contract is
+`0` for bright, `1` for dim, and `2` for off. A related
+`*_led_brightness` number with a `0..2` range uses the same mapping. Other
+switch, select, and number entities use their exposed Home Assistant
+contract.
+
 | Key                       | Default     | Description                                                                                                                     |
 | ------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | `entity`                  | required    | Fan entity                                                                                                                      |
@@ -174,13 +245,13 @@ instead of presenting a non-working action.
 | `show_buzzer`             | `true`      | Show buzzer control                                                                                                             |
 | `show_ionizer`            | `true`      | Show ionizer control                                                                                                            |
 | `horizontal_angle_entity` | automatic   | Override related horizontal angle `number` entity                                                                               |
-| `vertical_swing_entity`   | automatic   | Override related vertical swing `switch` entity                                                                                 |
+| `vertical_swing_entity`   | automatic   | Override related vertical swing `switch`, `input_boolean`, or `select` entity                                                   |
 | `vertical_angle_entity`   | automatic   | Override related vertical angle `number` entity                                                                                 |
 | `timer_entity`            | automatic   | Override related timer `number` entity                                                                                          |
-| `child_lock_entity`       | automatic   | Override related child lock `switch` entity                                                                                     |
-| `led_entity`              | automatic   | Override related LED `switch` or `select` entity                                                                                |
-| `buzzer_entity`           | automatic   | Override related buzzer `switch` entity                                                                                         |
-| `ionizer_entity`          | automatic   | Override related ionizer `switch` entity                                                                                        |
+| `child_lock_entity`       | automatic   | Override related child lock `switch`, `input_boolean`, or `select` entity                                                       |
+| `led_entity`              | automatic   | Override related LED `switch`, `input_boolean`, `select`, or numeric entity                                                     |
+| `buzzer_entity`           | automatic   | Override related buzzer `switch`, `input_boolean`, or `select` entity                                                           |
+| `ionizer_entity`          | automatic   | Override related ionizer `switch`, `input_boolean`, or `select` entity                                                          |
 | `favorite_level_entity`   | automatic   | Override related favorite level `number` entity                                                                                 |
 | `sleep_mode_entity`       | automatic   | Override related sleep mode `switch` or `select` entity                                                                         |
 | `temperature_entity`      | automatic   | Override related temperature `sensor` entity                                                                                    |
@@ -195,6 +266,11 @@ instead of presenting a non-working action.
 - `platform: xiaomi_miot` maps to `integration: xiaomi_miot`
 - `force_sleep_mode_support` maps to `show_sleep`
 - `hide_led_button: true` maps to `show_led: false`
+- Flat visibility flags remain supported. For example,
+  `show_timer: false` is used unless `controls.show_timer` is set.
+
+See [compatibility.md](docs/compatibility.md) for capability and integration
+details.
 
 ## Troubleshooting
 

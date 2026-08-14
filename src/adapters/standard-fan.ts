@@ -1,6 +1,6 @@
 import { detectCapabilities } from "../state/capabilities";
 import { getModelProfile } from "../state/model-profiles";
-import { normalizeFanState } from "../state/normalize-state";
+import { minutesToTimerValue, normalizeFanState, parseTimerUnit, timerValueToMinutes } from "../state/normalize-state";
 import { ServiceDispatcher } from "../services/service-dispatcher";
 import type {
   FanAdapter,
@@ -12,6 +12,7 @@ import type {
   NormalizedFanState,
   RelatedEntities,
   ServiceAvailability,
+  TimerSpec,
 } from "../types";
 
 const entityParts = (entityId: string): [string, string] => {
@@ -32,25 +33,42 @@ export class StandardFanAdapter implements FanAdapter {
     protected readonly services: ServiceAvailability,
     protected readonly related: RelatedEntities = {},
   ) {
-    this.state = normalizeFanState(entityId, this.entityWithRelatedAttributes());
+    const actionableRelated = this.actionableRelatedEntities();
+    const timerSpec = this.readTimerSpec(this.related.timer);
+    this.state = normalizeFanState(entityId, this.entityWithRelatedAttributes(this.related, timerSpec));
     this.profile = getModelProfile(this.state.model);
-    const detectedCapabilities = detectCapabilities(hass.states[entityId], services, related);
+    const detectedCapabilities = detectCapabilities(hass.states[entityId], services, actionableRelated);
     this.capabilities = {
       ...detectedCapabilities,
       horizontalAngles:
         detectedCapabilities.horizontalAngles.length > 0
           ? detectedCapabilities.horizontalAngles
-          : (this.readNumberSteps(this.related.horizontalAngle) ?? []),
+          : (this.readNumberSteps(this.readTimerSpec(actionableRelated.horizontalAngle)) ?? []),
       verticalAngles:
         detectedCapabilities.verticalAngles.length > 0
           ? detectedCapabilities.verticalAngles
-          : (this.readNumberSteps(this.related.verticalAngle) ?? []),
-      timerSteps: this.readNumberSteps(this.related.timer),
+          : (this.readNumberSteps(this.readTimerSpec(actionableRelated.verticalAngle)) ?? []),
+      timerSteps: this.readNumberSteps(actionableRelated.timer ? timerSpec : undefined),
+      timerSpec: actionableRelated.timer ? timerSpec : undefined,
     };
     this.dispatcher = new ServiceDispatcher(hass, entityId, services);
   }
 
-  private readNumberSteps(entityId: string | undefined): number[] | undefined {
+  private actionableRelatedEntities(): RelatedEntities {
+    const actionable = { ...this.related };
+
+    for (const key of Object.keys(actionable) as Array<keyof RelatedEntities>) {
+      const entityId = actionable[key];
+      const state = entityId ? this.hass.states[entityId] : undefined;
+      if (!state || state.state === "unknown" || state.state === "unavailable") {
+        delete actionable[key];
+      }
+    }
+
+    return actionable;
+  }
+
+  private readTimerSpec(entityId: string | undefined): TimerSpec | undefined {
     const timerEntity = entityId ? this.hass.states[entityId] : undefined;
     const minimum = Number(timerEntity?.attributes["min"]);
     const maximum = Number(timerEntity?.attributes["max"]);
@@ -66,13 +84,25 @@ export class StandardFanAdapter implements FanAdapter {
       return undefined;
     }
 
+    const unit = parseTimerUnit(timerEntity?.attributes["unit_of_measurement"]);
+    return { unit, min: minimum, max: maximum, step };
+  }
+
+  private readNumberSteps(spec: TimerSpec | undefined): number[] | undefined {
+    if (!spec) {
+      return undefined;
+    }
+
     return Array.from(
-      { length: Math.floor((maximum - minimum) / step) + 1 },
-      (_, index) => Math.round((minimum + index * step) * 100) / 100,
+      { length: Math.floor((spec.max - spec.min) / spec.step) + 1 },
+      (_, index) => Math.round(timerValueToMinutes(spec.min + index * spec.step, spec.unit) * 100) / 100,
     );
   }
 
-  private entityWithRelatedAttributes(): HassEntity | undefined {
+  private entityWithRelatedAttributes(
+    related: RelatedEntities,
+    timerSpec: TimerSpec | undefined,
+  ): HassEntity | undefined {
     const entity = this.hass.states[this.entityId];
     if (!entity) {
       return undefined;
@@ -95,14 +125,24 @@ export class StandardFanAdapter implements FanAdapter {
     ];
 
     for (const [relatedKey, attributeKey] of relatedValues) {
-      if (attributes[attributeKey] !== undefined && attributes[attributeKey] !== null) {
-        continue;
-      }
-
-      const relatedEntityId = this.related[relatedKey];
+      const relatedEntityId = related[relatedKey];
       const relatedState = relatedEntityId ? this.hass.states[relatedEntityId] : undefined;
       if (relatedState && relatedState.state !== "unknown" && relatedState.state !== "unavailable") {
-        attributes[attributeKey] = relatedState.state;
+        const value = Number(relatedState.state);
+        attributes[attributeKey] =
+          relatedKey === "timer" && Number.isFinite(value) && timerSpec
+            ? timerValueToMinutes(value, timerSpec.unit)
+            : relatedState.state;
+        if (relatedKey === "led") {
+          attributes["led_brightness"] = relatedState.state;
+        }
+      } else if (relatedState) {
+        delete attributes[attributeKey];
+        if (relatedKey === "led") {
+          delete attributes["led_brightness"];
+        }
+      } else if (attributes[attributeKey] !== undefined && attributes[attributeKey] !== null) {
+        continue;
       }
     }
 
@@ -208,7 +248,8 @@ export class StandardFanAdapter implements FanAdapter {
   }
 
   public async setTimer(minutes: number): Promise<void> {
-    if (await this.setRelatedValue(this.related.timer, minutes)) {
+    const timerSpec = this.readTimerSpec(this.related.timer);
+    if (await this.setRelatedValue(this.related.timer, minutesToTimerValue(minutes, timerSpec?.unit ?? "min"))) {
       return;
     }
 
@@ -228,7 +269,11 @@ export class StandardFanAdapter implements FanAdapter {
       return;
     }
 
-    await this.callCustom("fan_set_led_brightness", { brightness: enabled ? 2 : 0 });
+    if (await this.setRelatedLedBrightness(this.related.led, enabled)) {
+      return;
+    }
+
+    await this.callCustom("fan_set_led_brightness", { brightness: enabled ? 0 : 2 });
   }
 
   public async setBuzzer(enabled: boolean): Promise<void> {
@@ -258,6 +303,11 @@ export class StandardFanAdapter implements FanAdapter {
       return false;
     }
 
+    const state = this.hass.states[entityId];
+    if (!state || state.state === "unknown" || state.state === "unavailable") {
+      return false;
+    }
+
     const [domain] = entityParts(entityId);
     if (domain !== "number" && domain !== "input_number") {
       return false;
@@ -269,6 +319,11 @@ export class StandardFanAdapter implements FanAdapter {
 
   protected async setRelatedBoolean(entityId: string | undefined, enabled: boolean): Promise<boolean> {
     if (!entityId) {
+      return false;
+    }
+
+    const state = this.hass.states[entityId];
+    if (!state || state.state === "unknown" || state.state === "unavailable") {
       return false;
     }
 
@@ -304,5 +359,37 @@ export class StandardFanAdapter implements FanAdapter {
     }
 
     return false;
+  }
+
+  private async setRelatedLedBrightness(entityId: string | undefined, enabled: boolean): Promise<boolean> {
+    if (!entityId) {
+      return false;
+    }
+
+    const [domain] = entityParts(entityId);
+    if (domain !== "number" && domain !== "input_number") {
+      return false;
+    }
+
+    const state = this.hass.states[entityId];
+    const minimum = Number(state?.attributes["min"]);
+    const maximum = Number(state?.attributes["max"]);
+    if (
+      !state ||
+      state.state === "unknown" ||
+      state.state === "unavailable" ||
+      !Number.isFinite(minimum) ||
+      !Number.isFinite(maximum) ||
+      maximum < minimum
+    ) {
+      return false;
+    }
+
+    const customBrightnessMapping = entityId.endsWith("_led_brightness") && minimum === 0 && maximum === 2;
+    await this.hass.callService(domain, "set_value", {
+      entity_id: entityId,
+      value: enabled ? (customBrightnessMapping ? minimum : maximum) : customBrightnessMapping ? maximum : minimum,
+    });
+    return true;
   }
 }

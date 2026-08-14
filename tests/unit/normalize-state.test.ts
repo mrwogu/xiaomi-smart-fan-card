@@ -49,4 +49,18 @@ describe("normalizeFanState", () => {
     expect(state.speedLevels).toBe(3);
     expect(state.level).toBe(3);
   });
+
+  it("normalizes timer seconds and LED brightness safely", () => {
+    const state = normalizeFanState("fan.timer", {
+      state: "on",
+      attributes: {
+        timer: 3180,
+        timer_unit: "s",
+        led_brightness: 2,
+      },
+    });
+
+    expect(state.timerMinutes).toBe(53);
+    expect(state.led).toBe(false);
+  });
 });

@@ -1,5 +1,19 @@
 import type { FanMode, HassEntity, NormalizedFanState } from "../types";
 import { getModelProfile, resolveSpeedLevels } from "./model-profiles";
+import type { TimerUnit } from "../types";
+
+export const parseTimerUnit = (value: unknown): TimerUnit => {
+  if (typeof value === "string" && ["s", "sec", "second", "seconds"].includes(value.trim().toLowerCase())) {
+    return "s";
+  }
+
+  return "min";
+};
+
+export const timerValueToMinutes = (value: number, unit: TimerUnit): number => (unit === "s" ? value / 60 : value);
+
+export const minutesToTimerValue = (minutes: number, unit: TimerUnit): number =>
+  unit === "s" ? minutes * 60 : minutes;
 
 const clamp = (value: number, min: number, max: number): number => Math.min(max, Math.max(min, value));
 
@@ -81,6 +95,26 @@ const firstBoolean = (attributes: Record<string, unknown>, keys: string[]): bool
   return undefined;
 };
 
+const timerMinutes = (attributes: Record<string, unknown>): number | undefined => {
+  const value = firstNumber(attributes, ["delay_off_countdown", "delay_time", "power_off_time", "timer"]);
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const unit = parseTimerUnit(attributes["timer_unit"] ?? attributes["delay_time_unit"]);
+  return timerValueToMinutes(value, unit);
+};
+
+const ledState = (attributes: Record<string, unknown>): boolean | undefined => {
+  const direct = firstBoolean(attributes, ["led", "light", "light_enum"]);
+  if (direct !== undefined) {
+    return direct;
+  }
+
+  const brightness = firstNumber(attributes, ["led_brightness", "light", "led"]);
+  return brightness === undefined ? undefined : brightness < 2;
+};
+
 const readPresetModes = (...values: unknown[]): string[] => {
   for (const value of values) {
     if (Array.isArray(value) && value.length > 0) {
@@ -130,9 +164,9 @@ export const normalizeFanState = (entityId: string, entity?: HassEntity): Normal
     horizontalAngle: firstNumber(attributes, ["horizontal_swing_angle", "swing_mode_angle", "angle"]),
     verticalSwing: firstBoolean(attributes, ["vertical_swing", "vertical_oscillate", "vertical_oscillation"]),
     verticalAngle: firstNumber(attributes, ["vertical_swing_angle", "vertical_oscillation_angle"]),
-    timerMinutes: firstNumber(attributes, ["delay_off_countdown", "delay_time", "power_off_time", "timer"]),
+    timerMinutes: timerMinutes(attributes),
     childLock: booleanValue(attributes["child_lock"]),
-    led: firstBoolean(attributes, ["led", "light"]) ?? (firstNumber(attributes, ["led_brightness", "light"]) ?? 0) > 0,
+    led: ledState(attributes),
     buzzer: firstBoolean(attributes, ["buzzer", "notification_sound"]),
     ionizer: firstBoolean(attributes, ["anion", "ionizer"]),
     temperature: stringValue(attributes["temperature"]),

@@ -532,6 +532,14 @@ const detectCapabilities = (entity, services = { loaded: false, names: new Set()
     };
 };
 
+const parseTimerUnit = (value) => {
+    if (typeof value === "string" && ["s", "sec", "second", "seconds"].includes(value.trim().toLowerCase())) {
+        return "s";
+    }
+    return "min";
+};
+const timerValueToMinutes = (value, unit) => (unit === "s" ? value / 60 : value);
+const minutesToTimerValue = (minutes, unit) => unit === "s" ? minutes * 60 : minutes;
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const numberValue = (value) => {
     if (typeof value === "number" && Number.isFinite(value)) {
@@ -543,7 +551,7 @@ const numberValue = (value) => {
     }
     return undefined;
 };
-const booleanValue = (value) => {
+const booleanValue$1 = (value) => {
     if (typeof value === "boolean") {
         return value;
     }
@@ -584,12 +592,28 @@ const firstNumber = (attributes, keys) => {
 };
 const firstBoolean = (attributes, keys) => {
     for (const key of keys) {
-        const value = booleanValue(attributes[key]);
+        const value = booleanValue$1(attributes[key]);
         if (value !== undefined) {
             return value;
         }
     }
     return undefined;
+};
+const timerMinutes = (attributes) => {
+    const value = firstNumber(attributes, ["delay_off_countdown", "delay_time", "power_off_time", "timer"]);
+    if (value === undefined) {
+        return undefined;
+    }
+    const unit = parseTimerUnit(attributes["timer_unit"] ?? attributes["delay_time_unit"]);
+    return timerValueToMinutes(value, unit);
+};
+const ledState = (attributes) => {
+    const direct = firstBoolean(attributes, ["led", "light", "light_enum"]);
+    if (direct !== undefined) {
+        return direct;
+    }
+    const brightness = firstNumber(attributes, ["led_brightness", "light", "led"]);
+    return brightness === undefined ? undefined : brightness < 2;
 };
 const readPresetModes = (...values) => {
     for (const value of values) {
@@ -614,7 +638,7 @@ const normalizeFanState = (entityId, entity) => {
     const mode = isNatural(presetMode) || isNatural(operationMode) ? "natural" : "normal";
     const presetModes = readPresetModes(attributes["preset_modes"], attributes["speed_list"], attributes["speed_modes"]);
     const directionValue = stringValue(attributes["direction"] ?? attributes["current_direction"])?.toLowerCase();
-    const sleepMode = booleanValue(attributes["sleep_mode"]) ?? presetMode.includes("sleep");
+    const sleepMode = booleanValue$1(attributes["sleep_mode"]) ?? presetMode.includes("sleep");
     const level = percentage === 0 ? 0 : clamp(Math.round((percentage / 100) * speedLevels), 1, speedLevels);
     const friendlyName = stringValue(attributes["friendly_name"]) ?? entityId;
     return {
@@ -636,9 +660,9 @@ const normalizeFanState = (entityId, entity) => {
         horizontalAngle: firstNumber(attributes, ["horizontal_swing_angle", "swing_mode_angle", "angle"]),
         verticalSwing: firstBoolean(attributes, ["vertical_swing", "vertical_oscillate", "vertical_oscillation"]),
         verticalAngle: firstNumber(attributes, ["vertical_swing_angle", "vertical_oscillation_angle"]),
-        timerMinutes: firstNumber(attributes, ["delay_off_countdown", "delay_time", "power_off_time", "timer"]),
-        childLock: booleanValue(attributes["child_lock"]),
-        led: firstBoolean(attributes, ["led", "light"]) ?? (firstNumber(attributes, ["led_brightness", "light"]) ?? 0) > 0,
+        timerMinutes: timerMinutes(attributes),
+        childLock: booleanValue$1(attributes["child_lock"]),
+        led: ledState(attributes),
         buzzer: firstBoolean(attributes, ["buzzer", "notification_sound"]),
         ionizer: firstBoolean(attributes, ["anion", "ionizer"]),
         temperature: stringValue(attributes["temperature"]),
@@ -699,22 +723,36 @@ class StandardFanAdapter {
         this.entityId = entityId;
         this.services = services;
         this.related = related;
-        this.state = normalizeFanState(entityId, this.entityWithRelatedAttributes());
+        const actionableRelated = this.actionableRelatedEntities();
+        const timerSpec = this.readTimerSpec(this.related.timer);
+        this.state = normalizeFanState(entityId, this.entityWithRelatedAttributes(this.related, timerSpec));
         this.profile = getModelProfile(this.state.model);
-        const detectedCapabilities = detectCapabilities(hass.states[entityId], services, related);
+        const detectedCapabilities = detectCapabilities(hass.states[entityId], services, actionableRelated);
         this.capabilities = {
             ...detectedCapabilities,
             horizontalAngles: detectedCapabilities.horizontalAngles.length > 0
                 ? detectedCapabilities.horizontalAngles
-                : (this.readNumberSteps(this.related.horizontalAngle) ?? []),
+                : (this.readNumberSteps(this.readTimerSpec(actionableRelated.horizontalAngle)) ?? []),
             verticalAngles: detectedCapabilities.verticalAngles.length > 0
                 ? detectedCapabilities.verticalAngles
-                : (this.readNumberSteps(this.related.verticalAngle) ?? []),
-            timerSteps: this.readNumberSteps(this.related.timer),
+                : (this.readNumberSteps(this.readTimerSpec(actionableRelated.verticalAngle)) ?? []),
+            timerSteps: this.readNumberSteps(actionableRelated.timer ? timerSpec : undefined),
+            timerSpec: actionableRelated.timer ? timerSpec : undefined,
         };
         this.dispatcher = new ServiceDispatcher(hass, entityId, services);
     }
-    readNumberSteps(entityId) {
+    actionableRelatedEntities() {
+        const actionable = { ...this.related };
+        for (const key of Object.keys(actionable)) {
+            const entityId = actionable[key];
+            const state = entityId ? this.hass.states[entityId] : undefined;
+            if (!state || state.state === "unknown" || state.state === "unavailable") {
+                delete actionable[key];
+            }
+        }
+        return actionable;
+    }
+    readTimerSpec(entityId) {
         const timerEntity = entityId ? this.hass.states[entityId] : undefined;
         const minimum = Number(timerEntity?.attributes["min"]);
         const maximum = Number(timerEntity?.attributes["max"]);
@@ -727,9 +765,16 @@ class StandardFanAdapter {
             (maximum - minimum) / step > 100) {
             return undefined;
         }
-        return Array.from({ length: Math.floor((maximum - minimum) / step) + 1 }, (_, index) => Math.round((minimum + index * step) * 100) / 100);
+        const unit = parseTimerUnit(timerEntity?.attributes["unit_of_measurement"]);
+        return { unit, min: minimum, max: maximum, step };
     }
-    entityWithRelatedAttributes() {
+    readNumberSteps(spec) {
+        if (!spec) {
+            return undefined;
+        }
+        return Array.from({ length: Math.floor((spec.max - spec.min) / spec.step) + 1 }, (_, index) => Math.round(timerValueToMinutes(spec.min + index * spec.step, spec.unit) * 100) / 100);
+    }
+    entityWithRelatedAttributes(related, timerSpec) {
         const entity = this.hass.states[this.entityId];
         if (!entity) {
             return undefined;
@@ -750,13 +795,26 @@ class StandardFanAdapter {
             ["humidity", "humidity"],
         ];
         for (const [relatedKey, attributeKey] of relatedValues) {
-            if (attributes[attributeKey] !== undefined && attributes[attributeKey] !== null) {
-                continue;
-            }
-            const relatedEntityId = this.related[relatedKey];
+            const relatedEntityId = related[relatedKey];
             const relatedState = relatedEntityId ? this.hass.states[relatedEntityId] : undefined;
             if (relatedState && relatedState.state !== "unknown" && relatedState.state !== "unavailable") {
-                attributes[attributeKey] = relatedState.state;
+                const value = Number(relatedState.state);
+                attributes[attributeKey] =
+                    relatedKey === "timer" && Number.isFinite(value) && timerSpec
+                        ? timerValueToMinutes(value, timerSpec.unit)
+                        : relatedState.state;
+                if (relatedKey === "led") {
+                    attributes["led_brightness"] = relatedState.state;
+                }
+            }
+            else if (relatedState) {
+                delete attributes[attributeKey];
+                if (relatedKey === "led") {
+                    delete attributes["led_brightness"];
+                }
+            }
+            else if (attributes[attributeKey] !== undefined && attributes[attributeKey] !== null) {
+                continue;
             }
         }
         return { ...entity, attributes };
@@ -834,7 +892,8 @@ class StandardFanAdapter {
         await this.dispatcher.standard("set_direction", { direction });
     }
     async setTimer(minutes) {
-        if (await this.setRelatedValue(this.related.timer, minutes)) {
+        const timerSpec = this.readTimerSpec(this.related.timer);
+        if (await this.setRelatedValue(this.related.timer, minutesToTimerValue(minutes, timerSpec?.unit ?? "min"))) {
             return;
         }
         await this.callCustom("fan_set_delay_off", { delay_off_countdown: minutes });
@@ -849,7 +908,10 @@ class StandardFanAdapter {
         if (await this.setRelatedBoolean(this.related.led, enabled)) {
             return;
         }
-        await this.callCustom("fan_set_led_brightness", { brightness: enabled ? 2 : 0 });
+        if (await this.setRelatedLedBrightness(this.related.led, enabled)) {
+            return;
+        }
+        await this.callCustom("fan_set_led_brightness", { brightness: enabled ? 0 : 2 });
     }
     async setBuzzer(enabled) {
         if (await this.setRelatedBoolean(this.related.buzzer, enabled)) {
@@ -872,6 +934,10 @@ class StandardFanAdapter {
         if (!entityId) {
             return false;
         }
+        const state = this.hass.states[entityId];
+        if (!state || state.state === "unknown" || state.state === "unavailable") {
+            return false;
+        }
         const [domain] = entityParts(entityId);
         if (domain !== "number" && domain !== "input_number") {
             return false;
@@ -881,6 +947,10 @@ class StandardFanAdapter {
     }
     async setRelatedBoolean(entityId, enabled) {
         if (!entityId) {
+            return false;
+        }
+        const state = this.hass.states[entityId];
+        if (!state || state.state === "unknown" || state.state === "unavailable") {
             return false;
         }
         const [domain] = entityParts(entityId);
@@ -909,6 +979,32 @@ class StandardFanAdapter {
             return true;
         }
         return false;
+    }
+    async setRelatedLedBrightness(entityId, enabled) {
+        if (!entityId) {
+            return false;
+        }
+        const [domain] = entityParts(entityId);
+        if (domain !== "number" && domain !== "input_number") {
+            return false;
+        }
+        const state = this.hass.states[entityId];
+        const minimum = Number(state?.attributes["min"]);
+        const maximum = Number(state?.attributes["max"]);
+        if (!state ||
+            state.state === "unknown" ||
+            state.state === "unavailable" ||
+            !Number.isFinite(minimum) ||
+            !Number.isFinite(maximum) ||
+            maximum < minimum) {
+            return false;
+        }
+        const customBrightnessMapping = entityId.endsWith("_led_brightness") && minimum === 0 && maximum === 2;
+        await this.hass.callService(domain, "set_value", {
+            entity_id: entityId,
+            value: enabled ? (customBrightnessMapping ? minimum : maximum) : customBrightnessMapping ? maximum : minimum,
+        });
+        return true;
     }
 }
 
@@ -953,6 +1049,59 @@ const DEFAULT_CONFIG = {
     entity: "",
     theme: "auto",
     integration: "auto",
+    header: {
+        show: true,
+        variant: "compact",
+        show_eyebrow: false,
+        show_name: true,
+        show_status: true,
+        show_mode: false,
+        show_model: false,
+    },
+    visual: {
+        show: true,
+        show_graphic: true,
+        show_power: true,
+        show_speed: true,
+        show_details: true,
+        animation: "auto",
+    },
+    controls: {
+        show: true,
+        show_speed_slider: true,
+        show_speed_levels: true,
+        show_modes: true,
+        show_preset_mode: true,
+        show_horizontal_swing: true,
+        show_vertical_swing: true,
+        show_sleep: true,
+        show_cycle: true,
+        show_horizontal_angle: true,
+        show_vertical_angle: true,
+        show_nudge: true,
+        show_direction: true,
+        show_favorite_level: true,
+        show_timer: true,
+        show_child_lock: true,
+        show_led: true,
+        show_buzzer: true,
+        show_ionizer: true,
+        selection_mode: "auto",
+        timer_mode: "select",
+    },
+    details: {
+        show: true,
+        show_horizontal_angle: true,
+        show_vertical_angle: true,
+        show_timer: true,
+        show_temperature: true,
+        show_humidity: true,
+    },
+    layout: {
+        theme: "auto",
+        density: "comfortable",
+        columns: "auto",
+    },
     disable_animation: false,
     show_sleep: true,
     show_timer: true,
@@ -961,13 +1110,152 @@ const DEFAULT_CONFIG = {
     show_buzzer: true,
     show_ionizer: true,
 };
+const isRecord = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
+const recordValue = (value) => (isRecord(value) ? value : {});
+const booleanValue = (value, fallback) => (typeof value === "boolean" ? value : fallback);
+const enumValue = (value, allowed, fallback) => typeof value === "string" && allowed.includes(value) ? value : fallback;
+const integrationValue = (value) => enumValue(value, ["auto", "standard", "xiaomi_miio", "xiaomi_miio_fan", "xiaomi_miot"], "auto");
+const themeValue = (value) => enumValue(value, ["auto", "mushroom", "minimal", "glass", "industrial"], "auto");
+const normalizeHeader = (value) => {
+    const input = recordValue(value);
+    const variant = enumValue(input.variant, ["full", "compact"], "compact");
+    return {
+        show: booleanValue(input.show, true),
+        variant,
+        show_eyebrow: booleanValue(input.show_eyebrow, variant === "full"),
+        show_name: booleanValue(input.show_name, true),
+        show_status: booleanValue(input.show_status, true),
+        show_mode: booleanValue(input.show_mode, variant === "full"),
+        show_model: booleanValue(input.show_model, variant === "full"),
+    };
+};
+const normalizeVisual = (value) => {
+    const input = recordValue(value);
+    return {
+        show: booleanValue(input.show, true),
+        show_graphic: booleanValue(input.show_graphic, true),
+        show_power: booleanValue(input.show_power, true),
+        show_speed: booleanValue(input.show_speed, true),
+        show_details: booleanValue(input.show_details, true),
+        animation: enumValue(input.animation, ["auto", "enabled", "disabled"], "auto"),
+    };
+};
+const normalizeControls = (value, legacy) => {
+    const input = recordValue(value);
+    return {
+        show: booleanValue(input.show, true),
+        show_speed_slider: booleanValue(input.show_speed_slider, true),
+        show_speed_levels: booleanValue(input.show_speed_levels, true),
+        show_modes: booleanValue(input.show_modes, true),
+        show_preset_mode: booleanValue(input.show_preset_mode, true),
+        show_horizontal_swing: booleanValue(input.show_horizontal_swing, true),
+        show_vertical_swing: booleanValue(input.show_vertical_swing, true),
+        show_sleep: booleanValue(input.show_sleep, legacy.showSleep),
+        show_cycle: booleanValue(input.show_cycle, true),
+        show_horizontal_angle: booleanValue(input.show_horizontal_angle, true),
+        show_vertical_angle: booleanValue(input.show_vertical_angle, true),
+        show_nudge: booleanValue(input.show_nudge, true),
+        show_direction: booleanValue(input.show_direction, true),
+        show_favorite_level: booleanValue(input.show_favorite_level, true),
+        show_timer: booleanValue(input.show_timer, legacy.showTimer),
+        show_child_lock: booleanValue(input.show_child_lock, legacy.showChildLock),
+        show_led: booleanValue(input.show_led, legacy.showLed),
+        show_buzzer: booleanValue(input.show_buzzer, legacy.showBuzzer),
+        show_ionizer: booleanValue(input.show_ionizer, legacy.showIonizer),
+        selection_mode: enumValue(input.selection_mode, ["auto", "buttons", "select"], "auto"),
+        timer_mode: enumValue(input.timer_mode, ["cycle", "select"], "select"),
+    };
+};
+const normalizeDetails = (value) => {
+    const input = recordValue(value);
+    return {
+        show: booleanValue(input.show, true),
+        show_horizontal_angle: booleanValue(input.show_horizontal_angle, true),
+        show_vertical_angle: booleanValue(input.show_vertical_angle, true),
+        show_timer: booleanValue(input.show_timer, true),
+        show_temperature: booleanValue(input.show_temperature, true),
+        show_humidity: booleanValue(input.show_humidity, true),
+    };
+};
+const normalizeLayout = (value, theme) => {
+    const input = recordValue(value);
+    return {
+        theme: themeValue(input.theme ?? theme),
+        density: enumValue(input.density, ["comfortable", "compact"], "comfortable"),
+        columns: enumValue(input.columns, ["auto", "one", "two"], "auto"),
+    };
+};
+const normalizeCardConfig = (raw) => {
+    const source = recordValue(raw);
+    const related = recordValue(source.related_entities);
+    const relatedEntity = (key) => {
+        const direct = source[key];
+        return typeof direct === "string" ? direct : typeof related[key] === "string" ? related[key] : undefined;
+    };
+    const entity = typeof source.entity === "string" && source.entity ? source.entity : (source.entity_id ?? "");
+    const integration = integrationValue(source.integration ??
+        (source.platform === "default"
+            ? "standard"
+            : source.platform === "xiaomi_miio" ||
+                source.platform === "xiaomi_miio_fan" ||
+                source.platform === "xiaomi_miot"
+                ? source.platform
+                : undefined));
+    const showSleep = booleanValue(source.show_sleep ?? source.sleep_mode ?? source.force_sleep_mode_support, DEFAULT_CONFIG.show_sleep);
+    const showLed = source.hide_led_button === true ? false : booleanValue(source.show_led, DEFAULT_CONFIG.show_led);
+    const showTimer = booleanValue(source.show_timer, DEFAULT_CONFIG.show_timer);
+    const showChildLock = booleanValue(source.show_child_lock, DEFAULT_CONFIG.show_child_lock);
+    const showBuzzer = booleanValue(source.show_buzzer, DEFAULT_CONFIG.show_buzzer);
+    const showIonizer = booleanValue(source.show_ionizer, DEFAULT_CONFIG.show_ionizer);
+    const visual = normalizeVisual(source.visual);
+    const disableAnimation = booleanValue(source.disable_animation, false) || visual.animation === "disabled";
+    const controls = normalizeControls(source.controls, {
+        showSleep,
+        showTimer,
+        showChildLock,
+        showLed,
+        showBuzzer,
+        showIonizer,
+    });
+    return {
+        ...DEFAULT_CONFIG,
+        ...source,
+        entity,
+        integration,
+        theme: themeValue(source.theme),
+        disable_animation: disableAnimation,
+        show_sleep: showSleep,
+        show_timer: showTimer,
+        show_child_lock: showChildLock,
+        show_led: showLed,
+        show_buzzer: showBuzzer,
+        show_ionizer: showIonizer,
+        header: normalizeHeader(source.header),
+        visual,
+        controls,
+        details: normalizeDetails(source.details),
+        layout: normalizeLayout(source.layout, source.theme),
+        horizontal_angle_entity: relatedEntity("horizontal_angle_entity"),
+        vertical_swing_entity: relatedEntity("vertical_swing_entity"),
+        vertical_angle_entity: relatedEntity("vertical_angle_entity"),
+        favorite_level_entity: relatedEntity("favorite_level_entity"),
+        sleep_mode_entity: relatedEntity("sleep_mode_entity"),
+        timer_entity: relatedEntity("timer_entity"),
+        child_lock_entity: relatedEntity("child_lock_entity"),
+        led_entity: relatedEntity("led_entity"),
+        buzzer_entity: relatedEntity("buzzer_entity"),
+        ionizer_entity: relatedEntity("ionizer_entity"),
+        temperature_entity: relatedEntity("temperature_entity"),
+        humidity_entity: relatedEntity("humidity_entity"),
+    };
+};
 
 const english = {
     off: "Off",
     on: "On",
     hoursMinutes: "{hours}h {minutes}m",
     hoursOnly: "{hours}h",
-    minutesOnly: "{minutes}m",
+    minutesOnly: "{minutes} mins",
     chooseFanEntity: "Choose a fan entity in card editor.",
     fanEntityUnavailable: "Fan entity unavailable: {entity}",
     fanCommandFailed: "Fan command failed.",
@@ -979,6 +1267,13 @@ const english = {
     standby: "Standby",
     fanStatus: "Fan status",
     fanLabel: "Fan",
+    unavailable: "Unavailable",
+    horizontalAngleShort: "H {value}°",
+    verticalAngleShort: "V {value}°",
+    horizontalAngleValue: "Horizontal angle {value} degrees",
+    verticalAngleValue: "Vertical angle {value} degrees",
+    horizontalAngleUnavailable: "H -",
+    verticalAngleUnavailable: "V -",
     turnFanOff: "Turn fan off",
     turnFanOn: "Turn fan on",
     airflow: "AIRFLOW",
@@ -1013,6 +1308,42 @@ const english = {
     buzzer: "Buzzer",
     ionizer: "Ionizer",
     fanFeatures: "Fan features",
+    header: "Header",
+    full: "Full",
+    compact: "Compact",
+    eyebrow: "Eyebrow",
+    name: "Name",
+    status: "Status",
+    model: "Model",
+    visual: "Visual",
+    graphic: "Graphic",
+    power: "Power",
+    speed: "Speed",
+    details: "Details",
+    animation: "Animation",
+    enabled: "Enabled",
+    disabled: "Disabled",
+    controls: "Controls",
+    slider: "Slider",
+    levels: "Levels",
+    modes: "Modes",
+    preset: "Preset",
+    swing: "Oscillation",
+    nudge: "Position",
+    favorite: "Favorite",
+    layout: "Layout",
+    density: "Density",
+    comfortable: "Comfortable",
+    columns: "Columns",
+    oneColumn: "One column",
+    twoColumns: "Two columns",
+    relatedEntities: "Related entities",
+    buttons: "Buttons",
+    select: "Select",
+    selectionMode: "Selection mode",
+    timerMode: "Timer control",
+    temperature: "Temperature",
+    humidity: "Humidity",
     editorFanEntity: "Fan entity",
     selectFanEntity: "Select fan entity",
     cardName: "Card name",
@@ -1056,6 +1387,13 @@ const TRANSLATIONS = {
         standby: "Czuwanie",
         fanStatus: "Stan wentylatora",
         fanLabel: "WENTYLATOR",
+        unavailable: "Niedostępne",
+        horizontalAngleShort: "H {value}°",
+        verticalAngleShort: "V {value}°",
+        horizontalAngleValue: "Kąt poziomy {value} stopni",
+        verticalAngleValue: "Kąt pionowy {value} stopni",
+        horizontalAngleUnavailable: "H -",
+        verticalAngleUnavailable: "V -",
         turnFanOff: "Wyłącz wentylator",
         turnFanOn: "Włącz wentylator",
         airflow: "NAWIEW",
@@ -1090,6 +1428,42 @@ const TRANSLATIONS = {
         buzzer: "Brzęczyk",
         ionizer: "Jonizator",
         fanFeatures: "Funkcje wentylatora",
+        header: "Nagłówek",
+        full: "Pełny",
+        compact: "Kompaktowy",
+        eyebrow: "Etykieta",
+        name: "Nazwa",
+        status: "Stan",
+        model: "Model",
+        visual: "Widok",
+        graphic: "Grafika",
+        power: "Zasilanie",
+        speed: "Prędkość",
+        details: "Szczegóły",
+        animation: "Animacja",
+        enabled: "Włączona",
+        disabled: "Wyłączona",
+        controls: "Sterowanie",
+        slider: "Suwak",
+        levels: "Poziomy",
+        modes: "Tryby",
+        preset: "Preset",
+        swing: "Cyrkulacja",
+        nudge: "Pozycja",
+        favorite: "Ulubiony",
+        layout: "Układ",
+        density: "Gęstość",
+        comfortable: "Wygodny",
+        columns: "Kolumny",
+        oneColumn: "Jedna kolumna",
+        twoColumns: "Dwie kolumny",
+        relatedEntities: "Powiązane encje",
+        buttons: "Przyciski",
+        select: "Wybór",
+        selectionMode: "Tryb wyboru",
+        timerMode: "Sterowanie czasem",
+        temperature: "Temperatura",
+        humidity: "Wilgotność",
         editorFanEntity: "Encja wentylatora",
         selectFanEntity: "Wybierz encję wentylatora",
         cardName: "Nazwa karty",
@@ -1131,6 +1505,13 @@ const TRANSLATIONS = {
         standby: "En espera",
         fanStatus: "Estado del ventilador",
         fanLabel: "VENTILADOR",
+        unavailable: "No disponible",
+        horizontalAngleShort: "H {value}°",
+        verticalAngleShort: "V {value}°",
+        horizontalAngleValue: "Ángulo horizontal de {value} grados",
+        verticalAngleValue: "Ángulo vertical de {value} grados",
+        horizontalAngleUnavailable: "H -",
+        verticalAngleUnavailable: "V -",
         turnFanOff: "Apagar ventilador",
         turnFanOn: "Encender ventilador",
         airflow: "FLUJO DE AIRE",
@@ -1165,6 +1546,42 @@ const TRANSLATIONS = {
         buzzer: "Zumbador",
         ionizer: "Ionizador",
         fanFeatures: "Funciones del ventilador",
+        header: "Encabezado",
+        full: "Completo",
+        compact: "Compacto",
+        eyebrow: "Etiqueta",
+        name: "Nombre",
+        status: "Estado",
+        model: "Modelo",
+        visual: "Visual",
+        graphic: "Gráfico",
+        power: "Encendido",
+        speed: "Velocidad",
+        details: "Detalles",
+        animation: "Animación",
+        enabled: "Activada",
+        disabled: "Desactivada",
+        controls: "Controles",
+        slider: "Deslizador",
+        levels: "Niveles",
+        modes: "Modos",
+        preset: "Preajuste",
+        swing: "Oscilación",
+        nudge: "Posición",
+        favorite: "Favorito",
+        layout: "Diseño",
+        density: "Densidad",
+        comfortable: "Cómoda",
+        columns: "Columnas",
+        oneColumn: "Una columna",
+        twoColumns: "Dos columnas",
+        relatedEntities: "Entidades relacionadas",
+        buttons: "Botones",
+        select: "Selector",
+        selectionMode: "Modo de selección",
+        timerMode: "Control del temporizador",
+        temperature: "Temperatura",
+        humidity: "Humedad",
         editorFanEntity: "Entidad del ventilador",
         selectFanEntity: "Seleccionar entidad del ventilador",
         cardName: "Nombre de la tarjeta",
@@ -1206,6 +1623,13 @@ const TRANSLATIONS = {
         standby: "Veille",
         fanStatus: "État du ventilateur",
         fanLabel: "VENTILATEUR",
+        unavailable: "Indisponible",
+        horizontalAngleShort: "H {value}°",
+        verticalAngleShort: "V {value}°",
+        horizontalAngleValue: "Angle horizontal de {value} degrés",
+        verticalAngleValue: "Angle vertical de {value} degrés",
+        horizontalAngleUnavailable: "H -",
+        verticalAngleUnavailable: "V -",
         turnFanOff: "Éteindre le ventilateur",
         turnFanOn: "Allumer le ventilateur",
         airflow: "FLUX D'AIR",
@@ -1240,6 +1664,42 @@ const TRANSLATIONS = {
         buzzer: "Avertisseur",
         ionizer: "Ioniseur",
         fanFeatures: "Fonctions du ventilateur",
+        header: "En-tête",
+        full: "Complet",
+        compact: "Compact",
+        eyebrow: "Surtitre",
+        name: "Nom",
+        status: "État",
+        model: "Modèle",
+        visual: "Visuel",
+        graphic: "Graphique",
+        power: "Alimentation",
+        speed: "Vitesse",
+        details: "Détails",
+        animation: "Animation",
+        enabled: "Activée",
+        disabled: "Désactivée",
+        controls: "Commandes",
+        slider: "Curseur",
+        levels: "Niveaux",
+        modes: "Modes",
+        preset: "Préréglage",
+        swing: "Oscillation",
+        nudge: "Position",
+        favorite: "Favori",
+        layout: "Mise en page",
+        density: "Densité",
+        comfortable: "Confortable",
+        columns: "Colonnes",
+        oneColumn: "Une colonne",
+        twoColumns: "Deux colonnes",
+        relatedEntities: "Entités associées",
+        buttons: "Boutons",
+        select: "Sélecteur",
+        selectionMode: "Mode de sélection",
+        timerMode: "Commande de minuterie",
+        temperature: "Température",
+        humidity: "Humidité",
         editorFanEntity: "Entité du ventilateur",
         selectFanEntity: "Sélectionner une entité de ventilateur",
         cardName: "Nom de la carte",
@@ -1281,6 +1741,13 @@ const TRANSLATIONS = {
         standby: "Standby",
         fanStatus: "Stato del ventilatore",
         fanLabel: "VENTILATORE",
+        unavailable: "Non disponibile",
+        horizontalAngleShort: "H {value}°",
+        verticalAngleShort: "V {value}°",
+        horizontalAngleValue: "Angolo orizzontale di {value} gradi",
+        verticalAngleValue: "Angolo verticale di {value} gradi",
+        horizontalAngleUnavailable: "H -",
+        verticalAngleUnavailable: "V -",
         turnFanOff: "Spegni il ventilatore",
         turnFanOn: "Accendi il ventilatore",
         airflow: "FLUSSO D'ARIA",
@@ -1315,6 +1782,42 @@ const TRANSLATIONS = {
         buzzer: "Cicalino",
         ionizer: "Ionizzatore",
         fanFeatures: "Funzioni del ventilatore",
+        header: "Intestazione",
+        full: "Completo",
+        compact: "Compatto",
+        eyebrow: "Etichetta",
+        name: "Nome",
+        status: "Stato",
+        model: "Modello",
+        visual: "Vista",
+        graphic: "Grafica",
+        power: "Alimentazione",
+        speed: "Velocità",
+        details: "Dettagli",
+        animation: "Animazione",
+        enabled: "Abilitata",
+        disabled: "Disabilitata",
+        controls: "Controlli",
+        slider: "Cursore",
+        levels: "Livelli",
+        modes: "Modalità",
+        preset: "Preimpostazione",
+        swing: "Oscillazione",
+        nudge: "Posizione",
+        favorite: "Preferito",
+        layout: "Layout",
+        density: "Densità",
+        comfortable: "Comoda",
+        columns: "Colonne",
+        oneColumn: "Una colonna",
+        twoColumns: "Due colonne",
+        relatedEntities: "Entità correlate",
+        buttons: "Pulsanti",
+        select: "Selettore",
+        selectionMode: "Modalità di selezione",
+        timerMode: "Controllo timer",
+        temperature: "Temperatura",
+        humidity: "Umidità",
         editorFanEntity: "Entità ventilatore",
         selectFanEntity: "Seleziona entità ventilatore",
         cardName: "Nome della scheda",
@@ -1354,10 +1857,25 @@ const createTranslator = (language) => {
     };
 };
 
+const RELATED_ENTITY_DOMAINS = {
+    horizontal_angle_entity: ["number", "input_number"],
+    vertical_swing_entity: ["switch", "input_boolean", "select"],
+    vertical_angle_entity: ["number", "input_number"],
+    favorite_level_entity: ["number", "input_number"],
+    sleep_mode_entity: ["switch", "input_boolean", "select"],
+    timer_entity: ["number", "input_number"],
+    child_lock_entity: ["switch", "input_boolean", "select"],
+    led_entity: ["switch", "input_boolean", "select", "number", "input_number"],
+    buzzer_entity: ["switch", "input_boolean", "select"],
+    ionizer_entity: ["switch", "input_boolean", "select"],
+    temperature_entity: ["sensor"],
+    humidity_entity: ["sensor"],
+};
+
 class XiaomiFanCardEditor extends i {
     constructor() {
         super(...arguments);
-        this.config = {};
+        this.config = normalizeCardConfig(DEFAULT_CONFIG);
         this.translatorLanguage = "";
         this.translator = createTranslator();
         this.onEntityChange = (event) => {
@@ -1367,19 +1885,25 @@ class XiaomiFanCardEditor extends i {
             const value = event.currentTarget.value;
             this.updateConfig(key, value);
         };
-        this.onBooleanChange = (event, key) => {
-            this.updateConfig(key, event.currentTarget.checked);
+        this.onNestedBooleanChange = (event, group, key) => {
+            this.updateNestedConfig(group, key, event.currentTarget.checked);
+        };
+        this.onNestedSelectChange = (event, group, key) => {
+            this.updateNestedConfig(group, key, event.currentTarget.value);
+        };
+        this.onRelatedEntityChange = (event, key) => {
+            this.updateConfig(key, event.currentTarget.value || undefined);
         };
     }
     setConfig(config) {
-        this.config = config;
+        this.config = normalizeCardConfig(config);
     }
     render() {
         if (!this.hass) {
             return b ``;
         }
         const entityIds = Object.keys(this.hass.states).filter((entityId) => entityId.startsWith("fan."));
-        const config = { ...DEFAULT_CONFIG, ...this.config };
+        const config = this.config;
         return b `
       <div class="form">
         <label>
@@ -1398,16 +1922,6 @@ class XiaomiFanCardEditor extends i {
           />
         </label>
         <label>
-          <span>${this.t("visualTheme")}</span>
-          <select .value=${config.theme} @change=${(event) => this.onTextChange(event, "theme")}>
-            <option value="auto">${this.t("auto")}</option>
-            <option value="mushroom">${this.t("mushroom")}</option>
-            <option value="minimal">${this.t("minimal")}</option>
-            <option value="glass">${this.t("glass")}</option>
-            <option value="industrial">${this.t("industrial")}</option>
-          </select>
-        </label>
-        <label>
           <span>${this.t("integration")}</span>
           <select .value=${config.integration} @change=${(event) => this.onTextChange(event, "integration")}>
             <option value="auto">${this.t("autoDetect")}</option>
@@ -1417,12 +1931,96 @@ class XiaomiFanCardEditor extends i {
             <option value="xiaomi_miot">${this.t("xiaomiMiot")}</option>
           </select>
         </label>
-        ${this.booleanField("disable_animation", "disableAnimation", config.disable_animation)}
-        ${this.booleanField("show_timer", "showTimer", config.show_timer)}
-        ${this.booleanField("show_child_lock", "showChildLock", config.show_child_lock)}
-        ${this.booleanField("show_led", "showLed", config.show_led)}
-        ${this.booleanField("show_buzzer", "showBuzzer", config.show_buzzer)}
-        ${this.booleanField("show_ionizer", "showIonizer", config.show_ionizer)}
+        <fieldset>
+          <legend>${this.t("header")}</legend>
+          ${this.nestedBooleanField("header", "show", "header", config.header.show)}
+          ${this.nestedSelectField("header", "variant", "header", config.header.variant, ["full", "compact"])}
+          ${this.nestedBooleanField("header", "show_eyebrow", "eyebrow", config.header.show_eyebrow)}
+          ${this.nestedBooleanField("header", "show_name", "name", config.header.show_name)}
+          ${this.nestedBooleanField("header", "show_status", "status", config.header.show_status)}
+          ${this.nestedBooleanField("header", "show_mode", "mode", config.header.show_mode)}
+          ${this.nestedBooleanField("header", "show_model", "model", config.header.show_model)}
+        </fieldset>
+        <fieldset>
+          <legend>${this.t("visual")}</legend>
+          ${this.nestedBooleanField("visual", "show", "visual", config.visual.show)}
+          ${this.nestedBooleanField("visual", "show_graphic", "graphic", config.visual.show_graphic)}
+          ${this.nestedBooleanField("visual", "show_power", "power", config.visual.show_power)}
+          ${this.nestedBooleanField("visual", "show_speed", "speed", config.visual.show_speed)}
+          ${this.nestedBooleanField("visual", "show_details", "details", config.visual.show_details)}
+          ${this.nestedSelectField("visual", "animation", "animation", config.visual.animation, [
+            "auto",
+            "enabled",
+            "disabled",
+        ])}
+        </fieldset>
+        <fieldset>
+          <legend>${this.t("controls")}</legend>
+          ${this.nestedBooleanField("controls", "show", "controls", config.controls.show)}
+          ${this.nestedBooleanField("controls", "show_speed_slider", "slider", config.controls.show_speed_slider)}
+          ${this.nestedBooleanField("controls", "show_speed_levels", "levels", config.controls.show_speed_levels)}
+          ${this.nestedBooleanField("controls", "show_modes", "modes", config.controls.show_modes)}
+          ${this.nestedBooleanField("controls", "show_preset_mode", "preset", config.controls.show_preset_mode)}
+          ${this.nestedBooleanField("controls", "show_horizontal_swing", "horizontal", config.controls.show_horizontal_swing)}
+          ${this.nestedBooleanField("controls", "show_vertical_swing", "vertical", config.controls.show_vertical_swing)}
+          ${this.nestedBooleanField("controls", "show_sleep", "sleep", config.controls.show_sleep)}
+          ${this.nestedBooleanField("controls", "show_cycle", "cycle", config.controls.show_cycle)}
+          ${this.nestedBooleanField("controls", "show_horizontal_angle", "horizontalAngle", config.controls.show_horizontal_angle)}
+          ${this.nestedBooleanField("controls", "show_vertical_angle", "verticalAngle", config.controls.show_vertical_angle)}
+          ${this.nestedBooleanField("controls", "show_nudge", "nudge", config.controls.show_nudge)}
+          ${this.nestedBooleanField("controls", "show_direction", "direction", config.controls.show_direction)}
+          ${this.nestedBooleanField("controls", "show_favorite_level", "favorite", config.controls.show_favorite_level)}
+          ${this.nestedBooleanField("controls", "show_timer", "showTimer", config.controls.show_timer)}
+          ${this.nestedBooleanField("controls", "show_child_lock", "showChildLock", config.controls.show_child_lock)}
+          ${this.nestedBooleanField("controls", "show_led", "showLed", config.controls.show_led)}
+          ${this.nestedBooleanField("controls", "show_buzzer", "showBuzzer", config.controls.show_buzzer)}
+          ${this.nestedBooleanField("controls", "show_ionizer", "showIonizer", config.controls.show_ionizer)}
+          ${this.nestedSelectField("controls", "selection_mode", "selectionMode", config.controls.selection_mode, [
+            "auto",
+            "buttons",
+            "select",
+        ])}
+          ${this.nestedSelectField("controls", "timer_mode", "timerMode", config.controls.timer_mode, [
+            "cycle",
+            "select",
+        ])}
+        </fieldset>
+        <fieldset>
+          <legend>${this.t("details")}</legend>
+          ${this.nestedBooleanField("details", "show", "details", config.details.show)}
+          ${this.nestedBooleanField("details", "show_horizontal_angle", "horizontalAngle", config.details.show_horizontal_angle)}
+          ${this.nestedBooleanField("details", "show_vertical_angle", "verticalAngle", config.details.show_vertical_angle)}
+          ${this.nestedBooleanField("details", "show_timer", "showTimer", config.details.show_timer)}
+          ${this.nestedBooleanField("details", "show_temperature", "temperature", config.details.show_temperature)}
+          ${this.nestedBooleanField("details", "show_humidity", "humidity", config.details.show_humidity)}
+        </fieldset>
+        <fieldset>
+          <legend>${this.t("layout")}</legend>
+          ${this.nestedSelectField("layout", "theme", "visualTheme", config.layout.theme, [
+            "auto",
+            "mushroom",
+            "minimal",
+            "glass",
+            "industrial",
+        ])}
+          ${this.nestedSelectField("layout", "density", "density", config.layout.density, ["comfortable", "compact"])}
+          ${this.nestedSelectField("layout", "columns", "columns", config.layout.columns, ["auto", "one", "two"])}
+        </fieldset>
+        <fieldset>
+          <legend>${this.t("relatedEntities")}</legend>
+          ${this.relatedEntityField("horizontal_angle_entity", config.horizontal_angle_entity)}
+          ${this.relatedEntityField("vertical_swing_entity", config.vertical_swing_entity)}
+          ${this.relatedEntityField("vertical_angle_entity", config.vertical_angle_entity)}
+          ${this.relatedEntityField("favorite_level_entity", config.favorite_level_entity)}
+          ${this.relatedEntityField("sleep_mode_entity", config.sleep_mode_entity)}
+          ${this.relatedEntityField("timer_entity", config.timer_entity)}
+          ${this.relatedEntityField("child_lock_entity", config.child_lock_entity)}
+          ${this.relatedEntityField("led_entity", config.led_entity)}
+          ${this.relatedEntityField("buzzer_entity", config.buzzer_entity)}
+          ${this.relatedEntityField("ionizer_entity", config.ionizer_entity)}
+          ${this.relatedEntityField("temperature_entity", config.temperature_entity)}
+          ${this.relatedEntityField("humidity_entity", config.humidity_entity)}
+        </fieldset>
       </div>
     `;
     }
@@ -1434,24 +2032,77 @@ class XiaomiFanCardEditor extends i {
         }
         return this.translator(key, values);
     }
-    booleanField(key, labelKey, checked) {
+    nestedBooleanField(group, key, labelKey, checked) {
         return b `
       <label class="checkbox">
         <input
           type="checkbox"
-          .checked=${checked === true}
-          @change=${(event) => this.onBooleanChange(event, key)}
+          .checked=${checked}
+          @change=${(event) => this.onNestedBooleanChange(event, group, key)}
         />
         <span>${this.t(labelKey)}</span>
       </label>
     `;
+    }
+    nestedSelectField(group, key, labelKey, value, options) {
+        return b `
+      <label>
+        <span>${this.t(labelKey)}</span>
+        <select .value=${value} @change=${(event) => this.onNestedSelectChange(event, group, key)}>
+          ${options.map((option) => b `<option value=${option} ?selected=${option === value}>${this.optionLabel(option)}</option>`)}
+        </select>
+      </label>
+    `;
+    }
+    optionLabel(option) {
+        const key = option;
+        return key in TRANSLATIONS.en ? this.t(key) : option;
+    }
+    relatedEntityField(key, value) {
+        const labels = {
+            horizontal_angle_entity: "horizontalAngle",
+            vertical_swing_entity: "vertical",
+            vertical_angle_entity: "verticalAngle",
+            favorite_level_entity: "favoriteLevel",
+            sleep_mode_entity: "sleep",
+            timer_entity: "timer",
+            child_lock_entity: "childLock",
+            led_entity: "led",
+            buzzer_entity: "buzzer",
+            ionizer_entity: "ionizer",
+            temperature_entity: "temperature",
+            humidity_entity: "humidity",
+        };
+        const entityIds = Object.keys(this.hass?.states ?? {})
+            .filter((entityId) => RELATED_ENTITY_DOMAINS[key].some((domain) => domain === (entityId.split(".")[0] ?? "")))
+            .sort();
+        return b `
+      <label>
+        <span>${this.t(labels[key])}</span>
+        <select .value=${value ?? ""} @change=${(event) => this.onRelatedEntityChange(event, key)}>
+          <option value="">${this.t("autoDetect")}</option>
+          ${entityIds.map((entityId) => b `<option value=${entityId} ?selected=${entityId === value}>${entityId}</option>`)}
+        </select>
+      </label>
+    `;
+    }
+    updateNestedConfig(group, key, value) {
+        const next = {
+            ...this.config,
+            [group]: {
+                ...(this.config[group] ?? {}),
+                [key]: value,
+            },
+        };
+        this.config = normalizeCardConfig(next);
+        fireEvent(this, "config-changed", { config: this.config });
     }
     updateConfig(key, value) {
         const next = { ...this.config, [key]: value };
         if (value === DEFAULT_CONFIG[key]) {
             delete next[key];
         }
-        this.config = next;
+        this.config = normalizeCardConfig(next);
         fireEvent(this, "config-changed", { config: this.config });
     }
     static { this.styles = i$3 `
@@ -1462,6 +2113,21 @@ class XiaomiFanCardEditor extends i {
     .form {
       display: grid;
       gap: 16px;
+    }
+
+    fieldset {
+      display: grid;
+      gap: 10px;
+      margin: 0;
+      padding: 12px;
+      border: 1px solid var(--divider-color);
+      border-radius: 12px;
+    }
+
+    legend {
+      padding: 0 6px;
+      color: var(--primary-text-color);
+      font-weight: 600;
     }
 
     label {
@@ -1510,10 +2176,10 @@ var editor = /*#__PURE__*/Object.freeze({
 const suffixes = {
     sleepMode: ["_sleep_mode"],
     verticalSwing: ["_vertical_swing", "_vertical_oscillate", "_vertical_oscillation"],
-    horizontalAngle: ["_oscillation_angle", "_horizontal_swing_angle", "_swing_mode_angle"],
-    verticalAngle: ["_vertical_oscillation_angle", "_vertical_swing_angle"],
+    horizontalAngle: ["_oscillation_angle", "_horizontal_swing_angle", "_swing_mode_angle", "_horizontal_angle"],
+    verticalAngle: ["_vertical_oscillation_angle", "_vertical_swing_angle", "_vertical_angle"],
     favoriteLevel: ["_favorite_level", "_favorite_speed"],
-    timer: ["_delay_off_countdown", "_delay_time", "_power_off_time"],
+    timer: ["_delay_off_countdown", "_delay_time", "_power_off_time", "_timer"],
     childLock: ["_child_lock"],
     led: ["_led", "_led_brightness", "_light"],
     buzzer: ["_buzzer", "_notification_sound"],
@@ -1557,10 +2223,10 @@ const resolveRelatedEntities = async (hass, entityId) => {
         related.verticalAngle = findBySuffix(entries, numeric, suffixes.verticalAngle);
         related.favoriteLevel = findBySuffix(entries, numeric, suffixes.favoriteLevel);
         related.timer = findBySuffix(entries, numeric, suffixes.timer);
-        related.childLock = findBySuffix(entries, boolean, suffixes.childLock);
-        related.led = findBySuffix(entries, [...boolean, ...select], suffixes.led);
-        related.buzzer = findBySuffix(entries, boolean, suffixes.buzzer);
-        related.ionizer = findBySuffix(entries, boolean, suffixes.ionizer);
+        related.childLock = findBySuffix(entries, [...boolean, ...select], suffixes.childLock);
+        related.led = findBySuffix(entries, [...boolean, ...select, ...numeric], suffixes.led);
+        related.buzzer = findBySuffix(entries, [...boolean, ...select], suffixes.buzzer);
+        related.ionizer = findBySuffix(entries, [...boolean, ...select], suffixes.ionizer);
         related.temperature = findBySuffix(entries, ["sensor"], suffixes.temperature);
         related.humidity = findBySuffix(entries, ["sensor"], suffixes.humidity);
         return related;
@@ -1570,12 +2236,25 @@ const resolveRelatedEntities = async (hass, entityId) => {
     }
 };
 
+const getAirflowAxis = (horizontal, vertical) => {
+    if (horizontal && vertical) {
+        return "dual";
+    }
+    if (horizontal) {
+        return "horizontal";
+    }
+    if (vertical) {
+        return "vertical";
+    }
+    return "still";
+};
+
 const TIMER_STEPS = [0, 60, 120, 180, 240, 300, 360, 420, 480];
 const asHassLike = (hass) => hass;
 class XiaomiFanCard extends i {
     constructor() {
         super(...arguments);
-        this.config = { ...DEFAULT_CONFIG };
+        this.config = normalizeCardConfig(DEFAULT_CONFIG);
         this.services = { loaded: false, names: new Set() };
         this.related = {};
         this.actionError = "";
@@ -1593,6 +2272,122 @@ class XiaomiFanCard extends i {
         await Promise.resolve().then(function () { return editor; });
         return document.createElement("xiaomi-fan-card-editor");
     }
+    static getConfigForm() {
+        const booleanField = (name) => ({ name, selector: { boolean: {} } });
+        const entityField = (name, domains) => ({
+            name,
+            selector: { entity: { domain: domains } },
+        });
+        const selectField = (name, options) => ({
+            name,
+            selector: { select: { options } },
+        });
+        const relatedEntityField = (name) => entityField(name, RELATED_ENTITY_DOMAINS[name]);
+        return {
+            schema: [
+                entityField("entity", ["fan"]),
+                { name: "name", selector: { text: {} } },
+                selectField("integration", ["auto", "standard", "xiaomi_miio", "xiaomi_miio_fan", "xiaomi_miot"]),
+                {
+                    type: "expandable",
+                    name: "header",
+                    flatten: false,
+                    schema: [
+                        booleanField("show"),
+                        selectField("variant", ["full", "compact"]),
+                        booleanField("show_eyebrow"),
+                        booleanField("show_name"),
+                        booleanField("show_status"),
+                        booleanField("show_mode"),
+                        booleanField("show_model"),
+                    ],
+                },
+                {
+                    type: "expandable",
+                    name: "visual",
+                    flatten: false,
+                    schema: [
+                        booleanField("show"),
+                        booleanField("show_graphic"),
+                        booleanField("show_power"),
+                        booleanField("show_speed"),
+                        booleanField("show_details"),
+                        selectField("animation", ["auto", "enabled", "disabled"]),
+                    ],
+                },
+                {
+                    type: "expandable",
+                    name: "controls",
+                    flatten: false,
+                    schema: [
+                        booleanField("show"),
+                        booleanField("show_speed_slider"),
+                        booleanField("show_speed_levels"),
+                        booleanField("show_modes"),
+                        booleanField("show_preset_mode"),
+                        booleanField("show_horizontal_swing"),
+                        booleanField("show_vertical_swing"),
+                        booleanField("show_sleep"),
+                        booleanField("show_cycle"),
+                        booleanField("show_horizontal_angle"),
+                        booleanField("show_vertical_angle"),
+                        booleanField("show_nudge"),
+                        booleanField("show_direction"),
+                        booleanField("show_favorite_level"),
+                        booleanField("show_timer"),
+                        booleanField("show_child_lock"),
+                        booleanField("show_led"),
+                        booleanField("show_buzzer"),
+                        booleanField("show_ionizer"),
+                        selectField("selection_mode", ["auto", "buttons", "select"]),
+                        selectField("timer_mode", ["cycle", "select"]),
+                    ],
+                },
+                {
+                    type: "expandable",
+                    name: "details",
+                    flatten: false,
+                    schema: [
+                        booleanField("show"),
+                        booleanField("show_horizontal_angle"),
+                        booleanField("show_vertical_angle"),
+                        booleanField("show_timer"),
+                        booleanField("show_temperature"),
+                        booleanField("show_humidity"),
+                    ],
+                },
+                {
+                    type: "expandable",
+                    name: "layout",
+                    flatten: false,
+                    schema: [
+                        selectField("theme", ["auto", "mushroom", "minimal", "glass", "industrial"]),
+                        selectField("density", ["comfortable", "compact"]),
+                        selectField("columns", ["auto", "one", "two"]),
+                    ],
+                },
+                {
+                    type: "expandable",
+                    name: "related_entities",
+                    flatten: true,
+                    schema: [
+                        relatedEntityField("horizontal_angle_entity"),
+                        relatedEntityField("vertical_swing_entity"),
+                        relatedEntityField("vertical_angle_entity"),
+                        relatedEntityField("favorite_level_entity"),
+                        relatedEntityField("sleep_mode_entity"),
+                        relatedEntityField("timer_entity"),
+                        relatedEntityField("child_lock_entity"),
+                        relatedEntityField("led_entity"),
+                        relatedEntityField("buzzer_entity"),
+                        relatedEntityField("ionizer_entity"),
+                        relatedEntityField("temperature_entity"),
+                        relatedEntityField("humidity_entity"),
+                    ],
+                },
+            ],
+        };
+    }
     static getStubConfig() {
         return {
             ...DEFAULT_CONFIG,
@@ -1604,22 +2399,7 @@ class XiaomiFanCard extends i {
         if (!config || !entity) {
             throw new Error("Missing required fan entity.");
         }
-        const integration = config.integration ??
-            (config.platform === "xiaomi_miio" || config.platform === "xiaomi_miio_fan"
-                ? config.platform
-                : config.platform === "xiaomi_miot"
-                    ? "xiaomi_miot"
-                    : config.platform === "default"
-                        ? "standard"
-                        : "auto");
-        const nextConfig = {
-            ...DEFAULT_CONFIG,
-            ...config,
-            entity,
-            integration,
-            show_sleep: config.show_sleep ?? config.sleep_mode ?? config.force_sleep_mode_support ?? DEFAULT_CONFIG.show_sleep,
-            show_led: config.hide_led_button ? false : (config.show_led ?? DEFAULT_CONFIG.show_led),
-        };
+        const nextConfig = normalizeCardConfig({ ...config, entity });
         const loaderChanged = this.config.entity !== nextConfig.entity ||
             this.config.integration !== nextConfig.integration ||
             this.relatedConfigKey(this.config) !== this.relatedConfigKey(nextConfig);
@@ -1650,7 +2430,7 @@ class XiaomiFanCard extends i {
         const hass = asHassLike(this.hass);
         const requestId = ++this.loadRequestId;
         const requestedHass = this.hass;
-        const shouldLoadCustomServices = this.config.integration === "xiaomi_miio_fan";
+        const shouldLoadCustomServices = this.config.integration !== "standard";
         const services = shouldLoadCustomServices
             ? loadServiceAvailability(hass)
             : Promise.resolve({ loaded: true, names: new Set() });
@@ -1682,15 +2462,21 @@ class XiaomiFanCard extends i {
         }
         return b `
       <ha-card class="card ${this.themeClass}">
-        ${this.renderHeader(adapter)} ${this.renderVisual(adapter)} ${this.renderAirflowControls(adapter)}
-        ${this.renderFeatureControls(adapter)}
+        ${this.config.header.show ? this.renderHeader(adapter) : ""}
+        ${this.config.visual.show ? this.renderVisual(adapter) : ""}
+        ${this.config.controls.show ? this.renderAirflowControls(adapter) : ""}
+        ${this.config.controls.show ? this.renderFeatureControls(adapter) : ""}
         ${this.actionError ? b `<div class="action-error" role="alert">${this.actionError}</div>` : ""}
       </ha-card>
     `;
     }
     get themeClass() {
-        const theme = this.config.theme ?? "auto";
-        return `theme-${theme}`;
+        return [
+            `theme-${this.config.layout.theme}`,
+            `density-${this.config.layout.density}`,
+            `columns-${this.config.layout.columns}`,
+            `header-${this.config.header.variant}`,
+        ].join(" ");
     }
     t(key, values) {
         const language = this.hass?.language ?? "";
@@ -1757,19 +2543,26 @@ class XiaomiFanCard extends i {
         const state = adapter.state;
         const title = this.config.name || state.friendlyName;
         const modeLabel = state.mode === "natural" ? this.t("naturalBreeze") : this.t("straightAirflow");
+        const status = state.isOn ? this.t("running") : this.t("standby");
         return b `
       <header class="header">
         <button class="title-button" @click=${this.onHeaderClick} aria-label=${this.t("open", { title })}>
-          <span class="eyebrow">${this.t("xiaomiAirCirculation")}</span>
-          <span class="title">${title}</span>
-          <span class="subtitle">
-            <span class="status-dot ${state.isOn ? "on" : ""}"></span>
-            ${state.isOn ? this.t("running") : this.t("standby")} · ${modeLabel}
-          </span>
+          ${this.config.header.show_eyebrow ? b `<span class="eyebrow">${this.t("xiaomiAirCirculation")}</span>` : ""}
+          ${this.config.header.show_name ? b `<span class="title">${title}</span>` : ""}
+          ${this.config.header.show_status || this.config.header.show_mode
+            ? b `
+                  <span class="subtitle">
+                    ${this.config.header.show_status
+                ? b `<span class="status-dot ${state.isOn ? "on" : ""}"></span>${status}`
+                : ""}
+                    ${this.config.header.show_mode ? b `<span>${modeLabel}</span>` : ""}
+                  </span>
+                `
+            : ""}
         </button>
-        <span class="model-badge"
-          >${adapter.profile.known ? (adapter.profile.model?.split(".").at(-1) ?? "XIAOMI") : this.t("fanLabel")}</span
-        >
+        ${this.config.header.show_model && adapter.profile.known
+            ? b `<span class="model-badge">${adapter.profile.model?.split(".").at(-1) ?? "XIAOMI"}</span>`
+            : ""}
       </header>
     `;
     }
@@ -1777,86 +2570,168 @@ class XiaomiFanCard extends i {
         const state = adapter.state;
         const speed = state.isOn ? state.percentage : 0;
         const style = `--speed:${speed}; --spin-duration:${Math.max(1.8, 12 - speed / 11)}s;`;
-        const direction = state.verticalSwing ? "vertical" : state.horizontalSwing ? "horizontal" : "still";
+        const axis = getAirflowAxis(state.horizontalSwing, state.verticalSwing);
+        const animationDisabled = this.config.disable_animation || this.config.visual.animation === "disabled";
         return b `
       <section class="visual-section" aria-label=${this.t("fanStatus")}>
-        <div
-          class="airflow-visual ${direction} ${state.isOn ? "running" : ""} ${this.config.disable_animation ? "no-motion" : ""}"
-          style=${style}
-        >
-          <div class="orbit orbit-one"></div>
-          <div class="orbit orbit-two"></div>
-          <div class="wind wind-one"></div>
-          <div class="wind wind-two"></div>
-          <div class="rotor" aria-hidden="true">
-            <span class="blade blade-one"></span>
-            <span class="blade blade-two"></span>
-            <span class="blade blade-three"></span>
-            <span class="blade blade-four"></span>
-            <span class="hub"></span>
-          </div>
-          <button
-            class="power-button ${state.isOn ? "active" : ""}"
-            @click=${() => this.execute(() => adapter.togglePower())}
-            aria-label=${state.isOn ? this.t("turnFanOff") : this.t("turnFanOn")}
-            aria-pressed=${state.isOn}
-          >
-            <ha-icon icon="mdi:power"></ha-icon>
-          </button>
-          <span class="speed-readout">
-            <strong>${state.percentage}</strong>
-            <small>% ${this.t("airflow")}</small>
-          </span>
-        </div>
-        <div class="visual-meta">
-          <span>${state.horizontalAngle !== undefined ? `H ${state.horizontalAngle}°` : "H -"}</span>
-          <span>${state.verticalAngle !== undefined ? `V ${state.verticalAngle}°` : "V -"}</span>
-          <span
-            >${state.timerMinutes ? this.t("timerOff", { timer: this.displayTimer(state.timerMinutes) }) : this.t("noTimer")}</span
-          >
-          ${state.temperature !== undefined ? b `<span>${state.temperature}°C</span>` : ""}
-          ${state.humidity !== undefined ? b `<span>${state.humidity}% RH</span>` : ""}
-        </div>
+        ${this.config.visual.show_graphic
+            ? b `
+                <div
+                  class="airflow-visual axis-${axis} ${state.isOn ? "running" : ""} ${animationDisabled ? "no-motion" : ""}"
+                  style=${style}
+                >
+                  <div class="orbit orbit-one"></div>
+                  <div class="orbit orbit-two"></div>
+                  <div class="wind wind-horizontal"></div>
+                  <div class="wind wind-vertical"></div>
+                  <div class="rotor" aria-hidden="true">
+                    <span class="blade blade-one"></span>
+                    <span class="blade blade-two"></span>
+                    <span class="blade blade-three"></span>
+                    <span class="blade blade-four"></span>
+                    <span class="hub"></span>
+                  </div>
+                  ${this.config.visual.show_power
+                ? b `
+                          <button
+                            class="power-button ${state.isOn ? "active" : ""}"
+                            @click=${() => this.execute(() => adapter.togglePower())}
+                            aria-label=${state.isOn ? this.t("turnFanOff") : this.t("turnFanOn")}
+                            aria-pressed=${state.isOn}
+                          >
+                            <ha-icon icon="mdi:power"></ha-icon>
+                          </button>
+                        `
+                : ""}
+                  ${this.config.visual.show_speed
+                ? b `
+                          <span class="speed-readout">
+                            <strong>${state.percentage}</strong>
+                            <small>% ${this.t("airflow")}</small>
+                          </span>
+                        `
+                : ""}
+                </div>
+              `
+            : ""}
+        ${this.config.visual.show_details ? this.renderDetails(adapter) : ""}
       </section>
+    `;
+    }
+    renderDetails(adapter) {
+        const state = adapter.state;
+        const details = this.config.details;
+        if (!details.show) {
+            return "";
+        }
+        const hasDetails = (details.show_horizontal_angle && adapter.capabilities.horizontalAngle) ||
+            (details.show_vertical_angle && adapter.capabilities.verticalAngle) ||
+            (details.show_timer && adapter.capabilities.timer) ||
+            (details.show_temperature && state.temperature !== undefined) ||
+            (details.show_humidity && state.humidity !== undefined);
+        if (!hasDetails) {
+            return "";
+        }
+        return b `
+      <div class="visual-meta">
+        ${details.show_horizontal_angle
+            ? b `
+                <span
+                  aria-label=${this.t("horizontalAngleValue", {
+                value: state.horizontalAngle ?? this.t("unavailable"),
+            })}
+                  >${state.horizontalAngle !== undefined
+                ? this.t("horizontalAngleShort", { value: state.horizontalAngle })
+                : this.t("horizontalAngleUnavailable")}</span
+                >
+              `
+            : ""}
+        ${details.show_vertical_angle
+            ? b `
+                <span
+                  aria-label=${this.t("verticalAngleValue", {
+                value: state.verticalAngle ?? this.t("unavailable"),
+            })}
+                  >${state.verticalAngle !== undefined
+                ? this.t("verticalAngleShort", { value: state.verticalAngle })
+                : this.t("verticalAngleUnavailable")}</span
+                >
+              `
+            : ""}
+        ${details.show_timer
+            ? b `<span
+                >${state.timerMinutes ? this.t("timerOff", { timer: this.displayTimer(state.timerMinutes) }) : this.t("noTimer")}</span
+              >`
+            : ""}
+        ${details.show_temperature && state.temperature !== undefined ? b `<span>${state.temperature}°C</span>` : ""}
+        ${details.show_humidity && state.humidity !== undefined ? b `<span>${state.humidity}% RH</span>` : ""}
+      </div>
     `;
     }
     renderAirflowControls(adapter) {
         const state = adapter.state;
+        const controls = this.config.controls;
         const levelLabels = Array.from({ length: adapter.capabilities.speedLevels }, (_, index) => index + 1);
+        const useSpeedSelect = controls.selection_mode === "select" || (controls.selection_mode === "auto" && levelLabels.length > 5);
+        const hasSpeedControls = controls.show_speed_slider || controls.show_speed_levels;
+        const hasModeControls = controls.show_modes &&
+            (adapter.capabilities.naturalMode ||
+                (controls.show_preset_mode && state.availableModes.some((mode) => mode.toLowerCase() !== "off")));
+        const hasChipControls = (controls.show_horizontal_swing && adapter.capabilities.horizontalSwing) ||
+            (controls.show_vertical_swing && adapter.capabilities.verticalSwing) ||
+            (controls.show_sleep && adapter.capabilities.sleepMode) ||
+            (controls.show_cycle && adapter.capabilities.horizontalSwing && adapter.capabilities.verticalSwing);
+        if (!hasSpeedControls && !hasModeControls && !hasChipControls) {
+            return "";
+        }
         return b `
       <section class="controls airflow-controls" aria-label=${this.t("airflow")}>
-        <div class="section-heading">
-          <div>
-            <span class="eyebrow">${this.t("airflow")}</span>
-            <strong>${this.t("speedLevel", { level: state.level || 0 })}</strong>
-          </div>
-          <span class="value">${state.percentage}%</span>
-        </div>
-        <input
-          class="speed-slider"
-          type="range"
-          min="0"
-          max="100"
-          step="1"
-          .value=${String(state.percentage)}
-          @change=${(event) => this.onPercentageChange(event, adapter)}
-          aria-label=${this.t("fanSpeedPercentage")}
-        />
-        <div class="level-row" role="group" aria-label=${this.t("speedLevels")}>
-          ${levelLabels.map((level) => b `
-              <button
-                class="level-button ${state.level === level ? "selected" : ""}"
-                @click=${() => this.execute(() => adapter.setPercentage(Math.round((level / adapter.capabilities.speedLevels) * 100)))}
-                aria-label=${this.t("setSpeedLevel", { level })}
-                aria-pressed=${state.level === level}
-              >
-                ${level}
-              </button>
-            `)}
-        </div>
-        ${this.renderModeControls(adapter)}
+        ${controls.show_speed_slider || controls.show_speed_levels
+            ? b `
+                <div class="section-heading">
+                  <div>
+                    <span class="eyebrow">${this.t("airflow")}</span>
+                    <strong>${this.t("speedLevel", { level: state.level || 0 })}</strong>
+                  </div>
+                  <span class="value">${state.percentage}%</span>
+                </div>
+              `
+            : ""}
+        ${controls.show_speed_slider
+            ? b `
+                <input
+                  class="speed-slider"
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="1"
+                  .value=${String(state.percentage)}
+                  @change=${(event) => this.onPercentageChange(event, adapter)}
+                  aria-label=${this.t("fanSpeedPercentage")}
+                />
+              `
+            : ""}
+        ${controls.show_speed_levels
+            ? useSpeedSelect
+                ? this.renderSpeedSelector(adapter, levelLabels)
+                : b `
+                  <div class="level-row" role="group" aria-label=${this.t("speedLevels")}>
+                    ${levelLabels.map((level) => b `
+                        <button
+                          class="level-button ${state.level === level ? "selected" : ""}"
+                          @click=${() => this.execute(() => adapter.setPercentage(Math.round((level / adapter.capabilities.speedLevels) * 100)))}
+                          aria-label=${this.t("setSpeedLevel", { level })}
+                          aria-pressed=${state.level === level}
+                        >
+                          ${level}
+                        </button>
+                      `)}
+                  </div>
+                `
+            : ""}
+        ${controls.show_modes ? this.renderModeControls(adapter) : ""}
         <div class="chip-row">
-          ${adapter.capabilities.horizontalSwing
+          ${controls.show_horizontal_swing && adapter.capabilities.horizontalSwing
             ? b `
                   <button
                     class="chip ${state.horizontalSwing ? "selected" : ""}"
@@ -1868,7 +2743,7 @@ class XiaomiFanCard extends i {
                   </button>
                 `
             : ""}
-          ${adapter.capabilities.verticalSwing
+          ${controls.show_vertical_swing && adapter.capabilities.verticalSwing
             ? b `
                   <button
                     class="chip ${state.verticalSwing ? "selected" : ""}"
@@ -1880,7 +2755,7 @@ class XiaomiFanCard extends i {
                   </button>
                 `
             : ""}
-          ${this.config.show_sleep !== false && adapter.capabilities.sleepMode
+          ${controls.show_sleep && adapter.capabilities.sleepMode
             ? b `
                   <button
                     class="chip ${state.sleepMode ? "selected" : ""}"
@@ -1892,7 +2767,7 @@ class XiaomiFanCard extends i {
                   </button>
                 `
             : ""}
-          ${adapter.capabilities.horizontalSwing && adapter.capabilities.verticalSwing
+          ${controls.show_cycle && adapter.capabilities.horizontalSwing && adapter.capabilities.verticalSwing
             ? b `
                   <button
                     class="chip ${state.horizontalSwing && state.verticalSwing ? "selected" : ""}"
@@ -1908,8 +2783,27 @@ class XiaomiFanCard extends i {
       </section>
     `;
     }
+    renderSpeedSelector(adapter, levels) {
+        const current = adapter.state.level || levels[0] || 1;
+        return b `
+      <label class="feature-select speed-select">
+        <span>${this.t("speedLevels")}</span>
+        <select
+          .value=${String(current)}
+          aria-label=${this.t("speedLevels")}
+          @change=${(event) => {
+            const level = Number(event.currentTarget.value);
+            this.execute(() => adapter.setPercentage(Math.round((level / adapter.capabilities.speedLevels) * 100)));
+        }}
+        >
+          ${levels.map((level) => b `<option value=${level} ?selected=${level === current}>${this.t("speedLevel", { level })}</option>`)}
+        </select>
+      </label>
+    `;
+    }
     renderModeControls(adapter) {
         const state = adapter.state;
+        const controls = this.config.controls;
         const availableModes = state.availableModes.filter((mode) => mode.toLowerCase() !== "off");
         const extraModes = availableModes.filter((mode) => {
             const normalized = mode.toLowerCase();
@@ -1920,7 +2814,7 @@ class XiaomiFanCard extends i {
                 normalized.includes("manual") ||
                 /^level\s*\d+$/i.test(mode));
         });
-        if (adapter.capabilities.naturalMode) {
+        if (adapter.capabilities.naturalMode && controls.show_modes) {
             return b `
         <div class="mode-section">
           <span class="control-label">${this.t("mode")}</span>
@@ -1943,13 +2837,36 @@ class XiaomiFanCard extends i {
             </button>
           </div>
         </div>
-        ${extraModes.length > 0 ? this.renderPresetSelector(adapter, extraModes) : ""}
+        ${controls.show_preset_mode && extraModes.length > 0 ? this.renderPresetChoices(adapter, extraModes) : ""}
       `;
         }
-        if (availableModes.length === 0) {
+        if (!controls.show_preset_mode || availableModes.length === 0) {
             return "";
         }
-        return this.renderPresetSelector(adapter, availableModes);
+        return this.renderPresetChoices(adapter, availableModes);
+    }
+    renderPresetChoices(adapter, modes) {
+        const useButtons = this.config.controls.selection_mode === "buttons" ||
+            (this.config.controls.selection_mode === "auto" && modes.length <= 4);
+        if (useButtons) {
+            return b `
+        <div class="preset-section">
+          <span class="control-label">${this.t("presetMode")}</span>
+          <div class="preset-row" role="group" aria-label=${this.t("presetMode")}>
+            ${modes.map((mode) => b `
+                <button
+                  class="preset-button ${adapter.state.presetMode === mode ? "selected" : ""}"
+                  @click=${() => this.execute(() => adapter.setPresetMode(mode))}
+                  aria-pressed=${adapter.state.presetMode === mode}
+                >
+                  ${mode}
+                </button>
+              `)}
+          </div>
+        </div>
+      `;
+        }
+        return this.renderPresetSelector(adapter, modes);
     }
     renderPresetSelector(adapter, modes) {
         const current = adapter.state.presetMode ?? modes[0] ?? "";
@@ -1958,23 +2875,25 @@ class XiaomiFanCard extends i {
         <span>${this.t("presetMode")}</span>
         <select
           .value=${current}
+          aria-label=${this.t("presetMode")}
           @change=${(event) => this.execute(() => adapter.setPresetMode(event.currentTarget.value))}
         >
-          ${modes.map((mode) => b `<option value=${mode}>${mode}</option>`)}
+          ${modes.map((mode) => b `<option value=${mode} ?selected=${mode === current}>${mode}</option>`)}
         </select>
       </label>
     `;
     }
     renderFeatureControls(adapter) {
         const state = adapter.state;
+        const controls = this.config.controls;
         const features = [];
-        if (adapter.capabilities.horizontalAngle) {
+        if (controls.show_horizontal_angle && adapter.capabilities.horizontalAngle) {
             features.push(this.renderAngleControl(this.t("horizontalAngle"), state.horizontalAngle, adapter.capabilities.horizontalAngles, (angle) => this.execute(() => adapter.setHorizontalAngle(angle))));
         }
-        if (adapter.capabilities.verticalAngle) {
+        if (controls.show_vertical_angle && adapter.capabilities.verticalAngle) {
             features.push(this.renderAngleControl(this.t("verticalAngle"), state.verticalAngle, adapter.capabilities.verticalAngles, (angle) => this.execute(() => adapter.setVerticalAngle(angle))));
         }
-        if (adapter.capabilities.directionNudge) {
+        if (controls.show_nudge && adapter.capabilities.directionNudge) {
             features.push(b `
         <div class="nudge-control">
           <span>${this.t("position")}</span>
@@ -1995,7 +2914,7 @@ class XiaomiFanCard extends i {
         </div>
       `);
         }
-        if (adapter.capabilities.direction && !adapter.capabilities.directionNudge) {
+        if (controls.show_direction && adapter.capabilities.direction && !adapter.capabilities.directionNudge) {
             const direction = state.direction === "reverse" ? "forward" : "reverse";
             features.push(b `
         <button class="feature-button" @click=${() => this.execute(() => adapter.setDirection(direction))}>
@@ -2007,7 +2926,7 @@ class XiaomiFanCard extends i {
         </button>
       `);
         }
-        if (adapter.capabilities.favoriteLevel) {
+        if (controls.show_favorite_level && adapter.capabilities.favoriteLevel) {
             features.push(b `
         <label class="feature-select">
           <span>${this.t("favoriteLevel")}</span>
@@ -2022,16 +2941,12 @@ class XiaomiFanCard extends i {
         </label>
       `);
         }
-        if (this.config.show_timer !== false && adapter.capabilities.timer) {
-            const nextTimer = this.nextTimer(state.timerMinutes, adapter.capabilities.timerSteps);
-            features.push(b `
-        <button class="feature-button" @click=${() => this.execute(() => adapter.setTimer(nextTimer))}>
-          <ha-icon icon="mdi:timer-outline"></ha-icon>
-          <span><small>${this.t("timer")}</small><strong>${this.displayTimer(state.timerMinutes)}</strong></span>
-        </button>
-      `);
+        if (controls.show_timer && adapter.capabilities.timer) {
+            features.push(controls.timer_mode === "select"
+                ? this.renderTimerSelector(adapter, state.timerMinutes, adapter.capabilities.timerSteps ?? TIMER_STEPS)
+                : this.renderTimerCycleButton(adapter, state.timerMinutes, adapter.capabilities.timerSteps));
         }
-        if (this.config.show_child_lock !== false && adapter.capabilities.childLock) {
+        if (controls.show_child_lock && adapter.capabilities.childLock) {
             features.push(b `
         <button
           class="feature-button ${state.childLock ? "selected" : ""}"
@@ -2044,7 +2959,7 @@ class XiaomiFanCard extends i {
         </button>
       `);
         }
-        if (this.config.show_led !== false && adapter.capabilities.led) {
+        if (controls.show_led && adapter.capabilities.led) {
             features.push(b `
         <button
           class="feature-button ${state.led ? "selected" : ""}"
@@ -2055,7 +2970,7 @@ class XiaomiFanCard extends i {
         </button>
       `);
         }
-        if (this.config.show_buzzer !== false && adapter.capabilities.buzzer) {
+        if (controls.show_buzzer && adapter.capabilities.buzzer) {
             features.push(b `
         <button
           class="feature-button ${state.buzzer ? "selected" : ""}"
@@ -2066,7 +2981,7 @@ class XiaomiFanCard extends i {
         </button>
       `);
         }
-        if (this.config.show_ionizer !== false && adapter.capabilities.ionizer) {
+        if (controls.show_ionizer && adapter.capabilities.ionizer) {
             features.push(b `
         <button
           class="feature-button ${state.ionizer ? "selected" : ""}"
@@ -2083,8 +2998,35 @@ class XiaomiFanCard extends i {
             ? b `<section class="controls feature-controls" aria-label=${this.t("fanFeatures")}>${features}</section>`
             : "";
     }
+    renderTimerCycleButton(adapter, current, steps) {
+        const nextTimer = this.nextTimer(current, steps);
+        return b `
+      <button class="feature-button" @click=${() => this.execute(() => adapter.setTimer(nextTimer))}>
+        <ha-icon icon="mdi:timer-outline"></ha-icon>
+        <span><small>${this.t("timer")}</small><strong>${this.displayTimer(current)}</strong></span>
+      </button>
+    `;
+    }
+    renderTimerSelector(adapter, current, steps) {
+        const options = steps.includes(current ?? 0) ? steps : [...steps, current ?? 0].sort((left, right) => left - right);
+        return b `
+      <label class="feature-select timer-select">
+        <span>${this.t("timer")}</span>
+        <select
+          .value=${String(current ?? 0)}
+          aria-label=${this.t("timer")}
+          @change=${(event) => this.execute(() => adapter.setTimer(Number(event.currentTarget.value)))}
+        >
+          ${options.map((minutes) => b `<option value=${minutes} ?selected=${minutes === current}>
+                ${minutes === 0 ? this.t("off") : this.displayTimer(minutes)}
+              </option>`)}
+        </select>
+      </label>
+    `;
+    }
     renderAngleControl(label, value, angles, onChange) {
         const current = value ?? angles[0] ?? 0;
+        const options = angles.includes(current) ? angles : [...angles, current].sort((left, right) => left - right);
         return b `
       <label class="feature-select">
         <span>${label}</span>
@@ -2092,9 +3034,10 @@ class XiaomiFanCard extends i {
             ? b `
                 <select
                   .value=${String(current)}
+                  aria-label=${label}
                   @change=${(event) => onChange(Number(event.currentTarget.value))}
                 >
-                  ${angles.map((angle) => b `<option value=${angle}>${angle}°</option>`)}
+                  ${options.map((angle) => b `<option value=${angle} ?selected=${angle === current}>${angle}°</option>`)}
                 </select>
               `
             : b `
@@ -2112,8 +3055,8 @@ class XiaomiFanCard extends i {
     `;
     }
     nextTimer(current, steps = TIMER_STEPS) {
-        const index = steps.indexOf(current ?? 0);
-        return steps[(index + 1) % steps.length] ?? steps[0] ?? 0;
+        const next = steps.find((step) => step > (current ?? 0));
+        return next ?? steps[0] ?? 0;
     }
     async toggleCycle(adapter) {
         const enabled = !(adapter.state.horizontalSwing && adapter.state.verticalSwing);
@@ -2127,20 +3070,34 @@ class XiaomiFanCard extends i {
     static { this.styles = i$3 `
     :host {
       display: block;
+      container-type: inline-size;
       --fan-accent: var(--state-fan-active-color, var(--state-active-color, #5c8dff));
       --fan-accent-soft: color-mix(in srgb, var(--fan-accent) 18%, transparent);
       --fan-surface: color-mix(in srgb, var(--ha-card-background, var(--card-background-color)) 88%, var(--fan-accent));
+      --fan-panel: color-mix(in srgb, var(--card-background-color) 48%, transparent);
+      --fan-text: var(--primary-text-color);
       --fan-text-muted: var(--secondary-text-color, #8a8f9d);
       --fan-border: color-mix(in srgb, var(--primary-text-color) 10%, transparent);
+      --fan-shadow: var(--ha-card-box-shadow, 0 12px 32px rgb(0 0 0 / 12%));
+      --fan-focus: var(--ha-focus-color, var(--primary-color, var(--fan-accent)));
+      --fan-radius-card: 28px;
+      --fan-radius-panel: 22px;
+      --fan-radius-control: 12px;
+      --fan-control-height: 44px;
+      --fan-control-gap: 10px;
+      --fan-panel-padding: 16px;
+      --fan-header-padding: 18px 18px 0;
+      --fan-visual-size: 310px;
+      --fan-display-font: inherit;
     }
 
     ha-card {
       overflow: hidden;
       border: 1px solid var(--fan-border);
-      border-radius: 28px;
+      border-radius: var(--fan-radius-card);
       background: var(--fan-surface);
-      color: var(--primary-text-color);
-      box-shadow: var(--ha-card-box-shadow, 0 12px 32px rgb(0 0 0 / 12%));
+      color: var(--fan-text);
+      box-shadow: var(--fan-shadow);
     }
 
     button,
@@ -2154,15 +3111,29 @@ class XiaomiFanCard extends i {
       cursor: pointer;
     }
 
+    button:focus-visible,
+    select:focus-visible,
+    input:focus-visible {
+      outline: 2px solid var(--fan-focus);
+      outline-offset: 2px;
+    }
+
     .header {
       display: flex;
       align-items: flex-start;
       justify-content: space-between;
       gap: 16px;
-      padding: 22px 22px 0;
+      min-width: 0;
+      padding: var(--fan-header-padding);
+    }
+
+    .header-compact .header {
+      gap: 10px;
+      padding-bottom: 0;
     }
 
     .title-button {
+      min-width: 0;
       display: grid;
       gap: 5px;
       padding: 0;
@@ -2179,14 +3150,20 @@ class XiaomiFanCard extends i {
     }
 
     .title {
-      font-size: 21px;
+      min-width: 0;
+      overflow: hidden;
+      font-size: 18px;
       font-weight: 750;
+      text-overflow: ellipsis;
+      white-space: nowrap;
       letter-spacing: -0.02em;
     }
 
     .subtitle {
+      min-width: 0;
       display: flex;
       align-items: center;
+      flex-wrap: wrap;
       gap: 6px;
       color: var(--fan-text-muted);
       font-size: 12px;
@@ -2222,7 +3199,7 @@ class XiaomiFanCard extends i {
       position: relative;
       display: grid;
       place-items: center;
-      width: min(100%, 310px);
+      width: min(100%, var(--fan-visual-size));
       aspect-ratio: 1;
       margin: 0 auto;
       isolation: isolate;
@@ -2269,11 +3246,13 @@ class XiaomiFanCard extends i {
       transform: rotate(-26deg);
     }
 
-    .horizontal .orbit-one {
+    .axis-horizontal .orbit-one,
+    .axis-dual .orbit-one {
       animation: orbit-horizontal 8s ease-in-out infinite;
     }
 
-    .vertical .orbit-two {
+    .axis-vertical .orbit-two,
+    .axis-dual .orbit-two {
       animation: orbit-vertical 8s ease-in-out infinite;
     }
 
@@ -2286,18 +3265,34 @@ class XiaomiFanCard extends i {
       opacity: 0;
     }
 
-    .running .wind {
-      animation: wind-flow var(--spin-duration) linear infinite;
+    .running .wind-horizontal {
       opacity: 0.7;
     }
 
-    .wind-one {
+    .running .wind-vertical {
+      opacity: 0.7;
+    }
+
+    .wind-horizontal {
       transform: translateY(-44px) rotate(-12deg);
     }
 
-    .wind-two {
+    .wind-vertical {
       transform: translateY(44px) rotate(12deg);
-      animation-delay: -0.7s !important;
+      width: 4px;
+      height: 42%;
+      background: linear-gradient(180deg, transparent, var(--fan-accent), transparent);
+    }
+
+    .axis-horizontal.running .wind-horizontal,
+    .axis-dual.running .wind-horizontal {
+      animation: wind-horizontal-flow var(--spin-duration) linear infinite;
+    }
+
+    .axis-vertical.running .wind-vertical,
+    .axis-dual.running .wind-vertical {
+      animation: wind-vertical-flow calc(var(--spin-duration) * 1.2) ease-in-out infinite;
+      animation-delay: -0.7s;
     }
 
     .rotor {
@@ -2410,10 +3405,10 @@ class XiaomiFanCard extends i {
 
     .controls {
       margin: 0 14px 14px;
-      padding: 16px;
+      padding: var(--fan-panel-padding);
       border: 1px solid var(--fan-border);
-      border-radius: 22px;
-      background: color-mix(in srgb, var(--card-background-color) 48%, transparent);
+      border-radius: var(--fan-radius-panel);
+      background: var(--fan-panel);
     }
 
     .section-heading {
@@ -2467,6 +3462,7 @@ class XiaomiFanCard extends i {
       display: grid;
       justify-items: center;
       gap: 7px;
+      min-height: var(--fan-control-height);
       padding: 10px 6px;
       border: 1px solid var(--fan-border);
       border-radius: 16px;
@@ -2500,7 +3496,8 @@ class XiaomiFanCard extends i {
     }
 
     .level-row,
-    .chip-row {
+    .chip-row,
+    .preset-row {
       display: flex;
       gap: 8px;
     }
@@ -2510,10 +3507,11 @@ class XiaomiFanCard extends i {
     }
 
     .level-button,
-    .chip {
-      min-height: 34px;
+    .chip,
+    .preset-button {
+      min-height: var(--fan-control-height);
       border: 1px solid var(--fan-border);
-      border-radius: 12px;
+      border-radius: var(--fan-radius-control);
       background: transparent;
       color: var(--fan-text-muted);
     }
@@ -2549,17 +3547,18 @@ class XiaomiFanCard extends i {
     .feature-controls {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
+      gap: var(--fan-control-gap);
     }
 
     .feature-select,
     .nudge-control,
     .feature-button {
       min-width: 0;
+      min-height: var(--fan-control-height);
       padding: 11px;
       border: 1px solid var(--fan-border);
-      border-radius: 15px;
-      background: transparent;
+      border-radius: var(--fan-radius-control);
+      background: var(--fan-panel);
       color: var(--primary-text-color);
     }
 
@@ -2574,13 +3573,26 @@ class XiaomiFanCard extends i {
 
     .feature-select select,
     .feature-select input[type="number"] {
+      box-sizing: border-box;
+      min-height: var(--fan-control-height);
       width: 100%;
-      border: 0;
-      outline: 0;
-      background: transparent;
-      color: var(--primary-text-color);
+      border: 1px solid var(--input-outlined-idle-border-color, var(--fan-border));
+      border-radius: var(--fan-radius-control);
+      outline: none;
+      background: var(--input-fill-color, transparent);
+      color: var(--input-ink-color, var(--fan-text));
       font-size: 14px;
       font-weight: 750;
+    }
+
+    .feature-select select:hover,
+    .feature-select input[type="number"]:hover {
+      border-color: var(--input-outlined-hover-border-color, var(--fan-accent-soft));
+    }
+
+    .feature-select select:focus-visible,
+    .feature-select input[type="number"]:focus-visible {
+      border-color: var(--input-outlined-focus-border-color, var(--fan-focus));
     }
 
     .feature-button {
@@ -2619,19 +3631,35 @@ class XiaomiFanCard extends i {
 
     .nudge-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-areas:
+        ". up ."
+        "left center right"
+        ". down .";
       gap: 4px;
     }
 
     .nudge-grid button {
-      min-height: 28px;
-      border-radius: 8px;
+      min-height: var(--fan-control-height);
+      border-radius: var(--fan-radius-control);
       background: var(--fan-accent-soft);
       color: var(--fan-accent);
     }
 
-    .nudge-grid button:first-child {
-      grid-column: 2;
+    .nudge-grid button:nth-child(1) {
+      grid-area: up;
+    }
+
+    .nudge-grid button:nth-child(2) {
+      grid-area: left;
+    }
+
+    .nudge-grid button:nth-child(3) {
+      grid-area: right;
+    }
+
+    .nudge-grid button:nth-child(4) {
+      grid-area: down;
     }
 
     .empty {
@@ -2655,17 +3683,50 @@ class XiaomiFanCard extends i {
     }
 
     .theme-minimal {
-      border-radius: 16px;
+      --fan-surface: transparent;
+      --fan-panel: transparent;
+      --fan-radius-card: 12px;
+      --fan-radius-panel: 12px;
+      --fan-radius-control: 8px;
+      --fan-visual-size: 250px;
+      --fan-shadow: none;
       box-shadow: none;
     }
 
+    .theme-mushroom {
+      --fan-panel: color-mix(in srgb, var(--fan-accent) 8%, var(--card-background-color));
+      --fan-radius-card: 30px;
+      --fan-radius-panel: 24px;
+      --fan-radius-control: 999px;
+      --fan-visual-size: 270px;
+      --fan-shadow: 0 14px 32px rgb(0 0 0 / 10%);
+    }
+
     .theme-glass {
+      --fan-panel: color-mix(in srgb, var(--card-background-color) 28%, transparent);
+      --fan-radius-card: 28px;
+      --fan-radius-panel: 20px;
+      --fan-radius-control: 14px;
+      --fan-shadow: 0 20px 50px rgb(0 0 0 / 18%);
       background: color-mix(in srgb, var(--card-background-color) 54%, transparent);
       backdrop-filter: blur(18px);
     }
 
     .theme-industrial {
       --fan-accent: var(--state-fan-active-color, #e9a23b);
+      --fan-radius-card: 8px;
+      --fan-radius-panel: 6px;
+      --fan-radius-control: 4px;
+      --fan-panel: color-mix(in srgb, #e9a23b 5%, var(--card-background-color));
+      --fan-shadow: none;
+      --fan-display-font: ui-monospace, SFMono-Regular, Menlo, monospace;
+      --fan-visual-size: 270px;
+    }
+
+    .theme-industrial .value,
+    .theme-industrial .speed-readout strong,
+    .theme-industrial .feature-button strong {
+      font-family: var(--fan-display-font);
     }
 
     @keyframes rotor-spin {
@@ -2674,7 +3735,7 @@ class XiaomiFanCard extends i {
       }
     }
 
-    @keyframes wind-flow {
+    @keyframes wind-horizontal-flow {
       0% {
         transform: translateX(-20px) scaleX(0.5);
       }
@@ -2683,6 +3744,18 @@ class XiaomiFanCard extends i {
       }
       100% {
         transform: translateX(65px) scaleX(0.5);
+      }
+    }
+
+    @keyframes wind-vertical-flow {
+      0% {
+        transform: translateY(-20px) scaleY(0.5);
+      }
+      50% {
+        transform: translateY(20px) scaleY(1);
+      }
+      100% {
+        transform: translateY(65px) scaleY(0.5);
       }
     }
 
@@ -2706,23 +3779,70 @@ class XiaomiFanCard extends i {
       }
     }
 
-    @media (max-width: 360px) {
+    .density-compact {
+      --fan-control-height: 44px;
+      --fan-control-gap: 6px;
+      --fan-panel-padding: 12px;
+      --fan-header-padding: 12px 12px 0;
+    }
+
+    .density-comfortable {
+      --fan-control-height: 48px;
+    }
+
+    .columns-one .feature-controls {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .columns-two .feature-controls {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    @container (max-width: 419px) {
+      .feature-controls {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .columns-two .feature-controls {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    @media (max-width: 419px) {
+      .feature-controls {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    @container (max-width: 360px) {
+      .header {
+        padding: 10px 12px 0;
+      }
+
       .visual-meta {
         gap: 8px;
         font-size: 9px;
+        flex-wrap: wrap;
       }
 
-      .chip {
+      .chip,
+      .level-button,
+      .preset-button {
         font-size: 10px;
       }
     }
 
     @media (prefers-reduced-motion: reduce) {
       .running .rotor,
-      .running .wind,
-      .horizontal .orbit-one,
-      .vertical .orbit-two {
-        animation: none;
+      .axis-horizontal .orbit-one,
+      .axis-vertical .orbit-two,
+      .axis-dual .orbit-one,
+      .axis-dual .orbit-two,
+      .axis-horizontal .wind-horizontal,
+      .axis-vertical .wind-vertical,
+      .axis-dual .wind-horizontal,
+      .axis-dual .wind-vertical {
+        animation: none !important;
       }
     }
   `; }

@@ -7,12 +7,22 @@ import {
   type LovelaceCardEditor,
 } from "custom-card-helpers";
 import { createFanAdapter } from "./adapters";
-import { DEFAULT_CONFIG } from "./config";
+import { DEFAULT_CONFIG, normalizeCardConfig } from "./config";
 import "./editor";
 import { loadServiceAvailability } from "./services/service-dispatcher";
 import { resolveRelatedEntities } from "./state/related-entities";
+import { getAirflowAxis } from "./state/visual-state";
 import { createTranslator, type TranslationKey, type TranslationValues, type Translator } from "./translations";
-import type { FanAdapter, FanCardConfig, HassLike, RelatedEntities, ServiceAvailability } from "./types";
+import { RELATED_ENTITY_DOMAINS } from "./types";
+import type {
+  FanAdapter,
+  FanCardConfig,
+  HassLike,
+  FanRelatedEntitiesConfig,
+  RelatedEntities,
+  ResolvedFanCardConfig,
+  ServiceAvailability,
+} from "./types";
 
 const TIMER_STEPS = [0, 60, 120, 180, 240, 300, 360, 420, 480];
 
@@ -21,7 +31,7 @@ const asHassLike = (hass: HomeAssistant): HassLike => hass as unknown as HassLik
 export class XiaomiFanCard extends LitElement {
   @property({ attribute: false }) public hass!: HomeAssistant;
 
-  @state() private config: FanCardConfig = { ...DEFAULT_CONFIG } as FanCardConfig;
+  @state() private config: ResolvedFanCardConfig = normalizeCardConfig(DEFAULT_CONFIG);
 
   @state() private services: ServiceAvailability = { loaded: false, names: new Set() };
 
@@ -39,6 +49,125 @@ export class XiaomiFanCard extends LitElement {
     return document.createElement("xiaomi-fan-card-editor") as LovelaceCardEditor;
   }
 
+  public static getConfigForm() {
+    const booleanField = (name: string) => ({ name, selector: { boolean: {} } });
+    const entityField = (name: string, domains: readonly string[]) => ({
+      name,
+      selector: { entity: { domain: domains } },
+    });
+    const selectField = (name: string, options: string[]) => ({
+      name,
+      selector: { select: { options } },
+    });
+    const relatedEntityField = (name: keyof FanRelatedEntitiesConfig) =>
+      entityField(name, RELATED_ENTITY_DOMAINS[name]);
+
+    return {
+      schema: [
+        entityField("entity", ["fan"]),
+        { name: "name", selector: { text: {} } },
+        selectField("integration", ["auto", "standard", "xiaomi_miio", "xiaomi_miio_fan", "xiaomi_miot"]),
+        {
+          type: "expandable",
+          name: "header",
+          flatten: false,
+          schema: [
+            booleanField("show"),
+            selectField("variant", ["full", "compact"]),
+            booleanField("show_eyebrow"),
+            booleanField("show_name"),
+            booleanField("show_status"),
+            booleanField("show_mode"),
+            booleanField("show_model"),
+          ],
+        },
+        {
+          type: "expandable",
+          name: "visual",
+          flatten: false,
+          schema: [
+            booleanField("show"),
+            booleanField("show_graphic"),
+            booleanField("show_power"),
+            booleanField("show_speed"),
+            booleanField("show_details"),
+            selectField("animation", ["auto", "enabled", "disabled"]),
+          ],
+        },
+        {
+          type: "expandable",
+          name: "controls",
+          flatten: false,
+          schema: [
+            booleanField("show"),
+            booleanField("show_speed_slider"),
+            booleanField("show_speed_levels"),
+            booleanField("show_modes"),
+            booleanField("show_preset_mode"),
+            booleanField("show_horizontal_swing"),
+            booleanField("show_vertical_swing"),
+            booleanField("show_sleep"),
+            booleanField("show_cycle"),
+            booleanField("show_horizontal_angle"),
+            booleanField("show_vertical_angle"),
+            booleanField("show_nudge"),
+            booleanField("show_direction"),
+            booleanField("show_favorite_level"),
+            booleanField("show_timer"),
+            booleanField("show_child_lock"),
+            booleanField("show_led"),
+            booleanField("show_buzzer"),
+            booleanField("show_ionizer"),
+            selectField("selection_mode", ["auto", "buttons", "select"]),
+            selectField("timer_mode", ["cycle", "select"]),
+          ],
+        },
+        {
+          type: "expandable",
+          name: "details",
+          flatten: false,
+          schema: [
+            booleanField("show"),
+            booleanField("show_horizontal_angle"),
+            booleanField("show_vertical_angle"),
+            booleanField("show_timer"),
+            booleanField("show_temperature"),
+            booleanField("show_humidity"),
+          ],
+        },
+        {
+          type: "expandable",
+          name: "layout",
+          flatten: false,
+          schema: [
+            selectField("theme", ["auto", "mushroom", "minimal", "glass", "industrial"]),
+            selectField("density", ["comfortable", "compact"]),
+            selectField("columns", ["auto", "one", "two"]),
+          ],
+        },
+        {
+          type: "expandable",
+          name: "related_entities",
+          flatten: true,
+          schema: [
+            relatedEntityField("horizontal_angle_entity"),
+            relatedEntityField("vertical_swing_entity"),
+            relatedEntityField("vertical_angle_entity"),
+            relatedEntityField("favorite_level_entity"),
+            relatedEntityField("sleep_mode_entity"),
+            relatedEntityField("timer_entity"),
+            relatedEntityField("child_lock_entity"),
+            relatedEntityField("led_entity"),
+            relatedEntityField("buzzer_entity"),
+            relatedEntityField("ionizer_entity"),
+            relatedEntityField("temperature_entity"),
+            relatedEntityField("humidity_entity"),
+          ],
+        },
+      ],
+    };
+  }
+
   public static getStubConfig(): Partial<FanCardConfig> {
     return {
       ...DEFAULT_CONFIG,
@@ -52,25 +181,7 @@ export class XiaomiFanCard extends LitElement {
       throw new Error("Missing required fan entity.");
     }
 
-    const integration =
-      config.integration ??
-      (config.platform === "xiaomi_miio" || config.platform === "xiaomi_miio_fan"
-        ? config.platform
-        : config.platform === "xiaomi_miot"
-          ? "xiaomi_miot"
-          : config.platform === "default"
-            ? "standard"
-            : "auto");
-
-    const nextConfig = {
-      ...DEFAULT_CONFIG,
-      ...config,
-      entity,
-      integration,
-      show_sleep:
-        config.show_sleep ?? config.sleep_mode ?? config.force_sleep_mode_support ?? DEFAULT_CONFIG.show_sleep,
-      show_led: config.hide_led_button ? false : (config.show_led ?? DEFAULT_CONFIG.show_led),
-    };
+    const nextConfig = normalizeCardConfig({ ...config, entity });
     const loaderChanged =
       this.config.entity !== nextConfig.entity ||
       this.config.integration !== nextConfig.integration ||
@@ -109,7 +220,7 @@ export class XiaomiFanCard extends LitElement {
     const hass = asHassLike(this.hass);
     const requestId = ++this.loadRequestId;
     const requestedHass = this.hass;
-    const shouldLoadCustomServices = this.config.integration === "xiaomi_miio_fan";
+    const shouldLoadCustomServices = this.config.integration !== "standard";
     const services = shouldLoadCustomServices
       ? loadServiceAvailability(hass)
       : Promise.resolve<ServiceAvailability>({ loaded: true, names: new Set() });
@@ -153,16 +264,22 @@ export class XiaomiFanCard extends LitElement {
 
     return html`
       <ha-card class="card ${this.themeClass}">
-        ${this.renderHeader(adapter)} ${this.renderVisual(adapter)} ${this.renderAirflowControls(adapter)}
-        ${this.renderFeatureControls(adapter)}
+        ${this.config.header.show ? this.renderHeader(adapter) : ""}
+        ${this.config.visual.show ? this.renderVisual(adapter) : ""}
+        ${this.config.controls.show ? this.renderAirflowControls(adapter) : ""}
+        ${this.config.controls.show ? this.renderFeatureControls(adapter) : ""}
         ${this.actionError ? html`<div class="action-error" role="alert">${this.actionError}</div>` : ""}
       </ha-card>
     `;
   }
 
   private get themeClass(): string {
-    const theme = this.config.theme ?? "auto";
-    return `theme-${theme}`;
+    return [
+      `theme-${this.config.layout.theme}`,
+      `density-${this.config.layout.density}`,
+      `columns-${this.config.layout.columns}`,
+      `header-${this.config.header.variant}`,
+    ].join(" ");
   }
 
   private t(key: TranslationKey, values?: TranslationValues): string {
@@ -237,20 +354,33 @@ export class XiaomiFanCard extends LitElement {
     const state = adapter.state;
     const title = this.config.name || state.friendlyName;
     const modeLabel = state.mode === "natural" ? this.t("naturalBreeze") : this.t("straightAirflow");
+    const status = state.isOn ? this.t("running") : this.t("standby");
 
     return html`
       <header class="header">
         <button class="title-button" @click=${this.onHeaderClick} aria-label=${this.t("open", { title })}>
-          <span class="eyebrow">${this.t("xiaomiAirCirculation")}</span>
-          <span class="title">${title}</span>
-          <span class="subtitle">
-            <span class="status-dot ${state.isOn ? "on" : ""}"></span>
-            ${state.isOn ? this.t("running") : this.t("standby")} · ${modeLabel}
-          </span>
+          ${this.config.header.show_eyebrow ? html`<span class="eyebrow">${this.t("xiaomiAirCirculation")}</span>` : ""}
+          ${this.config.header.show_name ? html`<span class="title">${title}</span>` : ""}
+          ${
+            this.config.header.show_status || this.config.header.show_mode
+              ? html`
+                  <span class="subtitle">
+                    ${
+                      this.config.header.show_status
+                        ? html`<span class="status-dot ${state.isOn ? "on" : ""}"></span>${status}`
+                        : ""
+                    }
+                    ${this.config.header.show_mode ? html`<span>${modeLabel}</span>` : ""}
+                  </span>
+                `
+              : ""
+          }
         </button>
-        <span class="model-badge"
-          >${adapter.profile.known ? (adapter.profile.model?.split(".").at(-1) ?? "XIAOMI") : this.t("fanLabel")}</span
-        >
+        ${
+          this.config.header.show_model && adapter.profile.known
+            ? html`<span class="model-badge">${adapter.profile.model?.split(".").at(-1) ?? "XIAOMI"}</span>`
+            : ""
+        }
       </header>
     `;
   }
@@ -259,97 +389,210 @@ export class XiaomiFanCard extends LitElement {
     const state = adapter.state;
     const speed = state.isOn ? state.percentage : 0;
     const style = `--speed:${speed}; --spin-duration:${Math.max(1.8, 12 - speed / 11)}s;`;
-    const direction = state.verticalSwing ? "vertical" : state.horizontalSwing ? "horizontal" : "still";
+    const axis = getAirflowAxis(state.horizontalSwing, state.verticalSwing);
+    const animationDisabled = this.config.disable_animation || this.config.visual.animation === "disabled";
 
     return html`
       <section class="visual-section" aria-label=${this.t("fanStatus")}>
-        <div
-          class="airflow-visual ${direction} ${state.isOn ? "running" : ""} ${
-            this.config.disable_animation ? "no-motion" : ""
-          }"
-          style=${style}
-        >
-          <div class="orbit orbit-one"></div>
-          <div class="orbit orbit-two"></div>
-          <div class="wind wind-one"></div>
-          <div class="wind wind-two"></div>
-          <div class="rotor" aria-hidden="true">
-            <span class="blade blade-one"></span>
-            <span class="blade blade-two"></span>
-            <span class="blade blade-three"></span>
-            <span class="blade blade-four"></span>
-            <span class="hub"></span>
-          </div>
-          <button
-            class="power-button ${state.isOn ? "active" : ""}"
-            @click=${() => this.execute(() => adapter.togglePower())}
-            aria-label=${state.isOn ? this.t("turnFanOff") : this.t("turnFanOn")}
-            aria-pressed=${state.isOn}
-          >
-            <ha-icon icon="mdi:power"></ha-icon>
-          </button>
-          <span class="speed-readout">
-            <strong>${state.percentage}</strong>
-            <small>% ${this.t("airflow")}</small>
-          </span>
-        </div>
-        <div class="visual-meta">
-          <span>${state.horizontalAngle !== undefined ? `H ${state.horizontalAngle}°` : "H -"}</span>
-          <span>${state.verticalAngle !== undefined ? `V ${state.verticalAngle}°` : "V -"}</span>
-          <span
-            >${state.timerMinutes ? this.t("timerOff", { timer: this.displayTimer(state.timerMinutes) }) : this.t("noTimer")}</span
-          >
-          ${state.temperature !== undefined ? html`<span>${state.temperature}°C</span>` : ""}
-          ${state.humidity !== undefined ? html`<span>${state.humidity}% RH</span>` : ""}
-        </div>
+        ${
+          this.config.visual.show_graphic
+            ? html`
+                <div
+                  class="airflow-visual axis-${axis} ${state.isOn ? "running" : ""} ${
+                    animationDisabled ? "no-motion" : ""
+                  }"
+                  style=${style}
+                >
+                  <div class="orbit orbit-one"></div>
+                  <div class="orbit orbit-two"></div>
+                  <div class="wind wind-horizontal"></div>
+                  <div class="wind wind-vertical"></div>
+                  <div class="rotor" aria-hidden="true">
+                    <span class="blade blade-one"></span>
+                    <span class="blade blade-two"></span>
+                    <span class="blade blade-three"></span>
+                    <span class="blade blade-four"></span>
+                    <span class="hub"></span>
+                  </div>
+                  ${
+                    this.config.visual.show_power
+                      ? html`
+                          <button
+                            class="power-button ${state.isOn ? "active" : ""}"
+                            @click=${() => this.execute(() => adapter.togglePower())}
+                            aria-label=${state.isOn ? this.t("turnFanOff") : this.t("turnFanOn")}
+                            aria-pressed=${state.isOn}
+                          >
+                            <ha-icon icon="mdi:power"></ha-icon>
+                          </button>
+                        `
+                      : ""
+                  }
+                  ${
+                    this.config.visual.show_speed
+                      ? html`
+                          <span class="speed-readout">
+                            <strong>${state.percentage}</strong>
+                            <small>% ${this.t("airflow")}</small>
+                          </span>
+                        `
+                      : ""
+                  }
+                </div>
+              `
+            : ""
+        }
+        ${this.config.visual.show_details ? this.renderDetails(adapter) : ""}
       </section>
+    `;
+  }
+
+  private renderDetails(adapter: FanAdapter) {
+    const state = adapter.state;
+    const details = this.config.details;
+
+    if (!details.show) {
+      return "";
+    }
+
+    const hasDetails =
+      (details.show_horizontal_angle && adapter.capabilities.horizontalAngle) ||
+      (details.show_vertical_angle && adapter.capabilities.verticalAngle) ||
+      (details.show_timer && adapter.capabilities.timer) ||
+      (details.show_temperature && state.temperature !== undefined) ||
+      (details.show_humidity && state.humidity !== undefined);
+    if (!hasDetails) {
+      return "";
+    }
+
+    return html`
+      <div class="visual-meta">
+        ${
+          details.show_horizontal_angle
+            ? html`
+                <span
+                  aria-label=${this.t("horizontalAngleValue", {
+                    value: state.horizontalAngle ?? this.t("unavailable"),
+                  })}
+                  >${
+                    state.horizontalAngle !== undefined
+                      ? this.t("horizontalAngleShort", { value: state.horizontalAngle })
+                      : this.t("horizontalAngleUnavailable")
+                  }</span
+                >
+              `
+            : ""
+        }
+        ${
+          details.show_vertical_angle
+            ? html`
+                <span
+                  aria-label=${this.t("verticalAngleValue", {
+                    value: state.verticalAngle ?? this.t("unavailable"),
+                  })}
+                  >${
+                    state.verticalAngle !== undefined
+                      ? this.t("verticalAngleShort", { value: state.verticalAngle })
+                      : this.t("verticalAngleUnavailable")
+                  }</span
+                >
+              `
+            : ""
+        }
+        ${
+          details.show_timer
+            ? html`<span
+                >${state.timerMinutes ? this.t("timerOff", { timer: this.displayTimer(state.timerMinutes) }) : this.t("noTimer")}</span
+              >`
+            : ""
+        }
+        ${details.show_temperature && state.temperature !== undefined ? html`<span>${state.temperature}°C</span>` : ""}
+        ${details.show_humidity && state.humidity !== undefined ? html`<span>${state.humidity}% RH</span>` : ""}
+      </div>
     `;
   }
 
   private renderAirflowControls(adapter: FanAdapter) {
     const state = adapter.state;
+    const controls = this.config.controls;
     const levelLabels = Array.from({ length: adapter.capabilities.speedLevels }, (_, index) => index + 1);
+    const useSpeedSelect =
+      controls.selection_mode === "select" || (controls.selection_mode === "auto" && levelLabels.length > 5);
+    const hasSpeedControls = controls.show_speed_slider || controls.show_speed_levels;
+    const hasModeControls =
+      controls.show_modes &&
+      (adapter.capabilities.naturalMode ||
+        (controls.show_preset_mode && state.availableModes.some((mode) => mode.toLowerCase() !== "off")));
+    const hasChipControls =
+      (controls.show_horizontal_swing && adapter.capabilities.horizontalSwing) ||
+      (controls.show_vertical_swing && adapter.capabilities.verticalSwing) ||
+      (controls.show_sleep && adapter.capabilities.sleepMode) ||
+      (controls.show_cycle && adapter.capabilities.horizontalSwing && adapter.capabilities.verticalSwing);
+
+    if (!hasSpeedControls && !hasModeControls && !hasChipControls) {
+      return "";
+    }
 
     return html`
       <section class="controls airflow-controls" aria-label=${this.t("airflow")}>
-        <div class="section-heading">
-          <div>
-            <span class="eyebrow">${this.t("airflow")}</span>
-            <strong>${this.t("speedLevel", { level: state.level || 0 })}</strong>
-          </div>
-          <span class="value">${state.percentage}%</span>
-        </div>
-        <input
-          class="speed-slider"
-          type="range"
-          min="0"
-          max="100"
-          step="1"
-          .value=${String(state.percentage)}
-          @change=${(event: Event) => this.onPercentageChange(event, adapter)}
-          aria-label=${this.t("fanSpeedPercentage")}
-        />
-        <div class="level-row" role="group" aria-label=${this.t("speedLevels")}>
-          ${levelLabels.map(
-            (level) => html`
-              <button
-                class="level-button ${state.level === level ? "selected" : ""}"
-                @click=${() =>
-                  this.execute(() =>
-                    adapter.setPercentage(Math.round((level / adapter.capabilities.speedLevels) * 100)),
-                  )}
-                aria-label=${this.t("setSpeedLevel", { level })}
-                aria-pressed=${state.level === level}
-              >
-                ${level}
-              </button>
-            `,
-          )}
-        </div>
-        ${this.renderModeControls(adapter)}
+        ${
+          controls.show_speed_slider || controls.show_speed_levels
+            ? html`
+                <div class="section-heading">
+                  <div>
+                    <span class="eyebrow">${this.t("airflow")}</span>
+                    <strong>${this.t("speedLevel", { level: state.level || 0 })}</strong>
+                  </div>
+                  <span class="value">${state.percentage}%</span>
+                </div>
+              `
+            : ""
+        }
+        ${
+          controls.show_speed_slider
+            ? html`
+                <input
+                  class="speed-slider"
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="1"
+                  .value=${String(state.percentage)}
+                  @change=${(event: Event) => this.onPercentageChange(event, adapter)}
+                  aria-label=${this.t("fanSpeedPercentage")}
+                />
+              `
+            : ""
+        }
+        ${
+          controls.show_speed_levels
+            ? useSpeedSelect
+              ? this.renderSpeedSelector(adapter, levelLabels)
+              : html`
+                  <div class="level-row" role="group" aria-label=${this.t("speedLevels")}>
+                    ${levelLabels.map(
+                      (level) => html`
+                        <button
+                          class="level-button ${state.level === level ? "selected" : ""}"
+                          @click=${() =>
+                            this.execute(() =>
+                              adapter.setPercentage(Math.round((level / adapter.capabilities.speedLevels) * 100)),
+                            )}
+                          aria-label=${this.t("setSpeedLevel", { level })}
+                          aria-pressed=${state.level === level}
+                        >
+                          ${level}
+                        </button>
+                      `,
+                    )}
+                  </div>
+                `
+            : ""
+        }
+        ${controls.show_modes ? this.renderModeControls(adapter) : ""}
         <div class="chip-row">
           ${
-            adapter.capabilities.horizontalSwing
+            controls.show_horizontal_swing && adapter.capabilities.horizontalSwing
               ? html`
                   <button
                     class="chip ${state.horizontalSwing ? "selected" : ""}"
@@ -363,7 +606,7 @@ export class XiaomiFanCard extends LitElement {
               : ""
           }
           ${
-            adapter.capabilities.verticalSwing
+            controls.show_vertical_swing && adapter.capabilities.verticalSwing
               ? html`
                   <button
                     class="chip ${state.verticalSwing ? "selected" : ""}"
@@ -377,7 +620,7 @@ export class XiaomiFanCard extends LitElement {
               : ""
           }
           ${
-            this.config.show_sleep !== false && adapter.capabilities.sleepMode
+            controls.show_sleep && adapter.capabilities.sleepMode
               ? html`
                   <button
                     class="chip ${state.sleepMode ? "selected" : ""}"
@@ -391,7 +634,7 @@ export class XiaomiFanCard extends LitElement {
               : ""
           }
           ${
-            adapter.capabilities.horizontalSwing && adapter.capabilities.verticalSwing
+            controls.show_cycle && adapter.capabilities.horizontalSwing && adapter.capabilities.verticalSwing
               ? html`
                   <button
                     class="chip ${state.horizontalSwing && state.verticalSwing ? "selected" : ""}"
@@ -409,8 +652,31 @@ export class XiaomiFanCard extends LitElement {
     `;
   }
 
+  private renderSpeedSelector(adapter: FanAdapter, levels: number[]) {
+    const current = adapter.state.level || levels[0] || 1;
+    return html`
+      <label class="feature-select speed-select">
+        <span>${this.t("speedLevels")}</span>
+        <select
+          .value=${String(current)}
+          aria-label=${this.t("speedLevels")}
+          @change=${(event: Event) => {
+            const level = Number((event.currentTarget as HTMLSelectElement).value);
+            this.execute(() => adapter.setPercentage(Math.round((level / adapter.capabilities.speedLevels) * 100)));
+          }}
+        >
+          ${levels.map(
+            (level) =>
+              html`<option value=${level} ?selected=${level === current}>${this.t("speedLevel", { level })}</option>`,
+          )}
+        </select>
+      </label>
+    `;
+  }
+
   private renderModeControls(adapter: FanAdapter) {
     const state = adapter.state;
+    const controls = this.config.controls;
     const availableModes = state.availableModes.filter((mode) => mode.toLowerCase() !== "off");
     const extraModes = availableModes.filter((mode) => {
       const normalized = mode.toLowerCase();
@@ -424,7 +690,7 @@ export class XiaomiFanCard extends LitElement {
       );
     });
 
-    if (adapter.capabilities.naturalMode) {
+    if (adapter.capabilities.naturalMode && controls.show_modes) {
       return html`
         <div class="mode-section">
           <span class="control-label">${this.t("mode")}</span>
@@ -447,15 +713,44 @@ export class XiaomiFanCard extends LitElement {
             </button>
           </div>
         </div>
-        ${extraModes.length > 0 ? this.renderPresetSelector(adapter, extraModes) : ""}
+        ${controls.show_preset_mode && extraModes.length > 0 ? this.renderPresetChoices(adapter, extraModes) : ""}
       `;
     }
 
-    if (availableModes.length === 0) {
+    if (!controls.show_preset_mode || availableModes.length === 0) {
       return "";
     }
 
-    return this.renderPresetSelector(adapter, availableModes);
+    return this.renderPresetChoices(adapter, availableModes);
+  }
+
+  private renderPresetChoices(adapter: FanAdapter, modes: string[]) {
+    const useButtons =
+      this.config.controls.selection_mode === "buttons" ||
+      (this.config.controls.selection_mode === "auto" && modes.length <= 4);
+
+    if (useButtons) {
+      return html`
+        <div class="preset-section">
+          <span class="control-label">${this.t("presetMode")}</span>
+          <div class="preset-row" role="group" aria-label=${this.t("presetMode")}>
+            ${modes.map(
+              (mode) => html`
+                <button
+                  class="preset-button ${adapter.state.presetMode === mode ? "selected" : ""}"
+                  @click=${() => this.execute(() => adapter.setPresetMode(mode))}
+                  aria-pressed=${adapter.state.presetMode === mode}
+                >
+                  ${mode}
+                </button>
+              `,
+            )}
+          </div>
+        </div>
+      `;
+    }
+
+    return this.renderPresetSelector(adapter, modes);
   }
 
   private renderPresetSelector(adapter: FanAdapter, modes: string[]) {
@@ -465,10 +760,11 @@ export class XiaomiFanCard extends LitElement {
         <span>${this.t("presetMode")}</span>
         <select
           .value=${current}
+          aria-label=${this.t("presetMode")}
           @change=${(event: Event) =>
             this.execute(() => adapter.setPresetMode((event.currentTarget as HTMLSelectElement).value))}
         >
-          ${modes.map((mode) => html`<option value=${mode}>${mode}</option>`)}
+          ${modes.map((mode) => html`<option value=${mode} ?selected=${mode === current}>${mode}</option>`)}
         </select>
       </label>
     `;
@@ -476,9 +772,10 @@ export class XiaomiFanCard extends LitElement {
 
   private renderFeatureControls(adapter: FanAdapter) {
     const state = adapter.state;
+    const controls = this.config.controls;
     const features: unknown[] = [];
 
-    if (adapter.capabilities.horizontalAngle) {
+    if (controls.show_horizontal_angle && adapter.capabilities.horizontalAngle) {
       features.push(
         this.renderAngleControl(
           this.t("horizontalAngle"),
@@ -489,7 +786,7 @@ export class XiaomiFanCard extends LitElement {
       );
     }
 
-    if (adapter.capabilities.verticalAngle) {
+    if (controls.show_vertical_angle && adapter.capabilities.verticalAngle) {
       features.push(
         this.renderAngleControl(
           this.t("verticalAngle"),
@@ -500,7 +797,7 @@ export class XiaomiFanCard extends LitElement {
       );
     }
 
-    if (adapter.capabilities.directionNudge) {
+    if (controls.show_nudge && adapter.capabilities.directionNudge) {
       features.push(html`
         <div class="nudge-control">
           <span>${this.t("position")}</span>
@@ -522,7 +819,7 @@ export class XiaomiFanCard extends LitElement {
       `);
     }
 
-    if (adapter.capabilities.direction && !adapter.capabilities.directionNudge) {
+    if (controls.show_direction && adapter.capabilities.direction && !adapter.capabilities.directionNudge) {
       const direction = state.direction === "reverse" ? "forward" : "reverse";
       features.push(html`
         <button class="feature-button" @click=${() => this.execute(() => adapter.setDirection(direction))}>
@@ -535,7 +832,7 @@ export class XiaomiFanCard extends LitElement {
       `);
     }
 
-    if (adapter.capabilities.favoriteLevel) {
+    if (controls.show_favorite_level && adapter.capabilities.favoriteLevel) {
       features.push(html`
         <label class="feature-select">
           <span>${this.t("favoriteLevel")}</span>
@@ -552,17 +849,15 @@ export class XiaomiFanCard extends LitElement {
       `);
     }
 
-    if (this.config.show_timer !== false && adapter.capabilities.timer) {
-      const nextTimer = this.nextTimer(state.timerMinutes, adapter.capabilities.timerSteps);
-      features.push(html`
-        <button class="feature-button" @click=${() => this.execute(() => adapter.setTimer(nextTimer))}>
-          <ha-icon icon="mdi:timer-outline"></ha-icon>
-          <span><small>${this.t("timer")}</small><strong>${this.displayTimer(state.timerMinutes)}</strong></span>
-        </button>
-      `);
+    if (controls.show_timer && adapter.capabilities.timer) {
+      features.push(
+        controls.timer_mode === "select"
+          ? this.renderTimerSelector(adapter, state.timerMinutes, adapter.capabilities.timerSteps ?? TIMER_STEPS)
+          : this.renderTimerCycleButton(adapter, state.timerMinutes, adapter.capabilities.timerSteps),
+      );
     }
 
-    if (this.config.show_child_lock !== false && adapter.capabilities.childLock) {
+    if (controls.show_child_lock && adapter.capabilities.childLock) {
       features.push(html`
         <button
           class="feature-button ${state.childLock ? "selected" : ""}"
@@ -576,7 +871,7 @@ export class XiaomiFanCard extends LitElement {
       `);
     }
 
-    if (this.config.show_led !== false && adapter.capabilities.led) {
+    if (controls.show_led && adapter.capabilities.led) {
       features.push(html`
         <button
           class="feature-button ${state.led ? "selected" : ""}"
@@ -588,7 +883,7 @@ export class XiaomiFanCard extends LitElement {
       `);
     }
 
-    if (this.config.show_buzzer !== false && adapter.capabilities.buzzer) {
+    if (controls.show_buzzer && adapter.capabilities.buzzer) {
       features.push(html`
         <button
           class="feature-button ${state.buzzer ? "selected" : ""}"
@@ -600,7 +895,7 @@ export class XiaomiFanCard extends LitElement {
       `);
     }
 
-    if (this.config.show_ionizer !== false && adapter.capabilities.ionizer) {
+    if (controls.show_ionizer && adapter.capabilities.ionizer) {
       features.push(html`
         <button
           class="feature-button ${state.ionizer ? "selected" : ""}"
@@ -619,6 +914,38 @@ export class XiaomiFanCard extends LitElement {
       : "";
   }
 
+  private renderTimerCycleButton(adapter: FanAdapter, current: number | undefined, steps: number[] | undefined) {
+    const nextTimer = this.nextTimer(current, steps);
+    return html`
+      <button class="feature-button" @click=${() => this.execute(() => adapter.setTimer(nextTimer))}>
+        <ha-icon icon="mdi:timer-outline"></ha-icon>
+        <span><small>${this.t("timer")}</small><strong>${this.displayTimer(current)}</strong></span>
+      </button>
+    `;
+  }
+
+  private renderTimerSelector(adapter: FanAdapter, current: number | undefined, steps: number[]) {
+    const options = steps.includes(current ?? 0) ? steps : [...steps, current ?? 0].sort((left, right) => left - right);
+    return html`
+      <label class="feature-select timer-select">
+        <span>${this.t("timer")}</span>
+        <select
+          .value=${String(current ?? 0)}
+          aria-label=${this.t("timer")}
+          @change=${(event: Event) =>
+            this.execute(() => adapter.setTimer(Number((event.currentTarget as HTMLSelectElement).value)))}
+        >
+          ${options.map(
+            (minutes) =>
+              html`<option value=${minutes} ?selected=${minutes === current}>
+                ${minutes === 0 ? this.t("off") : this.displayTimer(minutes)}
+              </option>`,
+          )}
+        </select>
+      </label>
+    `;
+  }
+
   private renderAngleControl(
     label: string,
     value: number | undefined,
@@ -626,6 +953,7 @@ export class XiaomiFanCard extends LitElement {
     onChange: (angle: number) => void,
   ) {
     const current = value ?? angles[0] ?? 0;
+    const options = angles.includes(current) ? angles : [...angles, current].sort((left, right) => left - right);
     return html`
       <label class="feature-select">
         <span>${label}</span>
@@ -634,9 +962,12 @@ export class XiaomiFanCard extends LitElement {
             ? html`
                 <select
                   .value=${String(current)}
+                  aria-label=${label}
                   @change=${(event: Event) => onChange(Number((event.currentTarget as HTMLSelectElement).value))}
                 >
-                  ${angles.map((angle) => html`<option value=${angle}>${angle}°</option>`)}
+                  ${options.map(
+                    (angle) => html`<option value=${angle} ?selected=${angle === current}>${angle}°</option>`,
+                  )}
                 </select>
               `
             : html`
@@ -656,8 +987,8 @@ export class XiaomiFanCard extends LitElement {
   }
 
   private nextTimer(current: number | undefined, steps = TIMER_STEPS): number {
-    const index = steps.indexOf(current ?? 0);
-    return steps[(index + 1) % steps.length] ?? steps[0] ?? 0;
+    const next = steps.find((step) => step > (current ?? 0));
+    return next ?? steps[0] ?? 0;
   }
 
   private async toggleCycle(adapter: FanAdapter): Promise<void> {
@@ -680,20 +1011,34 @@ export class XiaomiFanCard extends LitElement {
   static styles: CSSResultGroup = css`
     :host {
       display: block;
+      container-type: inline-size;
       --fan-accent: var(--state-fan-active-color, var(--state-active-color, #5c8dff));
       --fan-accent-soft: color-mix(in srgb, var(--fan-accent) 18%, transparent);
       --fan-surface: color-mix(in srgb, var(--ha-card-background, var(--card-background-color)) 88%, var(--fan-accent));
+      --fan-panel: color-mix(in srgb, var(--card-background-color) 48%, transparent);
+      --fan-text: var(--primary-text-color);
       --fan-text-muted: var(--secondary-text-color, #8a8f9d);
       --fan-border: color-mix(in srgb, var(--primary-text-color) 10%, transparent);
+      --fan-shadow: var(--ha-card-box-shadow, 0 12px 32px rgb(0 0 0 / 12%));
+      --fan-focus: var(--ha-focus-color, var(--primary-color, var(--fan-accent)));
+      --fan-radius-card: 28px;
+      --fan-radius-panel: 22px;
+      --fan-radius-control: 12px;
+      --fan-control-height: 44px;
+      --fan-control-gap: 10px;
+      --fan-panel-padding: 16px;
+      --fan-header-padding: 18px 18px 0;
+      --fan-visual-size: 310px;
+      --fan-display-font: inherit;
     }
 
     ha-card {
       overflow: hidden;
       border: 1px solid var(--fan-border);
-      border-radius: 28px;
+      border-radius: var(--fan-radius-card);
       background: var(--fan-surface);
-      color: var(--primary-text-color);
-      box-shadow: var(--ha-card-box-shadow, 0 12px 32px rgb(0 0 0 / 12%));
+      color: var(--fan-text);
+      box-shadow: var(--fan-shadow);
     }
 
     button,
@@ -707,15 +1052,29 @@ export class XiaomiFanCard extends LitElement {
       cursor: pointer;
     }
 
+    button:focus-visible,
+    select:focus-visible,
+    input:focus-visible {
+      outline: 2px solid var(--fan-focus);
+      outline-offset: 2px;
+    }
+
     .header {
       display: flex;
       align-items: flex-start;
       justify-content: space-between;
       gap: 16px;
-      padding: 22px 22px 0;
+      min-width: 0;
+      padding: var(--fan-header-padding);
+    }
+
+    .header-compact .header {
+      gap: 10px;
+      padding-bottom: 0;
     }
 
     .title-button {
+      min-width: 0;
       display: grid;
       gap: 5px;
       padding: 0;
@@ -732,14 +1091,20 @@ export class XiaomiFanCard extends LitElement {
     }
 
     .title {
-      font-size: 21px;
+      min-width: 0;
+      overflow: hidden;
+      font-size: 18px;
       font-weight: 750;
+      text-overflow: ellipsis;
+      white-space: nowrap;
       letter-spacing: -0.02em;
     }
 
     .subtitle {
+      min-width: 0;
       display: flex;
       align-items: center;
+      flex-wrap: wrap;
       gap: 6px;
       color: var(--fan-text-muted);
       font-size: 12px;
@@ -775,7 +1140,7 @@ export class XiaomiFanCard extends LitElement {
       position: relative;
       display: grid;
       place-items: center;
-      width: min(100%, 310px);
+      width: min(100%, var(--fan-visual-size));
       aspect-ratio: 1;
       margin: 0 auto;
       isolation: isolate;
@@ -822,11 +1187,13 @@ export class XiaomiFanCard extends LitElement {
       transform: rotate(-26deg);
     }
 
-    .horizontal .orbit-one {
+    .axis-horizontal .orbit-one,
+    .axis-dual .orbit-one {
       animation: orbit-horizontal 8s ease-in-out infinite;
     }
 
-    .vertical .orbit-two {
+    .axis-vertical .orbit-two,
+    .axis-dual .orbit-two {
       animation: orbit-vertical 8s ease-in-out infinite;
     }
 
@@ -839,18 +1206,34 @@ export class XiaomiFanCard extends LitElement {
       opacity: 0;
     }
 
-    .running .wind {
-      animation: wind-flow var(--spin-duration) linear infinite;
+    .running .wind-horizontal {
       opacity: 0.7;
     }
 
-    .wind-one {
+    .running .wind-vertical {
+      opacity: 0.7;
+    }
+
+    .wind-horizontal {
       transform: translateY(-44px) rotate(-12deg);
     }
 
-    .wind-two {
+    .wind-vertical {
       transform: translateY(44px) rotate(12deg);
-      animation-delay: -0.7s !important;
+      width: 4px;
+      height: 42%;
+      background: linear-gradient(180deg, transparent, var(--fan-accent), transparent);
+    }
+
+    .axis-horizontal.running .wind-horizontal,
+    .axis-dual.running .wind-horizontal {
+      animation: wind-horizontal-flow var(--spin-duration) linear infinite;
+    }
+
+    .axis-vertical.running .wind-vertical,
+    .axis-dual.running .wind-vertical {
+      animation: wind-vertical-flow calc(var(--spin-duration) * 1.2) ease-in-out infinite;
+      animation-delay: -0.7s;
     }
 
     .rotor {
@@ -963,10 +1346,10 @@ export class XiaomiFanCard extends LitElement {
 
     .controls {
       margin: 0 14px 14px;
-      padding: 16px;
+      padding: var(--fan-panel-padding);
       border: 1px solid var(--fan-border);
-      border-radius: 22px;
-      background: color-mix(in srgb, var(--card-background-color) 48%, transparent);
+      border-radius: var(--fan-radius-panel);
+      background: var(--fan-panel);
     }
 
     .section-heading {
@@ -1020,6 +1403,7 @@ export class XiaomiFanCard extends LitElement {
       display: grid;
       justify-items: center;
       gap: 7px;
+      min-height: var(--fan-control-height);
       padding: 10px 6px;
       border: 1px solid var(--fan-border);
       border-radius: 16px;
@@ -1053,7 +1437,8 @@ export class XiaomiFanCard extends LitElement {
     }
 
     .level-row,
-    .chip-row {
+    .chip-row,
+    .preset-row {
       display: flex;
       gap: 8px;
     }
@@ -1063,10 +1448,11 @@ export class XiaomiFanCard extends LitElement {
     }
 
     .level-button,
-    .chip {
-      min-height: 34px;
+    .chip,
+    .preset-button {
+      min-height: var(--fan-control-height);
       border: 1px solid var(--fan-border);
-      border-radius: 12px;
+      border-radius: var(--fan-radius-control);
       background: transparent;
       color: var(--fan-text-muted);
     }
@@ -1102,17 +1488,18 @@ export class XiaomiFanCard extends LitElement {
     .feature-controls {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
+      gap: var(--fan-control-gap);
     }
 
     .feature-select,
     .nudge-control,
     .feature-button {
       min-width: 0;
+      min-height: var(--fan-control-height);
       padding: 11px;
       border: 1px solid var(--fan-border);
-      border-radius: 15px;
-      background: transparent;
+      border-radius: var(--fan-radius-control);
+      background: var(--fan-panel);
       color: var(--primary-text-color);
     }
 
@@ -1127,13 +1514,26 @@ export class XiaomiFanCard extends LitElement {
 
     .feature-select select,
     .feature-select input[type="number"] {
+      box-sizing: border-box;
+      min-height: var(--fan-control-height);
       width: 100%;
-      border: 0;
-      outline: 0;
-      background: transparent;
-      color: var(--primary-text-color);
+      border: 1px solid var(--input-outlined-idle-border-color, var(--fan-border));
+      border-radius: var(--fan-radius-control);
+      outline: none;
+      background: var(--input-fill-color, transparent);
+      color: var(--input-ink-color, var(--fan-text));
       font-size: 14px;
       font-weight: 750;
+    }
+
+    .feature-select select:hover,
+    .feature-select input[type="number"]:hover {
+      border-color: var(--input-outlined-hover-border-color, var(--fan-accent-soft));
+    }
+
+    .feature-select select:focus-visible,
+    .feature-select input[type="number"]:focus-visible {
+      border-color: var(--input-outlined-focus-border-color, var(--fan-focus));
     }
 
     .feature-button {
@@ -1172,19 +1572,35 @@ export class XiaomiFanCard extends LitElement {
 
     .nudge-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-areas:
+        ". up ."
+        "left center right"
+        ". down .";
       gap: 4px;
     }
 
     .nudge-grid button {
-      min-height: 28px;
-      border-radius: 8px;
+      min-height: var(--fan-control-height);
+      border-radius: var(--fan-radius-control);
       background: var(--fan-accent-soft);
       color: var(--fan-accent);
     }
 
-    .nudge-grid button:first-child {
-      grid-column: 2;
+    .nudge-grid button:nth-child(1) {
+      grid-area: up;
+    }
+
+    .nudge-grid button:nth-child(2) {
+      grid-area: left;
+    }
+
+    .nudge-grid button:nth-child(3) {
+      grid-area: right;
+    }
+
+    .nudge-grid button:nth-child(4) {
+      grid-area: down;
     }
 
     .empty {
@@ -1208,17 +1624,50 @@ export class XiaomiFanCard extends LitElement {
     }
 
     .theme-minimal {
-      border-radius: 16px;
+      --fan-surface: transparent;
+      --fan-panel: transparent;
+      --fan-radius-card: 12px;
+      --fan-radius-panel: 12px;
+      --fan-radius-control: 8px;
+      --fan-visual-size: 250px;
+      --fan-shadow: none;
       box-shadow: none;
     }
 
+    .theme-mushroom {
+      --fan-panel: color-mix(in srgb, var(--fan-accent) 8%, var(--card-background-color));
+      --fan-radius-card: 30px;
+      --fan-radius-panel: 24px;
+      --fan-radius-control: 999px;
+      --fan-visual-size: 270px;
+      --fan-shadow: 0 14px 32px rgb(0 0 0 / 10%);
+    }
+
     .theme-glass {
+      --fan-panel: color-mix(in srgb, var(--card-background-color) 28%, transparent);
+      --fan-radius-card: 28px;
+      --fan-radius-panel: 20px;
+      --fan-radius-control: 14px;
+      --fan-shadow: 0 20px 50px rgb(0 0 0 / 18%);
       background: color-mix(in srgb, var(--card-background-color) 54%, transparent);
       backdrop-filter: blur(18px);
     }
 
     .theme-industrial {
       --fan-accent: var(--state-fan-active-color, #e9a23b);
+      --fan-radius-card: 8px;
+      --fan-radius-panel: 6px;
+      --fan-radius-control: 4px;
+      --fan-panel: color-mix(in srgb, #e9a23b 5%, var(--card-background-color));
+      --fan-shadow: none;
+      --fan-display-font: ui-monospace, SFMono-Regular, Menlo, monospace;
+      --fan-visual-size: 270px;
+    }
+
+    .theme-industrial .value,
+    .theme-industrial .speed-readout strong,
+    .theme-industrial .feature-button strong {
+      font-family: var(--fan-display-font);
     }
 
     @keyframes rotor-spin {
@@ -1227,7 +1676,7 @@ export class XiaomiFanCard extends LitElement {
       }
     }
 
-    @keyframes wind-flow {
+    @keyframes wind-horizontal-flow {
       0% {
         transform: translateX(-20px) scaleX(0.5);
       }
@@ -1236,6 +1685,18 @@ export class XiaomiFanCard extends LitElement {
       }
       100% {
         transform: translateX(65px) scaleX(0.5);
+      }
+    }
+
+    @keyframes wind-vertical-flow {
+      0% {
+        transform: translateY(-20px) scaleY(0.5);
+      }
+      50% {
+        transform: translateY(20px) scaleY(1);
+      }
+      100% {
+        transform: translateY(65px) scaleY(0.5);
       }
     }
 
@@ -1259,23 +1720,70 @@ export class XiaomiFanCard extends LitElement {
       }
     }
 
-    @media (max-width: 360px) {
+    .density-compact {
+      --fan-control-height: 44px;
+      --fan-control-gap: 6px;
+      --fan-panel-padding: 12px;
+      --fan-header-padding: 12px 12px 0;
+    }
+
+    .density-comfortable {
+      --fan-control-height: 48px;
+    }
+
+    .columns-one .feature-controls {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .columns-two .feature-controls {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    @container (max-width: 419px) {
+      .feature-controls {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .columns-two .feature-controls {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    @media (max-width: 419px) {
+      .feature-controls {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    @container (max-width: 360px) {
+      .header {
+        padding: 10px 12px 0;
+      }
+
       .visual-meta {
         gap: 8px;
         font-size: 9px;
+        flex-wrap: wrap;
       }
 
-      .chip {
+      .chip,
+      .level-button,
+      .preset-button {
         font-size: 10px;
       }
     }
 
     @media (prefers-reduced-motion: reduce) {
       .running .rotor,
-      .running .wind,
-      .horizontal .orbit-one,
-      .vertical .orbit-two {
-        animation: none;
+      .axis-horizontal .orbit-one,
+      .axis-vertical .orbit-two,
+      .axis-dual .orbit-one,
+      .axis-dual .orbit-two,
+      .axis-horizontal .wind-horizontal,
+      .axis-vertical .wind-vertical,
+      .axis-dual .wind-horizontal,
+      .axis-dual .wind-vertical {
+        animation: none !important;
       }
     }
   `;
