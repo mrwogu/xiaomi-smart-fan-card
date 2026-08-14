@@ -1543,7 +1543,7 @@ export class XiaomiFanCard extends LitElement {
       width: 100%;
       padding: 0 12px;
       border: 1px solid color-mix(in srgb, var(--fan-text) 36%, transparent);
-      border-radius: 12px;
+      border-radius: var(--fan-radius-control);
       outline: none;
       background: var(--fan-control-surface);
       color: var(--input-ink-color, var(--fan-text));
