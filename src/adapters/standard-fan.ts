@@ -154,6 +154,18 @@ export class StandardFanAdapter implements FanAdapter {
   }
 
   public async setPercentage(percentage: number): Promise<void> {
+    if (percentage <= 0) {
+      await this.dispatcher.standard("turn_off");
+      return;
+    }
+
+    // A stopped fan needs turn_on to carry the speed; set_percentage alone is
+    // not guaranteed to start it.
+    if (!this.state.isOn) {
+      await this.dispatcher.standard("turn_on", { percentage });
+      return;
+    }
+
     await this.dispatcher.standard("set_percentage", { percentage });
   }
 
@@ -214,6 +226,8 @@ export class StandardFanAdapter implements FanAdapter {
   }
 
   public async setHorizontalAngle(angle: number): Promise<void> {
+    await this.startSwing("horizontal");
+
     if (await this.setRelatedValue(this.related.horizontalAngle, angle)) {
       return;
     }
@@ -230,6 +244,8 @@ export class StandardFanAdapter implements FanAdapter {
   }
 
   public async setVerticalAngle(angle: number): Promise<void> {
+    await this.startSwing("vertical");
+
     if (await this.setRelatedValue(this.related.verticalAngle, angle)) {
       return;
     }
@@ -240,7 +256,36 @@ export class StandardFanAdapter implements FanAdapter {
   }
 
   public async nudge(direction: "left" | "right" | "up" | "down"): Promise<void> {
+    // Aiming the head only holds while the fan is not sweeping.
+    await this.stopSwing();
     await this.callCustom("fan_turn", { direction });
+  }
+
+  /**
+   * An angle only takes effect on a sweeping axis, so selecting one implies
+   * starting that axis. An unknown swing state is left alone.
+   */
+  private async startSwing(axis: "horizontal" | "vertical"): Promise<void> {
+    if (axis === "horizontal") {
+      if (this.capabilities.horizontalSwing && this.state.horizontalSwing === false) {
+        await this.setHorizontalSwing(true);
+      }
+      return;
+    }
+
+    if (this.capabilities.verticalSwing && this.state.verticalSwing === false) {
+      await this.setVerticalSwing(true);
+    }
+  }
+
+  private async stopSwing(): Promise<void> {
+    if (this.capabilities.horizontalSwing && this.state.horizontalSwing === true) {
+      await this.setHorizontalSwing(false);
+    }
+
+    if (this.capabilities.verticalSwing && this.state.verticalSwing === true) {
+      await this.setVerticalSwing(false);
+    }
   }
 
   public async setDirection(direction: "forward" | "reverse"): Promise<void> {

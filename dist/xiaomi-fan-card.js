@@ -480,8 +480,17 @@ const detectCapabilities = (entity, services = { loaded: false, names: new Set()
     const model = typeof entity?.attributes["model"] === "string" ? entity.attributes["model"] : undefined;
     const profile = getModelProfile(model);
     const isXiaomi = profile.isXiaomi || isXiaomiFanModel(model);
-    const hasHorizontalAngle = hasAttribute(entity, ["horizontal_swing_angle", "swing_mode_angle", "angle"]);
-    const hasVerticalAngle = hasAttribute(entity, ["vertical_swing_angle", "vertical_oscillation_angle"]);
+    const hasHorizontalAngle = hasAttribute(entity, [
+        "horizontal_swing_angle",
+        "horizontal_angle",
+        "swing_mode_angle",
+        "angle",
+    ]);
+    const hasVerticalAngle = hasAttribute(entity, [
+        "vertical_swing_angle",
+        "vertical_oscillation_angle",
+        "vertical_angle",
+    ]);
     const hasSleepPreset = [
         entity?.attributes["preset_modes"],
         entity?.attributes["speed_list"],
@@ -501,7 +510,7 @@ const detectCapabilities = (entity, services = { loaded: false, names: new Set()
             hasService(services, "fan.set_direction"),
         sleepMode: Boolean(related.sleepMode) || hasSleepPreset,
         favoriteLevel: Boolean(related.favoriteLevel),
-        horizontalSwing: hasAttribute(entity, ["oscillating", "horizontal_swing", "swing_mode"]) ||
+        horizontalSwing: hasAttribute(entity, ["oscillating", "oscillate", "horizontal_swing", "swing_mode"]) ||
             hasFanFeature(entity, 8) ||
             (profile.known && profile.isXiaomi && profile.model !== "xiaomi.fan.2lite"),
         horizontalAngle: Boolean(related.horizontalAngle) ||
@@ -669,10 +678,15 @@ const normalizeFanState = (entityId, entity) => {
         availableModes: presetModes,
         sleepMode,
         direction: directionValue === "forward" || directionValue === "reverse" ? directionValue : undefined,
-        horizontalSwing: firstBoolean(attributes, ["oscillating", "horizontal_swing", "swing_mode"]),
-        horizontalAngle: firstNumber(attributes, ["horizontal_swing_angle", "swing_mode_angle", "angle"]),
+        horizontalSwing: firstBoolean(attributes, ["oscillating", "oscillate", "horizontal_swing", "swing_mode"]),
+        horizontalAngle: firstNumber(attributes, [
+            "horizontal_swing_angle",
+            "horizontal_angle",
+            "swing_mode_angle",
+            "angle",
+        ]),
         verticalSwing: firstBoolean(attributes, ["vertical_swing", "vertical_oscillate", "vertical_oscillation"]),
-        verticalAngle: firstNumber(attributes, ["vertical_swing_angle", "vertical_oscillation_angle"]),
+        verticalAngle: firstNumber(attributes, ["vertical_swing_angle", "vertical_oscillation_angle", "vertical_angle"]),
         timerMinutes: timerMinutes(attributes),
         childLock: booleanValue$1(attributes["child_lock"]),
         led: ledState(attributes),
@@ -836,6 +850,16 @@ class StandardFanAdapter {
         await this.dispatcher.standard("toggle");
     }
     async setPercentage(percentage) {
+        if (percentage <= 0) {
+            await this.dispatcher.standard("turn_off");
+            return;
+        }
+        // A stopped fan needs turn_on to carry the speed; set_percentage alone is
+        // not guaranteed to start it.
+        if (!this.state.isOn) {
+            await this.dispatcher.standard("turn_on", { percentage });
+            return;
+        }
         await this.dispatcher.standard("set_percentage", { percentage });
     }
     async setMode(mode) {
@@ -879,6 +903,7 @@ class StandardFanAdapter {
         await this.dispatcher.standard("oscillate", { oscillating: enabled });
     }
     async setHorizontalAngle(angle) {
+        await this.startSwing("horizontal");
         if (await this.setRelatedValue(this.related.horizontalAngle, angle)) {
             return;
         }
@@ -891,6 +916,7 @@ class StandardFanAdapter {
         await this.callCustom(enabled ? "fan_set_vertical_oscillation_on" : "fan_set_vertical_oscillation_off");
     }
     async setVerticalAngle(angle) {
+        await this.startSwing("vertical");
         if (await this.setRelatedValue(this.related.verticalAngle, angle)) {
             return;
         }
@@ -899,7 +925,32 @@ class StandardFanAdapter {
         });
     }
     async nudge(direction) {
+        // Aiming the head only holds while the fan is not sweeping.
+        await this.stopSwing();
         await this.callCustom("fan_turn", { direction });
+    }
+    /**
+     * An angle only takes effect on a sweeping axis, so selecting one implies
+     * starting that axis. An unknown swing state is left alone.
+     */
+    async startSwing(axis) {
+        if (axis === "horizontal") {
+            if (this.capabilities.horizontalSwing && this.state.horizontalSwing === false) {
+                await this.setHorizontalSwing(true);
+            }
+            return;
+        }
+        if (this.capabilities.verticalSwing && this.state.verticalSwing === false) {
+            await this.setVerticalSwing(true);
+        }
+    }
+    async stopSwing() {
+        if (this.capabilities.horizontalSwing && this.state.horizontalSwing === true) {
+            await this.setHorizontalSwing(false);
+        }
+        if (this.capabilities.verticalSwing && this.state.verticalSwing === true) {
+            await this.setVerticalSwing(false);
+        }
     }
     async setDirection(direction) {
         await this.dispatcher.standard("set_direction", { direction });
@@ -1379,6 +1430,9 @@ const getConfigForm = () => {
         flatten,
         schema,
     });
+    // Sub-sections share the parent data scope, which needs ha-form flatten
+    // support (Home Assistant 2024.8 or newer).
+    const section = (name, icon, schema) => panel(name, icon, schema, true);
     const styleGroup = (name) => panel(name, STYLE_ICONS[name], STYLE_TOKENS[name].map((token) => ({ name: token, selector: { text: {} } })));
     const relatedEntityField = (name) => entityField(name, RELATED_ENTITY_DOMAINS[name]);
     return {
@@ -1414,17 +1468,21 @@ const getConfigForm = () => {
                     selectField("timer_mode", ["cycle", "select"], "show"),
                     selectField("angle_mode", ["select", "cycle"], "show"),
                 ]),
-                panel("speed", "mdi:speedometer", [grid([booleanField("show_speed_slider", "show"), booleanField("show_speed_levels", "show")], "180px")], true),
-                panel("modes", "mdi:weather-windy", [grid([booleanField("show_modes", "show"), booleanField("show_preset_mode", "show")], "180px")], true),
-                panel("oscillation", "mdi:arrow-oscillating", [
+                section("speed", "mdi:speedometer", [
+                    grid([booleanField("show_speed_slider", "show"), booleanField("show_speed_levels", "show")], "180px"),
+                ]),
+                section("modes", "mdi:weather-windy", [
+                    grid([booleanField("show_modes", "show"), booleanField("show_preset_mode", "show")], "180px"),
+                ]),
+                section("oscillation", "mdi:arrow-oscillating", [
                     grid([
                         booleanField("show_horizontal_swing", "show"),
                         booleanField("show_vertical_swing", "show"),
                         booleanField("show_cycle", "show"),
                         booleanField("show_sleep", "show"),
                     ], "180px"),
-                ], true),
-                panel("angles", "mdi:angle-acute", [
+                ]),
+                section("angles", "mdi:angle-acute", [
                     grid([
                         booleanField("show_horizontal_angle", "show"),
                         booleanField("show_vertical_angle", "show"),
@@ -1432,8 +1490,8 @@ const getConfigForm = () => {
                         booleanField("show_direction", "show"),
                     ], "180px"),
                     booleanField("show_nudge_with_angles", ["show", "show_nudge"]),
-                ], true),
-                panel("features", "mdi:toggle-switch-outline", [
+                ]),
+                section("features", "mdi:toggle-switch-outline", [
                     grid([
                         booleanField("show_timer", "show"),
                         booleanField("show_favorite_level", "show"),
@@ -1442,7 +1500,7 @@ const getConfigForm = () => {
                         booleanField("show_buzzer", "show"),
                         booleanField("show_ionizer", "show"),
                     ], "180px"),
-                ], true),
+                ]),
             ]),
             panel("details", "mdi:information-outline", [
                 booleanField("show"),
@@ -2963,9 +3021,11 @@ class XiaomiFanCard extends i$2 {
         if (!hasSpeedControls && !hasModeControls && !hasChipControls) {
             return "";
         }
-        const displayPercentage = this.speedPreview ?? state.percentage;
+        // A stopped fan reports its last speed, which would otherwise make the
+        // slider jump back to that value right after it was dragged to zero.
+        const displayPercentage = this.speedPreview ?? (state.isOn ? state.percentage : 0);
         const displayLevel = this.speedPreview === undefined
-            ? state.level || 0
+            ? (state.isOn ? state.level : 0) || 0
             : Math.round((this.speedPreview / 100) * adapter.capabilities.speedLevels);
         return b `
       <section
@@ -3008,10 +3068,10 @@ class XiaomiFanCard extends i$2 {
                   <div class="level-row" role="group" aria-label=${this.t("speedLevels")}>
                     ${levelLabels.map((level) => b `
                         <button
-                          class="level-button ${state.level === level ? "selected" : ""}"
+                          class="level-button ${displayLevel === level ? "selected" : ""}"
                           @click=${() => this.execute(() => adapter.setPercentage(Math.round((level / adapter.capabilities.speedLevels) * 100)))}
                           aria-label=${this.t("setSpeedLevel", { level })}
-                          aria-pressed=${state.level === level}
+                          aria-pressed=${displayLevel === level}
                         >
                           ${level}
                         </button>

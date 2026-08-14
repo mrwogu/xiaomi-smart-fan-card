@@ -550,10 +550,12 @@ export class XiaomiFanCard extends LitElement {
       return "";
     }
 
-    const displayPercentage = this.speedPreview ?? state.percentage;
+    // A stopped fan reports its last speed, which would otherwise make the
+    // slider jump back to that value right after it was dragged to zero.
+    const displayPercentage = this.speedPreview ?? (state.isOn ? state.percentage : 0);
     const displayLevel =
       this.speedPreview === undefined
-        ? state.level || 0
+        ? (state.isOn ? state.level : 0) || 0
         : Math.round((this.speedPreview / 100) * adapter.capabilities.speedLevels);
 
     return html`
@@ -603,13 +605,13 @@ export class XiaomiFanCard extends LitElement {
                     ${levelLabels.map(
                       (level) => html`
                         <button
-                          class="level-button ${state.level === level ? "selected" : ""}"
+                          class="level-button ${displayLevel === level ? "selected" : ""}"
                           @click=${() =>
                             this.execute(() =>
                               adapter.setPercentage(Math.round((level / adapter.capabilities.speedLevels) * 100)),
                             )}
                           aria-label=${this.t("setSpeedLevel", { level })}
-                          aria-pressed=${state.level === level}
+                          aria-pressed=${displayLevel === level}
                         >
                           ${level}
                         </button>

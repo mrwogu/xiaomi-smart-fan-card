@@ -42,6 +42,9 @@ export const getConfigForm = () => {
     flatten,
     schema,
   });
+  // Sub-sections share the parent data scope, which needs ha-form flatten
+  // support (Home Assistant 2024.8 or newer).
+  const section = (name: string, icon: string, schema: object[]) => panel(name, icon, schema, true);
   const styleGroup = (name: keyof typeof STYLE_TOKENS) =>
     panel(
       name,
@@ -89,69 +92,48 @@ export const getConfigForm = () => {
           selectField("timer_mode", ["cycle", "select"], "show"),
           selectField("angle_mode", ["select", "cycle"], "show"),
         ]),
-        panel(
-          "speed",
-          "mdi:speedometer",
-          [grid([booleanField("show_speed_slider", "show"), booleanField("show_speed_levels", "show")], "180px")],
-          true,
-        ),
-        panel(
-          "modes",
-          "mdi:weather-windy",
-          [grid([booleanField("show_modes", "show"), booleanField("show_preset_mode", "show")], "180px")],
-          true,
-        ),
-        panel(
-          "oscillation",
-          "mdi:arrow-oscillating",
-          [
-            grid(
-              [
-                booleanField("show_horizontal_swing", "show"),
-                booleanField("show_vertical_swing", "show"),
-                booleanField("show_cycle", "show"),
-                booleanField("show_sleep", "show"),
-              ],
-              "180px",
-            ),
-          ],
-          true,
-        ),
-        panel(
-          "angles",
-          "mdi:angle-acute",
-          [
-            grid(
-              [
-                booleanField("show_horizontal_angle", "show"),
-                booleanField("show_vertical_angle", "show"),
-                booleanField("show_nudge", "show"),
-                booleanField("show_direction", "show"),
-              ],
-              "180px",
-            ),
-            booleanField("show_nudge_with_angles", ["show", "show_nudge"]),
-          ],
-          true,
-        ),
-        panel(
-          "features",
-          "mdi:toggle-switch-outline",
-          [
-            grid(
-              [
-                booleanField("show_timer", "show"),
-                booleanField("show_favorite_level", "show"),
-                booleanField("show_child_lock", "show"),
-                booleanField("show_led", "show"),
-                booleanField("show_buzzer", "show"),
-                booleanField("show_ionizer", "show"),
-              ],
-              "180px",
-            ),
-          ],
-          true,
-        ),
+        section("speed", "mdi:speedometer", [
+          grid([booleanField("show_speed_slider", "show"), booleanField("show_speed_levels", "show")], "180px"),
+        ]),
+        section("modes", "mdi:weather-windy", [
+          grid([booleanField("show_modes", "show"), booleanField("show_preset_mode", "show")], "180px"),
+        ]),
+        section("oscillation", "mdi:arrow-oscillating", [
+          grid(
+            [
+              booleanField("show_horizontal_swing", "show"),
+              booleanField("show_vertical_swing", "show"),
+              booleanField("show_cycle", "show"),
+              booleanField("show_sleep", "show"),
+            ],
+            "180px",
+          ),
+        ]),
+        section("angles", "mdi:angle-acute", [
+          grid(
+            [
+              booleanField("show_horizontal_angle", "show"),
+              booleanField("show_vertical_angle", "show"),
+              booleanField("show_nudge", "show"),
+              booleanField("show_direction", "show"),
+            ],
+            "180px",
+          ),
+          booleanField("show_nudge_with_angles", ["show", "show_nudge"]),
+        ]),
+        section("features", "mdi:toggle-switch-outline", [
+          grid(
+            [
+              booleanField("show_timer", "show"),
+              booleanField("show_favorite_level", "show"),
+              booleanField("show_child_lock", "show"),
+              booleanField("show_led", "show"),
+              booleanField("show_buzzer", "show"),
+              booleanField("show_ionizer", "show"),
+            ],
+            "180px",
+          ),
+        ]),
       ]),
       panel("details", "mdi:information-outline", [
         booleanField("show"),

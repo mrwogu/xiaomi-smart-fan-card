@@ -42,6 +42,8 @@ describe("XiaomiMiioP76Adapter", () => {
     expect(calls).toEqual([
       ["xiaomi_miio_fan", "fan_set_vertical_oscillation_off", { entity_id: "fan.xiaomi_p76" }],
       ["xiaomi_miio_fan", "fan_set_vertical_oscillation_angle", { entity_id: "fan.xiaomi_p76", vertical_angle: 100 }],
+      ["fan", "oscillate", { entity_id: "fan.xiaomi_p76", oscillating: false }],
+      ["xiaomi_miio_fan", "fan_set_vertical_oscillation_off", { entity_id: "fan.xiaomi_p76" }],
       ["xiaomi_miio_fan", "fan_turn", { entity_id: "fan.xiaomi_p76", direction: "up" }],
       ["xiaomi_miio_fan", "fan_set_delay_off", { entity_id: "fan.xiaomi_p76", delay_off_countdown: 120 }],
     ]);

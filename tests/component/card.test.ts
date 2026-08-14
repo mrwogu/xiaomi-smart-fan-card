@@ -413,6 +413,52 @@ describe("XiaomiFanCard", () => {
     });
   });
 
+  it("honors the speed slider and speed level toggles independently", async () => {
+    const withLevels = await renderCard({
+      ...baseConfig,
+      controls: { ...baseConfig.controls, show_speed_slider: true, show_speed_levels: true },
+    });
+
+    expect(withLevels.card.shadowRoot?.querySelector(".level-row")).toBeTruthy();
+    expect(withLevels.card.shadowRoot?.querySelector(".speed-slider")).toBeTruthy();
+
+    const withoutLevels = await renderCard({
+      ...baseConfig,
+      controls: { ...baseConfig.controls, show_speed_slider: true, show_speed_levels: false },
+    });
+
+    expect(withoutLevels.card.shadowRoot?.querySelector(".level-row")).toBeNull();
+    expect(withoutLevels.card.shadowRoot?.querySelector(".speed-select")).toBeNull();
+    expect(withoutLevels.card.shadowRoot?.querySelector(".speed-slider")).toBeTruthy();
+
+    const withoutSlider = await renderCard({
+      ...baseConfig,
+      controls: { ...baseConfig.controls, show_speed_slider: false, show_speed_levels: true },
+    });
+
+    expect(withoutSlider.card.shadowRoot?.querySelector(".speed-slider")).toBeNull();
+    expect(withoutSlider.card.shadowRoot?.querySelector(".level-row")).toBeTruthy();
+  });
+
+  it("reports zero speed while the fan is off", async () => {
+    const { hass } = createHass();
+    const entity = hass.states["fan.p76"]!;
+    hass.states["fan.p76"] = { ...entity, state: "off" };
+    const card = new XiaomiFanCard();
+    card.hass = hass as unknown as HomeAssistant;
+    card.setConfig({
+      ...baseConfig,
+      controls: { ...baseConfig.controls, show_speed_slider: true, show_speed_levels: true },
+    });
+    document.body.append(card);
+    await settle(card);
+    const root = card.shadowRoot;
+
+    expect(root?.querySelector(".value")?.textContent?.trim()).toBe("0%");
+    expect((root?.querySelector(".speed-slider") as HTMLInputElement).value).toBe("0");
+    expect(root?.querySelector(".level-button.selected")).toBeNull();
+  });
+
   it("renders details as labelled list items with the sensor unit", async () => {
     const { card } = await renderCard({
       ...baseConfig,

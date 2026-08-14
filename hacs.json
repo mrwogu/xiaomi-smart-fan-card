@@ -1,5 +1,6 @@
 {
   "name": "Xiaomi Fan Card",
   "render_readme": true,
-  "filename": "xiaomi-fan-card.js"
+  "filename": "xiaomi-fan-card.js",
+  "homeassistant": "2024.8.0"
 }

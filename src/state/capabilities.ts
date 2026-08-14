@@ -23,8 +23,17 @@ export const detectCapabilities = (
   const model = typeof entity?.attributes["model"] === "string" ? entity.attributes["model"] : undefined;
   const profile = getModelProfile(model);
   const isXiaomi = profile.isXiaomi || isXiaomiFanModel(model);
-  const hasHorizontalAngle = hasAttribute(entity, ["horizontal_swing_angle", "swing_mode_angle", "angle"]);
-  const hasVerticalAngle = hasAttribute(entity, ["vertical_swing_angle", "vertical_oscillation_angle"]);
+  const hasHorizontalAngle = hasAttribute(entity, [
+    "horizontal_swing_angle",
+    "horizontal_angle",
+    "swing_mode_angle",
+    "angle",
+  ]);
+  const hasVerticalAngle = hasAttribute(entity, [
+    "vertical_swing_angle",
+    "vertical_oscillation_angle",
+    "vertical_angle",
+  ]);
   const hasSleepPreset = [
     entity?.attributes["preset_modes"],
     entity?.attributes["speed_list"],
@@ -57,7 +66,7 @@ export const detectCapabilities = (
     sleepMode: Boolean(related.sleepMode) || hasSleepPreset,
     favoriteLevel: Boolean(related.favoriteLevel),
     horizontalSwing:
-      hasAttribute(entity, ["oscillating", "horizontal_swing", "swing_mode"]) ||
+      hasAttribute(entity, ["oscillating", "oscillate", "horizontal_swing", "swing_mode"]) ||
       hasFanFeature(entity, 8) ||
       (profile.known && profile.isXiaomi && profile.model !== "xiaomi.fan.2lite"),
     horizontalAngle:
