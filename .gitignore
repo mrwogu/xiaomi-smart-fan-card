@@ -21,3 +21,8 @@ coverage/
 # Operating system and logs
 .DS_Store
 *.log
+
+# Screen recording sources (gifs are committed instead)
+docs/media/*.webm
+docs/media/*.gif
+*.crdownload
