@@ -11,7 +11,7 @@ Capability-aware. Five themes. Native visual editor. No telemetry.
 [![codecov](https://codecov.io/gh/mrwogu/xiaomi-smart-fan-card/branch/main/graph/badge.svg)](https://codecov.io/gh/mrwogu/xiaomi-smart-fan-card)
 [![Latest release](https://img.shields.io/github/v/release/mrwogu/xiaomi-smart-fan-card)](https://github.com/mrwogu/xiaomi-smart-fan-card/releases)
 
-<a href="docs/media/two-columns-full-theme-auto-light.webp"><img src="docs/media/two-columns-full-theme-auto-light.webp" alt="Xiaomi Fan Card in Home Assistant light mode with the airflow graphic, speed slider, mode buttons, angle selectors, position pad, and device toggles" width="420"></a>
+<a href="docs/media/two-columns-full-theme-auto-light.webp"><img src="docs/media/thumbs/two-columns-full-theme-auto-light.webp" alt="Xiaomi Fan Card in Home Assistant light mode with the airflow graphic, speed slider, mode buttons, angle selectors, position pad, and device toggles" width="420"></a>
 
 <sub>Every screenshot is clickable and opens the full resolution capture.</sub>
 
@@ -52,31 +52,31 @@ state, in dark mode.
 <table>
   <tr>
     <td align="center" width="50%">
-      <a href="docs/media/two-columns-full-theme-auto.webp"><img src="docs/media/two-columns-full-theme-auto.webp" alt="Auto theme following the Home Assistant theme" width="360"></a><br>
+      <a href="docs/media/two-columns-full-theme-auto.webp"><img src="docs/media/thumbs/two-columns-full-theme-auto.webp" alt="Auto theme following the Home Assistant theme" width="360"></a><br>
       <strong>Auto</strong><br><code>layout.theme: auto</code><br>
       Inherits your Home Assistant colors, radius, and shadow.
     </td>
     <td align="center" width="50%">
-      <a href="docs/media/two-columns-full-theme-mushroom.webp"><img src="docs/media/two-columns-full-theme-mushroom.webp" alt="Mushroom theme with rounded pills and soft panels" width="360"></a><br>
+      <a href="docs/media/two-columns-full-theme-mushroom.webp"><img src="docs/media/thumbs/two-columns-full-theme-mushroom.webp" alt="Mushroom theme with rounded pills and soft panels" width="360"></a><br>
       <strong>Mushroom</strong><br><code>layout.theme: mushroom</code><br>
       Soft panels and pill controls for Mushroom dashboards.
     </td>
   </tr>
   <tr>
     <td align="center" width="50%">
-      <a href="docs/media/two-columns-full-theme-minimal.webp"><img src="docs/media/two-columns-full-theme-minimal.webp" alt="Minimal theme without borders" width="360"></a><br>
+      <a href="docs/media/two-columns-full-theme-minimal.webp"><img src="docs/media/thumbs/two-columns-full-theme-minimal.webp" alt="Minimal theme without borders" width="360"></a><br>
       <strong>Minimal</strong><br><code>layout.theme: minimal</code><br>
       No chrome, no borders, content first.
     </td>
     <td align="center" width="50%">
-      <a href="docs/media/two-columns-full-theme-glass.webp"><img src="docs/media/two-columns-full-theme-glass.webp" alt="Glass theme with translucent blurred surface" width="360"></a><br>
+      <a href="docs/media/two-columns-full-theme-glass.webp"><img src="docs/media/thumbs/two-columns-full-theme-glass.webp" alt="Glass theme with translucent blurred surface" width="360"></a><br>
       <strong>Glass</strong><br><code>layout.theme: glass</code><br>
       Translucent surface with backdrop blur.
     </td>
   </tr>
   <tr>
     <td align="center" colspan="2">
-      <a href="docs/media/two-columns-full-theme-industrial.webp"><img src="docs/media/two-columns-full-theme-industrial.webp" alt="Industrial theme with monospace metrics and amber accent" width="360"></a><br>
+      <a href="docs/media/two-columns-full-theme-industrial.webp"><img src="docs/media/thumbs/two-columns-full-theme-industrial.webp" alt="Industrial theme with monospace metrics and amber accent" width="360"></a><br>
       <strong>Industrial</strong><br><code>layout.theme: industrial</code><br>
       Technical labels, monospace metrics, amber accent.
     </td>
@@ -88,7 +88,7 @@ state, in dark mode.
 <table>
   <tr>
     <td align="center" width="50%">
-      <a href="docs/media/layout-compact-side.webp"><img src="docs/media/layout-compact-side.webp" alt="Compact density with details beside the graphic" width="360"></a><br>
+      <a href="docs/media/layout-compact-side.webp"><img src="docs/media/thumbs/layout-compact-side.webp" alt="Compact density with details beside the graphic" width="360"></a><br>
       <strong>Information dense</strong><br>
       <code>density: compact</code> plus <code>details.position: side</code>
     </td>
@@ -100,19 +100,19 @@ state, in dark mode.
   </tr>
   <tr>
     <td align="center" width="50%">
-      <a href="docs/media/layout-narrow.webp"><img src="docs/media/layout-narrow.webp" alt="Card rendered in a narrow dashboard column" width="360"></a><br>
+      <a href="docs/media/layout-narrow.webp"><img src="docs/media/thumbs/layout-narrow.webp" alt="Card rendered in a narrow dashboard column" width="360"></a><br>
       <strong>Narrow columns</strong><br>
       Container queries reflow the rows down to 320 px.
     </td>
     <td align="center" width="50%">
-      <a href="docs/media/layout-order.webp"><img src="docs/media/layout-order.webp" alt="Card with controls placed above the graphic" width="360"></a><br>
+      <a href="docs/media/layout-order.webp"><img src="docs/media/thumbs/layout-order.webp" alt="Card with controls placed above the graphic" width="360"></a><br>
       <strong>Your order</strong><br>
       <code>layout.order</code> moves header, visual, airflow, position, features.
     </td>
   </tr>
   <tr>
     <td align="center" colspan="2">
-      <a href="docs/media/one-column-theme-auto.webp"><img src="docs/media/one-column-theme-auto.webp" alt="All controls stacked in a single column" width="300"></a><br>
+      <a href="docs/media/one-column-theme-auto.webp"><img src="docs/media/thumbs/one-column-theme-auto.webp" alt="All controls stacked in a single column" width="300"></a><br>
       <strong>One control column</strong><br>
       <code>layout.columns: one</code> stacks every control group; the shots above
       use <code>two</code>.
@@ -157,7 +157,7 @@ motion stops completely under `prefers-reduced-motion`.
 services when you select that integration explicitly.
 
 <div align="center">
-  <a href="docs/media/integration-standard.webp"><img src="docs/media/integration-standard.webp" alt="Card rendered for a plain Home Assistant fan entity with fewer controls" width="360"></a><br>
+  <a href="docs/media/integration-standard.webp"><img src="docs/media/thumbs/integration-standard.webp" alt="Card rendered for a plain Home Assistant fan entity with fewer controls" width="360"></a><br>
   <em>A plain <code>fan</code> entity: fewer controls, still a finished card.</em>
 </div>
 
@@ -180,7 +180,7 @@ target the same fan position. Set `controls.show_nudge_with_angles: true` to
 show both.
 
 <div align="center">
-  <a href="docs/media/controls-nudge.webp"><img src="docs/media/controls-nudge.webp" alt="Angle selectors next to the position pad with four nudge arrows" width="360"></a><br>
+  <a href="docs/media/controls-nudge.webp"><img src="docs/media/thumbs/controls-nudge.webp" alt="Angle selectors next to the position pad with four nudge arrows" width="360"></a><br>
   <em>Angle selectors and the position pad side by side.</em>
 </div>
 
@@ -400,7 +400,8 @@ The production bundle is tracked for HACS at `dist/xiaomi-fan-card.js`. See
 [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow, Conventional Commits,
 release automation, and generated PromptScript instructions.
 
-Media lives in `docs/media` as WebP: still captures at their native width,
+Media lives in `docs/media` as WebP: full captures at their native width,
+cropped 560 px thumbnails in `docs/media/thumbs` for the galleries, and
 animations at 560 px and 10 fps. Recording sources stay local and are ignored by
 git. Keep published media redacted: no tokens, hostnames, locations, device
 identifiers, or personal dashboards.
