@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Generated HACS bundle keeps JavaScript tracked; source maps do not.
+dist/*.map
+
+# Test and tool output
+coverage/
+.code-review-graph/
+.factory/artifacts/
+.eslintcache
+*.tsbuildinfo
+
+# Local environment
+.env
+.env.*
+!.env.example
+*.local
+
+# Operating system and logs
+.DS_Store
+*.log

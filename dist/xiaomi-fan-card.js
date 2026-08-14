@@ -1,0 +1,2332 @@
+/******************************************************************************
+Copyright (c) Microsoft Corporation.
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+PERFORMANCE OF THIS SOFTWARE.
+***************************************************************************** */
+/* global Reflect, Promise, SuppressedError, Symbol, Iterator */
+
+
+function __decorate(decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+}
+
+typeof SuppressedError === "function" ? SuppressedError : function (error, suppressed, message) {
+    var e = new Error(message);
+    return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
+};
+
+/**
+ * @license
+ * Copyright 2019 Google LLC
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+const t$1=globalThis,e$2=t$1.ShadowRoot&&(void 0===t$1.ShadyCSS||t$1.ShadyCSS.nativeShadow)&&"adoptedStyleSheets"in Document.prototype&&"replace"in CSSStyleSheet.prototype,s$2=Symbol(),o$4=new WeakMap;let n$3 = class n{constructor(t,e,o){if(this._$cssResult$=true,o!==s$2)throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");this.cssText=t,this.t=e;}get styleSheet(){let t=this.o;const s=this.t;if(e$2&&void 0===t){const e=void 0!==s&&1===s.length;e&&(t=o$4.get(s)),void 0===t&&((this.o=t=new CSSStyleSheet).replaceSync(this.cssText),e&&o$4.set(s,t));}return t}toString(){return this.cssText}};const r$4=t=>new n$3("string"==typeof t?t:t+"",void 0,s$2),i$3=(t,...e)=>{const o=1===t.length?t[0]:e.reduce((e,s,o)=>e+(t=>{if(true===t._$cssResult$)return t.cssText;if("number"==typeof t)return t;throw Error("Value passed to 'css' function must be a 'css' function result: "+t+". Use 'unsafeCSS' to pass non-literal values, but take care to ensure page security.")})(s)+t[o+1],t[0]);return new n$3(o,t,s$2)},S$1=(s,o)=>{if(e$2)s.adoptedStyleSheets=o.map(t=>t instanceof CSSStyleSheet?t:t.styleSheet);else for(const e of o){const o=document.createElement("style"),n=t$1.litNonce;void 0!==n&&o.setAttribute("nonce",n),o.textContent=e.cssText,s.appendChild(o);}},c$2=e$2?t=>t:t=>t instanceof CSSStyleSheet?(t=>{let e="";for(const s of t.cssRules)e+=s.cssText;return r$4(e)})(t):t;
+
+/**
+ * @license
+ * Copyright 2017 Google LLC
+ * SPDX-License-Identifier: BSD-3-Clause
+ */const{is:i$2,defineProperty:e$1,getOwnPropertyDescriptor:h$1,getOwnPropertyNames:r$3,getOwnPropertySymbols:o$3,getPrototypeOf:n$2}=Object,a$1=globalThis,c$1=a$1.trustedTypes,l$1=c$1?c$1.emptyScript:"",p$1=a$1.reactiveElementPolyfillSupport,d$1=(t,s)=>t,u$1={toAttribute(t,s){switch(s){case Boolean:t=t?l$1:null;break;case Object:case Array:t=null==t?t:JSON.stringify(t);}return t},fromAttribute(t,s){let i=t;switch(s){case Boolean:i=null!==t;break;case Number:i=null===t?null:Number(t);break;case Object:case Array:try{i=JSON.parse(t);}catch(t){i=null;}}return i}},f$1=(t,s)=>!i$2(t,s),b$1={attribute:true,type:String,converter:u$1,reflect:false,useDefault:false,hasChanged:f$1};Symbol.metadata??=Symbol("metadata"),a$1.litPropertyMetadata??=new WeakMap;let y$1 = class y extends HTMLElement{static addInitializer(t){this._$Ei(),(this.l??=[]).push(t);}static get observedAttributes(){return this.finalize(),this._$Eh&&[...this._$Eh.keys()]}static createProperty(t,s=b$1){if(s.state&&(s.attribute=false),this._$Ei(),this.prototype.hasOwnProperty(t)&&((s=Object.create(s)).wrapped=true),this.elementProperties.set(t,s),!s.noAccessor){const i=Symbol(),h=this.getPropertyDescriptor(t,i,s);void 0!==h&&e$1(this.prototype,t,h);}}static getPropertyDescriptor(t,s,i){const{get:e,set:r}=h$1(this.prototype,t)??{get(){return this[s]},set(t){this[s]=t;}};return {get:e,set(s){const h=e?.call(this);r?.call(this,s),this.requestUpdate(t,h,i);},configurable:true,enumerable:true}}static getPropertyOptions(t){return this.elementProperties.get(t)??b$1}static _$Ei(){if(this.hasOwnProperty(d$1("elementProperties")))return;const t=n$2(this);t.finalize(),void 0!==t.l&&(this.l=[...t.l]),this.elementProperties=new Map(t.elementProperties);}static finalize(){if(this.hasOwnProperty(d$1("finalized")))return;if(this.finalized=true,this._$Ei(),this.hasOwnProperty(d$1("properties"))){const t=this.properties,s=[...r$3(t),...o$3(t)];for(const i of s)this.createProperty(i,t[i]);}const t=this[Symbol.metadata];if(null!==t){const s=litPropertyMetadata.get(t);if(void 0!==s)for(const[t,i]of s)this.elementProperties.set(t,i);}this._$Eh=new Map;for(const[t,s]of this.elementProperties){const i=this._$Eu(t,s);void 0!==i&&this._$Eh.set(i,t);}this.elementStyles=this.finalizeStyles(this.styles);}static finalizeStyles(s){const i=[];if(Array.isArray(s)){const e=new Set(s.flat(1/0).reverse());for(const s of e)i.unshift(c$2(s));}else void 0!==s&&i.push(c$2(s));return i}static _$Eu(t,s){const i=s.attribute;return  false===i?void 0:"string"==typeof i?i:"string"==typeof t?t.toLowerCase():void 0}constructor(){super(),this._$Ep=void 0,this.isUpdatePending=false,this.hasUpdated=false,this._$Em=null,this._$Ev();}_$Ev(){this._$ES=new Promise(t=>this.enableUpdating=t),this._$AL=new Map,this._$E_(),this.requestUpdate(),this.constructor.l?.forEach(t=>t(this));}addController(t){(this._$EO??=new Set).add(t),void 0!==this.renderRoot&&this.isConnected&&t.hostConnected?.();}removeController(t){this._$EO?.delete(t);}_$E_(){const t=new Map,s=this.constructor.elementProperties;for(const i of s.keys())this.hasOwnProperty(i)&&(t.set(i,this[i]),delete this[i]);t.size>0&&(this._$Ep=t);}createRenderRoot(){const t=this.shadowRoot??this.attachShadow(this.constructor.shadowRootOptions);return S$1(t,this.constructor.elementStyles),t}connectedCallback(){this.renderRoot??=this.createRenderRoot(),this.enableUpdating(true),this._$EO?.forEach(t=>t.hostConnected?.());}enableUpdating(t){}disconnectedCallback(){this._$EO?.forEach(t=>t.hostDisconnected?.());}attributeChangedCallback(t,s,i){this._$AK(t,i);}_$ET(t,s){const i=this.constructor.elementProperties.get(t),e=this.constructor._$Eu(t,i);if(void 0!==e&&true===i.reflect){const h=(void 0!==i.converter?.toAttribute?i.converter:u$1).toAttribute(s,i.type);this._$Em=t,null==h?this.removeAttribute(e):this.setAttribute(e,h),this._$Em=null;}}_$AK(t,s){const i=this.constructor,e=i._$Eh.get(t);if(void 0!==e&&this._$Em!==e){const t=i.getPropertyOptions(e),h="function"==typeof t.converter?{fromAttribute:t.converter}:void 0!==t.converter?.fromAttribute?t.converter:u$1;this._$Em=e;const r=h.fromAttribute(s,t.type);this[e]=r??this._$Ej?.get(e)??r,this._$Em=null;}}requestUpdate(t,s,i,e=false,h){if(void 0!==t){const r=this.constructor;if(false===e&&(h=this[t]),i??=r.getPropertyOptions(t),!((i.hasChanged??f$1)(h,s)||i.useDefault&&i.reflect&&h===this._$Ej?.get(t)&&!this.hasAttribute(r._$Eu(t,i))))return;this.C(t,s,i);} false===this.isUpdatePending&&(this._$ES=this._$EP());}C(t,s,{useDefault:i,reflect:e,wrapped:h},r){i&&!(this._$Ej??=new Map).has(t)&&(this._$Ej.set(t,r??s??this[t]),true!==h||void 0!==r)||(this._$AL.has(t)||(this.hasUpdated||i||(s=void 0),this._$AL.set(t,s)),true===e&&this._$Em!==t&&(this._$Eq??=new Set).add(t));}async _$EP(){this.isUpdatePending=true;try{await this._$ES;}catch(t){Promise.reject(t);}const t=this.scheduleUpdate();return null!=t&&await t,!this.isUpdatePending}scheduleUpdate(){return this.performUpdate()}performUpdate(){if(!this.isUpdatePending)return;if(!this.hasUpdated){if(this.renderRoot??=this.createRenderRoot(),this._$Ep){for(const[t,s]of this._$Ep)this[t]=s;this._$Ep=void 0;}const t=this.constructor.elementProperties;if(t.size>0)for(const[s,i]of t){const{wrapped:t}=i,e=this[s];true!==t||this._$AL.has(s)||void 0===e||this.C(s,void 0,i,e);}}let t=false;const s=this._$AL;try{t=this.shouldUpdate(s),t?(this.willUpdate(s),this._$EO?.forEach(t=>t.hostUpdate?.()),this.update(s)):this._$EM();}catch(s){throw t=false,this._$EM(),s}t&&this._$AE(s);}willUpdate(t){}_$AE(t){this._$EO?.forEach(t=>t.hostUpdated?.()),this.hasUpdated||(this.hasUpdated=true,this.firstUpdated(t)),this.updated(t);}_$EM(){this._$AL=new Map,this.isUpdatePending=false;}get updateComplete(){return this.getUpdateComplete()}getUpdateComplete(){return this._$ES}shouldUpdate(t){return  true}update(t){this._$Eq&&=this._$Eq.forEach(t=>this._$ET(t,this[t])),this._$EM();}updated(t){}firstUpdated(t){}};y$1.elementStyles=[],y$1.shadowRootOptions={mode:"open"},y$1[d$1("elementProperties")]=new Map,y$1[d$1("finalized")]=new Map,p$1?.({ReactiveElement:y$1}),(a$1.reactiveElementVersions??=[]).push("2.1.2");
+
+/**
+ * @license
+ * Copyright 2017 Google LLC
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+const t=globalThis,i$1=t=>t,s$1=t.trustedTypes,e=s$1?s$1.createPolicy("lit-html",{createHTML:t=>t}):void 0,h="$lit$",o$2=`lit$${Math.random().toFixed(9).slice(2)}$`,n$1="?"+o$2,r$2=`<${n$1}>`,l=document,c=()=>l.createComment(""),a=t=>null===t||"object"!=typeof t&&"function"!=typeof t,u=Array.isArray,d=t=>u(t)||"function"==typeof t?.[Symbol.iterator],f="[ \t\n\f\r]",v=/<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g,_=/-->/g,m=/>/g,p=RegExp(`>|${f}(?:([^\\s"'>=/]+)(${f}*=${f}*(?:[^ \t\n\f\r"'\`<>=]|("|')|))|$)`,"g"),g=/'/g,$=/"/g,y=/^(?:script|style|textarea|title)$/i,x=t=>(i,...s)=>({_$litType$:t,strings:i,values:s}),b=x(1),E=Symbol.for("lit-noChange"),A=Symbol.for("lit-nothing"),C=new WeakMap,P=l.createTreeWalker(l,129);function V(t,i){if(!u(t)||!t.hasOwnProperty("raw"))throw Error("invalid template strings array");return void 0!==e?e.createHTML(i):i}const N=(t,i)=>{const s=t.length-1,e=[];let n,l=2===i?"<svg>":3===i?"<math>":"",c=v;for(let i=0;i<s;i++){const s=t[i];let a,u,d=-1,f=0;for(;f<s.length&&(c.lastIndex=f,u=c.exec(s),null!==u);)f=c.lastIndex,c===v?"!--"===u[1]?c=_:void 0!==u[1]?c=m:void 0!==u[2]?(y.test(u[2])&&(n=RegExp("</"+u[2],"g")),c=p):void 0!==u[3]&&(c=p):c===p?">"===u[0]?(c=n??v,d=-1):void 0===u[1]?d=-2:(d=c.lastIndex-u[2].length,a=u[1],c=void 0===u[3]?p:'"'===u[3]?$:g):c===$||c===g?c=p:c===_||c===m?c=v:(c=p,n=void 0);const x=c===p&&t[i+1].startsWith("/>")?" ":"";l+=c===v?s+r$2:d>=0?(e.push(a),s.slice(0,d)+h+s.slice(d)+o$2+x):s+o$2+(-2===d?i:x);}return [V(t,l+(t[s]||"<?>")+(2===i?"</svg>":3===i?"</math>":"")),e]};class S{constructor({strings:t,_$litType$:i},e){let r;this.parts=[];let l=0,a=0;const u=t.length-1,d=this.parts,[f,v]=N(t,i);if(this.el=S.createElement(f,e),P.currentNode=this.el.content,2===i||3===i){const t=this.el.content.firstChild;t.replaceWith(...t.childNodes);}for(;null!==(r=P.nextNode())&&d.length<u;){if(1===r.nodeType){if(r.hasAttributes())for(const t of r.getAttributeNames())if(t.endsWith(h)){const i=v[a++],s=r.getAttribute(t).split(o$2),e=/([.?@])?(.*)/.exec(i);d.push({type:1,index:l,name:e[2],strings:s,ctor:"."===e[1]?I:"?"===e[1]?L:"@"===e[1]?z:H}),r.removeAttribute(t);}else t.startsWith(o$2)&&(d.push({type:6,index:l}),r.removeAttribute(t));if(y.test(r.tagName)){const t=r.textContent.split(o$2),i=t.length-1;if(i>0){r.textContent=s$1?s$1.emptyScript:"";for(let s=0;s<i;s++)r.append(t[s],c()),P.nextNode(),d.push({type:2,index:++l});r.append(t[i],c());}}}else if(8===r.nodeType)if(r.data===n$1)d.push({type:2,index:l});else {let t=-1;for(;-1!==(t=r.data.indexOf(o$2,t+1));)d.push({type:7,index:l}),t+=o$2.length-1;}l++;}}static createElement(t,i){const s=l.createElement("template");return s.innerHTML=t,s}}function M(t,i,s=t,e){if(i===E)return i;let h=void 0!==e?s._$Co?.[e]:s._$Cl;const o=a(i)?void 0:i._$litDirective$;return h?.constructor!==o&&(h?._$AO?.(false),void 0===o?h=void 0:(h=new o(t),h._$AT(t,s,e)),void 0!==e?(s._$Co??=[])[e]=h:s._$Cl=h),void 0!==h&&(i=M(t,h._$AS(t,i.values),h,e)),i}class R{constructor(t,i){this._$AV=[],this._$AN=void 0,this._$AD=t,this._$AM=i;}get parentNode(){return this._$AM.parentNode}get _$AU(){return this._$AM._$AU}u(t){const{el:{content:i},parts:s}=this._$AD,e=(t?.creationScope??l).importNode(i,true);P.currentNode=e;let h=P.nextNode(),o=0,n=0,r=s[0];for(;void 0!==r;){if(o===r.index){let i;2===r.type?i=new k(h,h.nextSibling,this,t):1===r.type?i=new r.ctor(h,r.name,r.strings,this,t):6===r.type&&(i=new Z(h,this,t)),this._$AV.push(i),r=s[++n];}o!==r?.index&&(h=P.nextNode(),o++);}return P.currentNode=l,e}p(t){let i=0;for(const s of this._$AV) void 0!==s&&(void 0!==s.strings?(s._$AI(t,s,i),i+=s.strings.length-2):s._$AI(t[i])),i++;}}class k{get _$AU(){return this._$AM?._$AU??this._$Cv}constructor(t,i,s,e){this.type=2,this._$AH=A,this._$AN=void 0,this._$AA=t,this._$AB=i,this._$AM=s,this.options=e,this._$Cv=e?.isConnected??true;}get parentNode(){let t=this._$AA.parentNode;const i=this._$AM;return void 0!==i&&11===t?.nodeType&&(t=i.parentNode),t}get startNode(){return this._$AA}get endNode(){return this._$AB}_$AI(t,i=this){t=M(this,t,i),a(t)?t===A||null==t||""===t?(this._$AH!==A&&this._$AR(),this._$AH=A):t!==this._$AH&&t!==E&&this._(t):void 0!==t._$litType$?this.$(t):void 0!==t.nodeType?this.T(t):d(t)?this.k(t):this._(t);}O(t){return this._$AA.parentNode.insertBefore(t,this._$AB)}T(t){this._$AH!==t&&(this._$AR(),this._$AH=this.O(t));}_(t){this._$AH!==A&&a(this._$AH)?this._$AA.nextSibling.data=t:this.T(l.createTextNode(t)),this._$AH=t;}$(t){const{values:i,_$litType$:s}=t,e="number"==typeof s?this._$AC(t):(void 0===s.el&&(s.el=S.createElement(V(s.h,s.h[0]),this.options)),s);if(this._$AH?._$AD===e)this._$AH.p(i);else {const t=new R(e,this),s=t.u(this.options);t.p(i),this.T(s),this._$AH=t;}}_$AC(t){let i=C.get(t.strings);return void 0===i&&C.set(t.strings,i=new S(t)),i}k(t){u(this._$AH)||(this._$AH=[],this._$AR());const i=this._$AH;let s,e=0;for(const h of t)e===i.length?i.push(s=new k(this.O(c()),this.O(c()),this,this.options)):s=i[e],s._$AI(h),e++;e<i.length&&(this._$AR(s&&s._$AB.nextSibling,e),i.length=e);}_$AR(t=this._$AA.nextSibling,s){for(this._$AP?.(false,true,s);t!==this._$AB;){const s=i$1(t).nextSibling;i$1(t).remove(),t=s;}}setConnected(t){ void 0===this._$AM&&(this._$Cv=t,this._$AP?.(t));}}class H{get tagName(){return this.element.tagName}get _$AU(){return this._$AM._$AU}constructor(t,i,s,e,h){this.type=1,this._$AH=A,this._$AN=void 0,this.element=t,this.name=i,this._$AM=e,this.options=h,s.length>2||""!==s[0]||""!==s[1]?(this._$AH=Array(s.length-1).fill(new String),this.strings=s):this._$AH=A;}_$AI(t,i=this,s,e){const h=this.strings;let o=false;if(void 0===h)t=M(this,t,i,0),o=!a(t)||t!==this._$AH&&t!==E,o&&(this._$AH=t);else {const e=t;let n,r;for(t=h[0],n=0;n<h.length-1;n++)r=M(this,e[s+n],i,n),r===E&&(r=this._$AH[n]),o||=!a(r)||r!==this._$AH[n],r===A?t=A:t!==A&&(t+=(r??"")+h[n+1]),this._$AH[n]=r;}o&&!e&&this.j(t);}j(t){t===A?this.element.removeAttribute(this.name):this.element.setAttribute(this.name,t??"");}}class I extends H{constructor(){super(...arguments),this.type=3;}j(t){this.element[this.name]=t===A?void 0:t;}}class L extends H{constructor(){super(...arguments),this.type=4;}j(t){this.element.toggleAttribute(this.name,!!t&&t!==A);}}class z extends H{constructor(t,i,s,e,h){super(t,i,s,e,h),this.type=5;}_$AI(t,i=this){if((t=M(this,t,i,0)??A)===E)return;const s=this._$AH,e=t===A&&s!==A||t.capture!==s.capture||t.once!==s.once||t.passive!==s.passive,h=t!==A&&(s===A||e);e&&this.element.removeEventListener(this.name,this,s),h&&this.element.addEventListener(this.name,this,t),this._$AH=t;}handleEvent(t){"function"==typeof this._$AH?this._$AH.call(this.options?.host??this.element,t):this._$AH.handleEvent(t);}}class Z{constructor(t,i,s){this.element=t,this.type=6,this._$AN=void 0,this._$AM=i,this.options=s;}get _$AU(){return this._$AM._$AU}_$AI(t){M(this,t);}}const B=t.litHtmlPolyfillSupport;B?.(S,k),(t.litHtmlVersions??=[]).push("3.3.3");const D=(t,i,s)=>{const e=s?.renderBefore??i;let h=e._$litPart$;if(void 0===h){const t=s?.renderBefore??null;e._$litPart$=h=new k(i.insertBefore(c(),t),t,void 0,s??{});}return h._$AI(t),h};
+
+/**
+ * @license
+ * Copyright 2017 Google LLC
+ * SPDX-License-Identifier: BSD-3-Clause
+ */const s=globalThis;class i extends y$1{constructor(){super(...arguments),this.renderOptions={host:this},this._$Do=void 0;}createRenderRoot(){const t=super.createRenderRoot();return this.renderOptions.renderBefore??=t.firstChild,t}update(t){const r=this.render();this.hasUpdated||(this.renderOptions.isConnected=this.isConnected),super.update(t),this._$Do=D(r,this.renderRoot,this.renderOptions);}connectedCallback(){super.connectedCallback(),this._$Do?.setConnected(true);}disconnectedCallback(){super.disconnectedCallback(),this._$Do?.setConnected(false);}render(){return E}}i._$litElement$=true,i["finalized"]=true,s.litElementHydrateSupport?.({LitElement:i});const o$1=s.litElementPolyfillSupport;o$1?.({LitElement:i});(s.litElementVersions??=[]).push("4.2.2");
+
+/**
+ * @license
+ * Copyright 2017 Google LLC
+ * SPDX-License-Identifier: BSD-3-Clause
+ */const o={attribute:true,type:String,converter:u$1,reflect:false,hasChanged:f$1},r$1=(t=o,e,r)=>{const{kind:n,metadata:i}=r;let s=globalThis.litPropertyMetadata.get(i);if(void 0===s&&globalThis.litPropertyMetadata.set(i,s=new Map),"setter"===n&&((t=Object.create(t)).wrapped=true),s.set(r.name,t),"accessor"===n){const{name:o}=r;return {set(r){const n=e.get.call(this);e.set.call(this,r),this.requestUpdate(o,n,t,true,r);},init(e){return void 0!==e&&this.C(o,void 0,t,e),e}}}if("setter"===n){const{name:o}=r;return function(r){const n=this[o];e.call(this,r),this.requestUpdate(o,n,t,true,r);}}throw Error("Unsupported decorator location: "+n)};function n(t){return (e,o)=>"object"==typeof o?r$1(t,e,o):((t,e,o)=>{const r=e.hasOwnProperty(o);return e.constructor.createProperty(o,t),r?Object.getOwnPropertyDescriptor(e,o):void 0})(t,e,o)}
+
+/**
+ * @license
+ * Copyright 2017 Google LLC
+ * SPDX-License-Identifier: BSD-3-Clause
+ */function r(r){return n({...r,state:true,attribute:false})}
+
+function computeDomain(entityId) {
+    return entityId.substr(0, entityId.indexOf("."));
+}
+
+var NumberFormat;
+(function (NumberFormat) {
+    NumberFormat["language"] = "language";
+    NumberFormat["system"] = "system";
+    NumberFormat["comma_decimal"] = "comma_decimal";
+    NumberFormat["decimal_comma"] = "decimal_comma";
+    NumberFormat["space_comma"] = "space_comma";
+    NumberFormat["none"] = "none";
+})(NumberFormat || (NumberFormat = {}));
+var TimeFormat;
+(function (TimeFormat) {
+    TimeFormat["language"] = "language";
+    TimeFormat["system"] = "system";
+    TimeFormat["am_pm"] = "12";
+    TimeFormat["twenty_four"] = "24";
+})(TimeFormat || (TimeFormat = {}));
+/** States that we consider "off". */
+const STATES_OFF = ["closed", "locked", "off"];
+
+// Polymer legacy event helpers used courtesy of the Polymer project.
+//
+// Copyright (c) 2017 The Polymer Authors. All rights reserved.
+//
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are
+// met:
+//
+//    * Redistributions of source code must retain the above copyright
+// notice, this list of conditions and the following disclaimer.
+//    * Redistributions in binary form must reproduce the above
+// copyright notice, this list of conditions and the following disclaimer
+// in the documentation and/or other materials provided with the
+// distribution.
+//    * Neither the name of Google Inc. nor the names of its
+// contributors may be used to endorse or promote products derived from
+// this software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+// OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+/**
+ * Dispatches a custom event with an optional detail value.
+ *
+ * @param {string} type Name of event type.
+ * @param {*=} detail Detail value containing event-specific
+ *   payload.
+ * @param {{ bubbles: (boolean|undefined),
+ *           cancelable: (boolean|undefined),
+ *           composed: (boolean|undefined) }=}
+ *  options Object specifying options.  These may include:
+ *  `bubbles` (boolean, defaults to `true`),
+ *  `cancelable` (boolean, defaults to false), and
+ *  `node` on which to fire the event (HTMLElement, defaults to `this`).
+ * @return {Event} The new event that was fired.
+ */
+const fireEvent = (node, type, detail, options) => {
+    options = options || {};
+    // @ts-ignore
+    detail = detail === null || detail === undefined ? {} : detail;
+    const event = new Event(type, {
+        bubbles: options.bubbles === undefined ? true : options.bubbles,
+        cancelable: Boolean(options.cancelable),
+        composed: options.composed === undefined ? true : options.composed
+    });
+    event.detail = detail;
+    node.dispatchEvent(event);
+    return event;
+};
+
+const forwardHaptic = (hapticType) => {
+    fireEvent(window, "haptic", hapticType);
+};
+
+const navigate = (_node, path, replace = false) => {
+    if (replace) {
+        history.replaceState(null, "", path);
+    }
+    else {
+        history.pushState(null, "", path);
+    }
+    fireEvent(window, "location-changed", {
+        replace
+    });
+};
+
+const turnOnOffEntity = (hass, entityId, turnOn = true) => {
+    const stateDomain = computeDomain(entityId);
+    const serviceDomain = stateDomain === "group" ? "homeassistant" : stateDomain;
+    let service;
+    switch (stateDomain) {
+        case "lock":
+            service = turnOn ? "unlock" : "lock";
+            break;
+        case "cover":
+            service = turnOn ? "open_cover" : "close_cover";
+            break;
+        default:
+            service = turnOn ? "turn_on" : "turn_off";
+    }
+    return hass.callService(serviceDomain, service, { entity_id: entityId });
+};
+
+const toggleEntity = (hass, entityId) => {
+    const turnOn = STATES_OFF.includes(hass.states[entityId].state);
+    return turnOnOffEntity(hass, entityId, turnOn);
+};
+
+const handleActionConfig = (node, hass, config, actionConfig) => {
+    if (!actionConfig) {
+        actionConfig = {
+            action: "more-info",
+        };
+    }
+    if (actionConfig.confirmation &&
+        (!actionConfig.confirmation.exemptions ||
+            !actionConfig.confirmation.exemptions.some((e) => e.user === hass.user.id))) {
+        forwardHaptic("warning");
+        if (!confirm(actionConfig.confirmation.text ||
+            `Are you sure you want to ${actionConfig.action}?`)) {
+            return;
+        }
+    }
+    switch (actionConfig.action) {
+        case "more-info":
+            if (config.entity || config.camera_image) {
+                fireEvent(node, "hass-more-info", {
+                    entityId: config.entity ? config.entity : config.camera_image,
+                });
+            }
+            break;
+        case "navigate":
+            if (actionConfig.navigation_path) {
+                navigate(node, actionConfig.navigation_path);
+            }
+            break;
+        case "url":
+            if (actionConfig.url_path) {
+                window.open(actionConfig.url_path);
+            }
+            break;
+        case "toggle":
+            if (config.entity) {
+                toggleEntity(hass, config.entity);
+                forwardHaptic("success");
+            }
+            break;
+        case "call-service": {
+            if (!actionConfig.service) {
+                forwardHaptic("failure");
+                return;
+            }
+            const [domain, service] = actionConfig.service.split(".", 2);
+            hass.callService(domain, service, actionConfig.service_data, actionConfig.target);
+            forwardHaptic("success");
+            break;
+        }
+        case "fire-dom-event": {
+            fireEvent(node, "ll-custom", actionConfig);
+        }
+    }
+};
+const handleAction = (node, hass, config, action) => {
+    let actionConfig;
+    if (config.tap_action) {
+        actionConfig = config.tap_action;
+    }
+    handleActionConfig(node, hass, config, actionConfig);
+};
+
+// Check if config or Entity changed
+function hasConfigOrEntityChanged(element, changedProps, forceUpdate) {
+    if (changedProps.has('config') || forceUpdate) {
+        return true;
+    }
+    if (element.config.entity) {
+        const oldHass = changedProps.get('hass');
+        if (oldHass) {
+            return (oldHass.states[element.config.entity]
+                !== element.hass.states[element.config.entity]);
+        }
+        return true;
+    }
+    else {
+        return false;
+    }
+}
+
+const commonAngles = [30, 60, 90, 120, 140];
+const profiles = [
+    {
+        model: "zhimi.fan.v2",
+        label: "Mi Smart Fan V2",
+        known: true,
+        isXiaomi: true,
+        speedLevels: 4,
+        horizontalAngles: [30, 60, 90, 120, 140, 150],
+        verticalAngles: [],
+        supportsVerticalSwing: false,
+        supportsNudge: false,
+    },
+    {
+        model: "zhimi.fan.v3",
+        label: "Mi Smart Fan V3",
+        known: true,
+        isXiaomi: true,
+        speedLevels: 4,
+        horizontalAngles: [30, 60, 90, 120, 140, 150],
+        verticalAngles: [],
+        supportsVerticalSwing: false,
+        supportsNudge: false,
+    },
+    ...["zhimi.fan.sa1", "zhimi.fan.za1", "zhimi.fan.za3", "zhimi.fan.za4"].map((model) => ({
+        model,
+        label: "Xiaomi Smart Fan",
+        known: true,
+        isXiaomi: true,
+        speedLevels: 4,
+        horizontalAngles: [...commonAngles],
+        verticalAngles: [],
+        supportsVerticalSwing: false,
+        supportsNudge: false,
+    })),
+    {
+        model: "zhimi.fan.za5",
+        label: "Smartmi Standing Fan 3",
+        known: true,
+        isXiaomi: true,
+        speedLevels: 4,
+        horizontalAngles: [30, 60, 90, 120],
+        verticalAngles: [],
+        supportsVerticalSwing: false,
+        supportsNudge: true,
+    },
+    ...["dmaker.fan.p5", "dmaker.fan.p9", "dmaker.fan.p10", "dmaker.fan.p11", "dmaker.fan.p15"].map((model) => ({
+        model,
+        label: "Xiaomi Smart Fan",
+        known: true,
+        isXiaomi: true,
+        speedLevels: 4,
+        horizontalAngles: [...commonAngles],
+        verticalAngles: [],
+        supportsVerticalSwing: false,
+        supportsNudge: false,
+    })),
+    {
+        model: "dmaker.fan.p8",
+        label: "Xiaomi Smart Fan 1C",
+        known: true,
+        isXiaomi: true,
+        speedLevels: 4,
+        horizontalAngles: [...commonAngles],
+        verticalAngles: [],
+        supportsVerticalSwing: false,
+        supportsNudge: false,
+    },
+    {
+        model: "dmaker.fan.1c",
+        label: "Xiaomi Smart Fan 1C",
+        known: true,
+        isXiaomi: true,
+        speedLevels: 3,
+        horizontalAngles: [],
+        verticalAngles: [],
+        supportsVerticalSwing: false,
+        supportsNudge: false,
+    },
+    ...["dmaker.fan.p18", "dmaker.fan.p30", "dmaker.fan.p33", "dmaker.fan.p39"].map((model) => ({
+        model,
+        label: "Xiaomi Smart Standing Fan",
+        known: true,
+        isXiaomi: true,
+        speedLevels: 4,
+        horizontalAngles: [...commonAngles],
+        verticalAngles: [],
+        supportsVerticalSwing: false,
+        supportsNudge: model === "dmaker.fan.p33",
+    })),
+    {
+        model: "xiaomi.fan.p45",
+        label: "Xiaomi Smart Tower Fan 2",
+        known: true,
+        isXiaomi: true,
+        speedLevels: 4,
+        horizontalAngles: [30, 60, 90, 120, 150],
+        verticalAngles: [],
+        supportsVerticalSwing: false,
+        supportsNudge: true,
+    },
+    {
+        model: "xiaomi.fan.p76",
+        label: "Xiaomi Smart Standing Air Circulation Fan",
+        known: true,
+        isXiaomi: true,
+        speedLevels: 4,
+        horizontalAngles: [30, 60, 90, 120],
+        verticalAngles: [30, 60, 90, 100],
+        supportsVerticalSwing: true,
+        supportsNudge: true,
+    },
+    {
+        model: "xiaomi.fan.p70",
+        label: "Xiaomi Smart Desktop Air Circulation Fan",
+        known: true,
+        isXiaomi: true,
+        speedLevels: 4,
+        horizontalAngles: [30, 60, 90, 120],
+        verticalAngles: [30, 60, 90, 100],
+        supportsVerticalSwing: true,
+        supportsNudge: true,
+    },
+    ...["xiaomi.fan.p30", "xiaomi.fan.p85", "xiaomi.fan.p43"].map((model) => ({
+        model,
+        label: "Xiaomi Smart Standing Fan",
+        known: true,
+        isXiaomi: true,
+        speedLevels: 4,
+        horizontalAngles: [30, 60, 90],
+        verticalAngles: [],
+        supportsVerticalSwing: false,
+        supportsNudge: true,
+    })),
+    {
+        model: "xiaomi.fan.2lite",
+        label: "Mi Smart Standing Fan 2 Lite",
+        known: true,
+        isXiaomi: true,
+        speedLevels: 3,
+        horizontalAngles: [],
+        verticalAngles: [],
+        supportsVerticalSwing: false,
+        supportsNudge: false,
+    },
+    {
+        model: "leshow.fan.ss4",
+        label: "Leshow Fan",
+        known: true,
+        isXiaomi: false,
+        speedLevels: 4,
+        horizontalAngles: [],
+        verticalAngles: [],
+        supportsVerticalSwing: false,
+        supportsNudge: false,
+    },
+];
+const profileMap = new Map(profiles.flatMap((profile) => (profile.model ? [[profile.model, profile]] : [])));
+const unknownProfile = (model) => ({
+    model,
+    label: model ? `Xiaomi Fan (${model})` : "Smart Fan",
+    known: false,
+    isXiaomi: model?.includes(".fan.") ?? false,
+    speedLevels: 4,
+    horizontalAngles: [],
+    verticalAngles: [],
+    supportsVerticalSwing: false,
+    supportsNudge: false,
+});
+const getModelProfile = (model) => profileMap.get(model?.trim().toLowerCase() ?? "") ?? unknownProfile(model);
+const isXiaomiFanModel = (model) => getModelProfile(model).isXiaomi || model?.trim().toLowerCase().startsWith("leshow.fan.") === true;
+const resolveSpeedLevels = (attributes, profile = getModelProfile()) => {
+    for (const key of ["speed_levels", "speed_count", "max_speed", "fan_speed_count"]) {
+        const value = Number(attributes[key]);
+        if (Number.isInteger(value) && value >= 1 && value <= 20) {
+            return value;
+        }
+    }
+    const modes = [attributes["preset_modes"], attributes["speed_list"], attributes["speed_modes"]].find((value) => Array.isArray(value) && value.length > 0) ?? [];
+    if (Array.isArray(modes)) {
+        const levels = modes
+            .map(String)
+            .map((mode) => mode.match(/(?:level|speed)\s*(\d+)/i)?.[1] ?? (mode.match(/^\d+$/) ?? [])[0])
+            .map(Number)
+            .filter((level) => Number.isInteger(level) && level > 0 && level <= 20);
+        if (levels.length > 0) {
+            return Math.max(...levels);
+        }
+    }
+    return profile.speedLevels;
+};
+
+const hasAttribute = (entity, keys) => entity !== undefined && keys.some((key) => Object.prototype.hasOwnProperty.call(entity.attributes, key));
+const hasService = (services, name) => services.loaded && services.names.has(name);
+const customService = (services, name) => hasService(services, `xiaomi_miio_fan.${name}`);
+const hasFanFeature = (entity, bit) => {
+    const supportedFeatures = Number(entity?.attributes["supported_features"]);
+    return Number.isInteger(supportedFeatures) && (supportedFeatures & bit) !== 0;
+};
+const detectCapabilities = (entity, services = { loaded: false, names: new Set() }, related = {}) => {
+    const model = typeof entity?.attributes["model"] === "string" ? entity.attributes["model"] : undefined;
+    const profile = getModelProfile(model);
+    const isXiaomi = profile.isXiaomi || isXiaomiFanModel(model);
+    const hasHorizontalAngle = hasAttribute(entity, ["horizontal_swing_angle", "swing_mode_angle", "angle"]);
+    const hasVerticalAngle = hasAttribute(entity, ["vertical_swing_angle", "vertical_oscillation_angle"]);
+    const hasSleepPreset = [
+        entity?.attributes["preset_modes"],
+        entity?.attributes["speed_list"],
+        entity?.attributes["speed_modes"],
+    ].some((value) => Array.isArray(value) && value.some((mode) => typeof mode === "string" && mode.toLowerCase().includes("sleep")));
+    const hasNaturalPreset = [entity?.attributes["preset_modes"], entity?.attributes["speed_list"], entity?.attributes["speed_modes"]].some((value) => Array.isArray(value) &&
+        value.some((mode) => typeof mode === "string" &&
+            (mode.toLowerCase().includes("natural") || mode.toLowerCase().includes("nature")))) ||
+        (typeof entity?.attributes["mode"] === "string" &&
+            ["natural", "nature"].some((name) => entity.attributes["mode"].toLowerCase().includes(name)));
+    return {
+        isXiaomi,
+        modelLabel: profile.label,
+        speedLevels: resolveSpeedLevels(entity?.attributes ?? {}, profile),
+        direction: hasAttribute(entity, ["direction", "current_direction"]) ||
+            hasFanFeature(entity, 16) ||
+            hasService(services, "fan.set_direction"),
+        sleepMode: Boolean(related.sleepMode) || hasSleepPreset,
+        favoriteLevel: Boolean(related.favoriteLevel),
+        horizontalSwing: hasAttribute(entity, ["oscillating", "horizontal_swing", "swing_mode"]) ||
+            hasFanFeature(entity, 8) ||
+            (profile.known && profile.isXiaomi && profile.model !== "xiaomi.fan.2lite"),
+        horizontalAngle: Boolean(related.horizontalAngle) ||
+            (hasHorizontalAngle && customService(services, "fan_set_oscillation_angle")) ||
+            (profile.horizontalAngles.length > 0 && customService(services, "fan_set_oscillation_angle")),
+        horizontalAngles: profile.horizontalAngles,
+        verticalSwing: Boolean(related.verticalSwing) ||
+            (hasAttribute(entity, ["vertical_swing", "vertical_oscillate", "vertical_oscillation"]) &&
+                customService(services, "fan_set_vertical_oscillation_on") &&
+                customService(services, "fan_set_vertical_oscillation_off")) ||
+            (profile.supportsVerticalSwing &&
+                customService(services, "fan_set_vertical_oscillation_on") &&
+                customService(services, "fan_set_vertical_oscillation_off")),
+        verticalAngle: Boolean(related.verticalAngle) ||
+            (hasVerticalAngle && customService(services, "fan_set_vertical_oscillation_angle")) ||
+            (profile.verticalAngles.length > 0 && customService(services, "fan_set_vertical_oscillation_angle")),
+        verticalAngles: profile.verticalAngles,
+        directionNudge: profile.supportsNudge && customService(services, "fan_turn"),
+        naturalMode: hasNaturalPreset || (profile.known && profile.isXiaomi && !hasAttribute(entity, ["preset_modes", "speed_list"])),
+        timer: Boolean(related.timer) ||
+            (hasAttribute(entity, ["delay_off_countdown", "delay_time", "power_off_time", "timer"]) &&
+                customService(services, "fan_set_delay_off")) ||
+            (isXiaomi && customService(services, "fan_set_delay_off")),
+        childLock: Boolean(related.childLock) ||
+            (hasAttribute(entity, ["child_lock"]) && customService(services, "fan_set_child_lock_on")) ||
+            (isXiaomi && customService(services, "fan_set_child_lock_on")),
+        led: Boolean(related.led) ||
+            (hasAttribute(entity, ["led", "light", "led_brightness", "light_enum"]) &&
+                customService(services, "fan_set_led_brightness")) ||
+            (isXiaomi && customService(services, "fan_set_led_brightness")),
+        buzzer: Boolean(related.buzzer) ||
+            (hasAttribute(entity, ["buzzer", "notification_sound"]) &&
+                customService(services, "fan_set_buzzer_on") &&
+                customService(services, "fan_set_buzzer_off")) ||
+            (isXiaomi && customService(services, "fan_set_buzzer_on") && customService(services, "fan_set_buzzer_off")),
+        ionizer: Boolean(related.ionizer) ||
+            (hasAttribute(entity, ["anion", "ionizer"]) &&
+                customService(services, "fan_set_anion_on") &&
+                customService(services, "fan_set_anion_off")) ||
+            (isXiaomi && customService(services, "fan_set_anion_on") && customService(services, "fan_set_anion_off")),
+    };
+};
+
+const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+const numberValue = (value) => {
+    if (typeof value === "number" && Number.isFinite(value)) {
+        return value;
+    }
+    if (typeof value === "string" && value.trim() !== "") {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : undefined;
+    }
+    return undefined;
+};
+const booleanValue = (value) => {
+    if (typeof value === "boolean") {
+        return value;
+    }
+    if (value === 1 || value === "1") {
+        return true;
+    }
+    if (value === 0 || value === "0") {
+        return false;
+    }
+    if (typeof value === "string") {
+        const normalized = value.trim().toLowerCase();
+        if (["on", "true", "yes", "enabled", "active", "bright", "sleep", "oscillate", "oscillating", "swing"].includes(normalized)) {
+            return true;
+        }
+        if (["off", "false", "no", "disabled", "inactive", "dim", "normal", "fixed", "static"].includes(normalized)) {
+            return false;
+        }
+    }
+    return undefined;
+};
+const stringValue = (value) => {
+    if (typeof value === "string") {
+        return value;
+    }
+    if (typeof value === "number" || typeof value === "boolean") {
+        return String(value);
+    }
+    return undefined;
+};
+const firstNumber = (attributes, keys) => {
+    for (const key of keys) {
+        const value = numberValue(attributes[key]);
+        if (value !== undefined) {
+            return value;
+        }
+    }
+    return undefined;
+};
+const firstBoolean = (attributes, keys) => {
+    for (const key of keys) {
+        const value = booleanValue(attributes[key]);
+        if (value !== undefined) {
+            return value;
+        }
+    }
+    return undefined;
+};
+const readPresetModes = (...values) => {
+    for (const value of values) {
+        if (Array.isArray(value) && value.length > 0) {
+            return value.map(String);
+        }
+    }
+    return [];
+};
+const normalizeFanState = (entityId, entity) => {
+    const attributes = entity?.attributes ?? {};
+    const model = stringValue(attributes["model"] ?? attributes["model_name"]);
+    const profile = getModelProfile(model);
+    const speedLevels = resolveSpeedLevels(attributes, profile);
+    const directPercentage = firstNumber(attributes, ["percentage", "direct_speed", "natural_speed"]);
+    const rawSpeed = firstNumber(attributes, ["fan_speed", "speed"]);
+    const rawSpeedPercentage = rawSpeed !== undefined && rawSpeed <= speedLevels ? (rawSpeed / speedLevels) * 100 : rawSpeed;
+    const percentage = clamp(directPercentage ?? rawSpeedPercentage ?? 0, 0, 100);
+    const presetMode = stringValue(attributes["preset_mode"])?.toLowerCase() ?? "";
+    const operationMode = stringValue(attributes["mode"] ?? attributes["operation_mode"])?.toLowerCase() ?? "";
+    const isNatural = (value) => value.includes("natural") || value.includes("nature");
+    const mode = isNatural(presetMode) || isNatural(operationMode) ? "natural" : "normal";
+    const presetModes = readPresetModes(attributes["preset_modes"], attributes["speed_list"], attributes["speed_modes"]);
+    const directionValue = stringValue(attributes["direction"] ?? attributes["current_direction"])?.toLowerCase();
+    const sleepMode = booleanValue(attributes["sleep_mode"]) ?? presetMode.includes("sleep");
+    const level = percentage === 0 ? 0 : clamp(Math.round((percentage / 100) * speedLevels), 1, speedLevels);
+    const friendlyName = stringValue(attributes["friendly_name"]) ?? entityId;
+    return {
+        entityId,
+        model,
+        friendlyName,
+        available: entity !== undefined && entity.state !== "unavailable" && entity.state !== "unknown",
+        isOn: entity?.state === "on",
+        percentage,
+        level,
+        speedLevels,
+        mode,
+        favoriteLevel: firstNumber(attributes, ["favorite_level", "favorite_speed"]),
+        presetMode: stringValue(attributes["preset_mode"]),
+        availableModes: presetModes,
+        sleepMode,
+        direction: directionValue === "forward" || directionValue === "reverse" ? directionValue : undefined,
+        horizontalSwing: firstBoolean(attributes, ["oscillating", "horizontal_swing", "swing_mode"]),
+        horizontalAngle: firstNumber(attributes, ["horizontal_swing_angle", "swing_mode_angle", "angle"]),
+        verticalSwing: firstBoolean(attributes, ["vertical_swing", "vertical_oscillate", "vertical_oscillation"]),
+        verticalAngle: firstNumber(attributes, ["vertical_swing_angle", "vertical_oscillation_angle"]),
+        timerMinutes: firstNumber(attributes, ["delay_off_countdown", "delay_time", "power_off_time", "timer"]),
+        childLock: booleanValue(attributes["child_lock"]),
+        led: firstBoolean(attributes, ["led", "light"]) ?? (firstNumber(attributes, ["led_brightness", "light"]) ?? 0) > 0,
+        buzzer: firstBoolean(attributes, ["buzzer", "notification_sound"]),
+        ionizer: firstBoolean(attributes, ["anion", "ionizer"]),
+        temperature: stringValue(attributes["temperature"]),
+        humidity: stringValue(attributes["humidity"]),
+    };
+};
+
+const serviceName = (domain, service) => `${domain}.${service}`;
+const readServiceAvailability = (response) => {
+    const names = new Set();
+    for (const [domain, services] of Object.entries(response)) {
+        for (const service of Object.keys(services)) {
+            names.add(serviceName(domain, service));
+        }
+    }
+    return { loaded: true, names };
+};
+const loadServiceAvailability = async (hass) => {
+    if (!hass.callWS) {
+        return { loaded: false, names: new Set() };
+    }
+    try {
+        const response = await hass.callWS({ type: "get_services" });
+        return readServiceAvailability(response);
+    }
+    catch {
+        return { loaded: false, names: new Set() };
+    }
+};
+class ServiceDispatcher {
+    constructor(hass, entityId, availability) {
+        this.hass = hass;
+        this.entityId = entityId;
+        this.availability = availability;
+    }
+    canCallCustom(domain, service) {
+        return !this.availability.loaded || this.availability.names.has(serviceName(domain, service));
+    }
+    async standard(service, data = {}) {
+        await this.hass.callService("fan", service, { entity_id: this.entityId, ...data });
+    }
+    async custom(domain, service, data = {}) {
+        if (!this.canCallCustom(domain, service)) {
+            return false;
+        }
+        await this.hass.callService(domain, service, { entity_id: this.entityId, ...data });
+        return true;
+    }
+}
+
+const entityParts = (entityId) => {
+    const [domain, objectId] = entityId.split(".");
+    return [domain ?? "", objectId ?? ""];
+};
+class StandardFanAdapter {
+    constructor(hass, entityId, services, related = {}) {
+        this.hass = hass;
+        this.entityId = entityId;
+        this.services = services;
+        this.related = related;
+        this.state = normalizeFanState(entityId, this.entityWithRelatedAttributes());
+        this.profile = getModelProfile(this.state.model);
+        const detectedCapabilities = detectCapabilities(hass.states[entityId], services, related);
+        this.capabilities = {
+            ...detectedCapabilities,
+            horizontalAngles: detectedCapabilities.horizontalAngles.length > 0
+                ? detectedCapabilities.horizontalAngles
+                : (this.readNumberSteps(this.related.horizontalAngle) ?? []),
+            verticalAngles: detectedCapabilities.verticalAngles.length > 0
+                ? detectedCapabilities.verticalAngles
+                : (this.readNumberSteps(this.related.verticalAngle) ?? []),
+            timerSteps: this.readNumberSteps(this.related.timer),
+        };
+        this.dispatcher = new ServiceDispatcher(hass, entityId, services);
+    }
+    readNumberSteps(entityId) {
+        const timerEntity = entityId ? this.hass.states[entityId] : undefined;
+        const minimum = Number(timerEntity?.attributes["min"]);
+        const maximum = Number(timerEntity?.attributes["max"]);
+        const step = Number(timerEntity?.attributes["step"]);
+        if (!Number.isFinite(minimum) ||
+            !Number.isFinite(maximum) ||
+            !Number.isFinite(step) ||
+            step <= 0 ||
+            maximum < minimum ||
+            (maximum - minimum) / step > 100) {
+            return undefined;
+        }
+        return Array.from({ length: Math.floor((maximum - minimum) / step) + 1 }, (_, index) => Math.round((minimum + index * step) * 100) / 100);
+    }
+    entityWithRelatedAttributes() {
+        const entity = this.hass.states[this.entityId];
+        if (!entity) {
+            return undefined;
+        }
+        const attributes = { ...entity.attributes };
+        const relatedValues = [
+            ["horizontalAngle", "horizontal_swing_angle"],
+            ["sleepMode", "sleep_mode"],
+            ["verticalAngle", "vertical_swing_angle"],
+            ["favoriteLevel", "favorite_level"],
+            ["verticalSwing", "vertical_swing"],
+            ["timer", "delay_time"],
+            ["childLock", "child_lock"],
+            ["led", "led"],
+            ["buzzer", "buzzer"],
+            ["ionizer", "ionizer"],
+            ["temperature", "temperature"],
+            ["humidity", "humidity"],
+        ];
+        for (const [relatedKey, attributeKey] of relatedValues) {
+            if (attributes[attributeKey] !== undefined && attributes[attributeKey] !== null) {
+                continue;
+            }
+            const relatedEntityId = this.related[relatedKey];
+            const relatedState = relatedEntityId ? this.hass.states[relatedEntityId] : undefined;
+            if (relatedState && relatedState.state !== "unknown" && relatedState.state !== "unavailable") {
+                attributes[attributeKey] = relatedState.state;
+            }
+        }
+        return { ...entity, attributes };
+    }
+    async togglePower() {
+        await this.dispatcher.standard("toggle");
+    }
+    async setPercentage(percentage) {
+        await this.dispatcher.standard("set_percentage", { percentage });
+    }
+    async setMode(mode) {
+        const preferred = mode === "natural" ? ["natural", "nature", "natural 1"] : ["normal", "straight", "manual", "level 1"];
+        const preset = this.state.availableModes.find((candidate) => preferred.includes(candidate.toLowerCase())) ??
+            this.state.availableModes.find((candidate) => {
+                const normalized = candidate.toLowerCase();
+                return mode === "natural"
+                    ? normalized.includes("natural") || normalized.includes("nature")
+                    : normalized.includes("normal") || normalized.includes("straight") || normalized.includes("manual");
+            }) ??
+            (mode === "natural" ? "Natural" : "Normal");
+        await this.setPresetMode(preset);
+    }
+    async setPresetMode(preset) {
+        await this.dispatcher.standard("set_preset_mode", { preset_mode: preset });
+    }
+    async setSleepMode(enabled) {
+        if (await this.setRelatedBoolean(this.related.sleepMode, enabled)) {
+            return;
+        }
+        const sleepPreset = this.state.availableModes.find((preset) => preset.toLowerCase().includes("sleep"));
+        if (!sleepPreset) {
+            throw new Error("This fan does not expose a sleep preset.");
+        }
+        if (enabled) {
+            await this.setPresetMode(sleepPreset);
+            return;
+        }
+        const current = this.state.presetMode?.toLowerCase();
+        const normalPreset = this.state.availableModes.find((preset) => !preset.toLowerCase().includes("sleep") && preset.toLowerCase().includes("normal"));
+        const fallbackPreset = this.state.availableModes.find((preset) => preset.toLowerCase() !== "off" && !preset.toLowerCase().includes("sleep"));
+        await this.setPresetMode(current && !current.includes("sleep") ? this.state.presetMode : (normalPreset ?? fallbackPreset ?? "Normal"));
+    }
+    async setFavoriteLevel(level) {
+        if (!(await this.setRelatedValue(this.related.favoriteLevel, level))) {
+            throw new Error("This fan does not expose a favorite level entity.");
+        }
+    }
+    async setHorizontalSwing(enabled) {
+        await this.dispatcher.standard("oscillate", { oscillating: enabled });
+    }
+    async setHorizontalAngle(angle) {
+        if (await this.setRelatedValue(this.related.horizontalAngle, angle)) {
+            return;
+        }
+        await this.callCustom("fan_set_oscillation_angle", { angle });
+    }
+    async setVerticalSwing(enabled) {
+        if (await this.setRelatedBoolean(this.related.verticalSwing, enabled)) {
+            return;
+        }
+        await this.callCustom(enabled ? "fan_set_vertical_oscillation_on" : "fan_set_vertical_oscillation_off");
+    }
+    async setVerticalAngle(angle) {
+        if (await this.setRelatedValue(this.related.verticalAngle, angle)) {
+            return;
+        }
+        await this.callCustom("fan_set_vertical_oscillation_angle", {
+            vertical_angle: angle,
+        });
+    }
+    async nudge(direction) {
+        await this.callCustom("fan_turn", { direction });
+    }
+    async setDirection(direction) {
+        await this.dispatcher.standard("set_direction", { direction });
+    }
+    async setTimer(minutes) {
+        if (await this.setRelatedValue(this.related.timer, minutes)) {
+            return;
+        }
+        await this.callCustom("fan_set_delay_off", { delay_off_countdown: minutes });
+    }
+    async setChildLock(enabled) {
+        if (await this.setRelatedBoolean(this.related.childLock, enabled)) {
+            return;
+        }
+        await this.callCustom(enabled ? "fan_set_child_lock_on" : "fan_set_child_lock_off");
+    }
+    async setLed(enabled) {
+        if (await this.setRelatedBoolean(this.related.led, enabled)) {
+            return;
+        }
+        await this.callCustom("fan_set_led_brightness", { brightness: enabled ? 2 : 0 });
+    }
+    async setBuzzer(enabled) {
+        if (await this.setRelatedBoolean(this.related.buzzer, enabled)) {
+            return;
+        }
+        await this.callCustom(enabled ? "fan_set_buzzer_on" : "fan_set_buzzer_off");
+    }
+    async setIonizer(enabled) {
+        if (await this.setRelatedBoolean(this.related.ionizer, enabled)) {
+            return;
+        }
+        await this.callCustom(enabled ? "fan_set_anion_on" : "fan_set_anion_off");
+    }
+    async callCustom(service, data = {}) {
+        if (!(await this.dispatcher.custom("xiaomi_miio_fan", service, data))) {
+            throw new Error(`xiaomi_miio_fan.${service} is unavailable.`);
+        }
+    }
+    async setRelatedValue(entityId, value) {
+        if (!entityId) {
+            return false;
+        }
+        const [domain] = entityParts(entityId);
+        if (domain !== "number" && domain !== "input_number") {
+            return false;
+        }
+        await this.hass.callService(domain, "set_value", { entity_id: entityId, value });
+        return true;
+    }
+    async setRelatedBoolean(entityId, enabled) {
+        if (!entityId) {
+            return false;
+        }
+        const [domain] = entityParts(entityId);
+        if (domain === "switch" || domain === "input_boolean") {
+            await this.hass.callService(domain, enabled ? "turn_on" : "turn_off", { entity_id: entityId });
+            return true;
+        }
+        if (domain === "select") {
+            const options = this.hass.states[entityId]?.attributes["options"];
+            const availableOptions = Array.isArray(options) ? options.map(String) : [];
+            const enabledOptions = ["on", "true", "enable", "sleep", "bright", "active", "oscillate", "swing"];
+            const disabledOptions = ["off", "false", "disable", "normal", "none", "dim", "fixed", "static"];
+            const option = enabled
+                ? (availableOptions.find((candidate) => enabledOptions.some((token) => candidate.toLowerCase().includes(token))) ?? "on")
+                : (availableOptions.find((candidate) => disabledOptions.some((token) => candidate.toLowerCase().includes(token))) ?? "off");
+            if (availableOptions.length === 0) {
+                throw new Error(`Related select ${entityId} has no valid options.`);
+            }
+            if (!availableOptions.includes(option)) {
+                throw new Error(`Related select ${entityId} has no matching boolean option.`);
+            }
+            await this.hass.callService(domain, "select_option", {
+                entity_id: entityId,
+                option,
+            });
+            return true;
+        }
+        return false;
+    }
+}
+
+class XiaomiMiioFanAdapter extends StandardFanAdapter {
+    constructor(hass, entityId, services, related = {}, nativeXiaomiHome = false) {
+        super(hass, entityId, services, related);
+        this.nativeXiaomiHome = nativeXiaomiHome;
+    }
+    async setMode(mode) {
+        const level = this.state.level || 1;
+        const prefix = mode === "natural" ? "Natural" : "Level";
+        const requested = `${prefix} ${level}`;
+        const requestedLower = requested.toLowerCase();
+        const available = this.state.availableModes.find((candidate) => candidate.toLowerCase() === requestedLower) ??
+            this.state.availableModes.find((candidate) => {
+                const normalized = candidate.toLowerCase();
+                return mode === "natural"
+                    ? normalized.includes("natural") || normalized.includes("nature")
+                    : normalized.includes("normal") || normalized.includes("straight") || normalized.includes("manual");
+            });
+        const fallback = this.nativeXiaomiHome ? (mode === "natural" ? "Nature" : "Normal") : requested;
+        const firstAvailable = this.state.availableModes.find((candidate) => candidate.toLowerCase() !== "off");
+        await this.setPresetMode(available ?? firstAvailable ?? fallback);
+    }
+}
+
+const createFanAdapter = (hass, entityId, services, integration = "auto", related = {}) => {
+    const useXiaomiAdapter = integration === "xiaomi_miio" || integration === "xiaomi_miio_fan";
+    const scopedServices = integration === "xiaomi_miio_fan" || (integration === "auto" && useXiaomiAdapter)
+        ? services
+        : {
+            loaded: services.loaded,
+            names: new Set([...services.names].filter((name) => !name.startsWith("xiaomi_miio_fan."))),
+        };
+    return useXiaomiAdapter
+        ? new XiaomiMiioFanAdapter(hass, entityId, scopedServices, related, integration === "xiaomi_miio")
+        : new StandardFanAdapter(hass, entityId, scopedServices, related);
+};
+
+const DEFAULT_CONFIG = {
+    type: "custom:xiaomi-fan-card",
+    entity: "",
+    theme: "auto",
+    integration: "auto",
+    disable_animation: false,
+    show_sleep: true,
+    show_timer: true,
+    show_child_lock: true,
+    show_led: true,
+    show_buzzer: true,
+    show_ionizer: true,
+};
+
+class XiaomiFanCardEditor extends i {
+    constructor() {
+        super(...arguments);
+        this.config = {};
+        this.onEntityChange = (event) => {
+            this.updateConfig("entity", event.currentTarget.value);
+        };
+        this.onTextChange = (event, key) => {
+            this.updateConfig(key, event.currentTarget.value);
+        };
+        this.onBooleanChange = (event, key) => {
+            this.updateConfig(key, event.currentTarget.checked);
+        };
+    }
+    setConfig(config) {
+        this.config = config;
+    }
+    render() {
+        if (!this.hass) {
+            return b ``;
+        }
+        const entityIds = Object.keys(this.hass.states).filter((entityId) => entityId.startsWith("fan."));
+        const config = { ...DEFAULT_CONFIG, ...this.config };
+        return b `
+      <div class="form">
+        <label>
+          <span>Fan entity</span>
+          <select .value=${config.entity} @change=${this.onEntityChange}>
+            <option value="">Select fan entity</option>
+            ${entityIds.map((entityId) => b `<option value=${entityId} ?selected=${entityId === config.entity}>${entityId}</option>`)}
+          </select>
+        </label>
+        <label>
+          <span>Card name</span>
+          <input
+            value=${config.name ?? ""}
+            placeholder="Xiaomi Fan"
+            @change=${(event) => this.onTextChange(event, "name")}
+          />
+        </label>
+        <label>
+          <span>Visual theme</span>
+          <select .value=${config.theme} @change=${(event) => this.onTextChange(event, "theme")}>
+            <option value="auto">Auto</option>
+            <option value="mushroom">Mushroom</option>
+            <option value="minimal">Minimal</option>
+            <option value="glass">Glass</option>
+            <option value="industrial">Industrial</option>
+          </select>
+        </label>
+        <label>
+          <span>Integration</span>
+          <select .value=${config.integration} @change=${(event) => this.onTextChange(event, "integration")}>
+            <option value="auto">Auto detect</option>
+            <option value="standard">Standard fan</option>
+            <option value="xiaomi_miio">Native Xiaomi Home (xiaomi_miio)</option>
+            <option value="xiaomi_miio_fan">Xiaomi Miio fan</option>
+            <option value="xiaomi_miot">Xiaomi Miot</option>
+          </select>
+        </label>
+        ${this.booleanField("disable_animation", "Disable animation", config.disable_animation)}
+        ${this.booleanField("show_timer", "Show timer", config.show_timer)}
+        ${this.booleanField("show_child_lock", "Show child lock", config.show_child_lock)}
+        ${this.booleanField("show_led", "Show LED", config.show_led)}
+        ${this.booleanField("show_buzzer", "Show buzzer", config.show_buzzer)}
+        ${this.booleanField("show_ionizer", "Show ionizer", config.show_ionizer)}
+      </div>
+    `;
+    }
+    booleanField(key, label, checked) {
+        return b `
+      <label class="checkbox">
+        <input
+          type="checkbox"
+          .checked=${checked === true}
+          @change=${(event) => this.onBooleanChange(event, key)}
+        />
+        <span>${label}</span>
+      </label>
+    `;
+    }
+    updateConfig(key, value) {
+        const next = { ...this.config, [key]: value };
+        if (value === DEFAULT_CONFIG[key]) {
+            delete next[key];
+        }
+        this.config = next;
+        fireEvent(this, "config-changed", { config: this.config });
+    }
+    static { this.styles = i$3 `
+    :host {
+      display: block;
+    }
+
+    .form {
+      display: grid;
+      gap: 16px;
+    }
+
+    label {
+      display: grid;
+      gap: 6px;
+      color: var(--primary-text-color);
+      font-size: 14px;
+    }
+
+    select,
+    input:not([type="checkbox"]) {
+      box-sizing: border-box;
+      width: 100%;
+      min-height: 42px;
+      padding: 8px 12px;
+      border: 1px solid var(--divider-color);
+      border-radius: 12px;
+      background: var(--card-background-color);
+      color: var(--primary-text-color);
+      font: inherit;
+    }
+
+    .checkbox {
+      display: flex;
+      grid-template-columns: auto 1fr;
+      align-items: center;
+      gap: 10px;
+    }
+  `; }
+}
+__decorate([
+    n({ attribute: false })
+], XiaomiFanCardEditor.prototype, "hass", void 0);
+__decorate([
+    r()
+], XiaomiFanCardEditor.prototype, "config", void 0);
+if (!customElements.get("xiaomi-fan-card-editor")) {
+    customElements.define("xiaomi-fan-card-editor", XiaomiFanCardEditor);
+}
+
+var editor = /*#__PURE__*/Object.freeze({
+    __proto__: null,
+    XiaomiFanCardEditor: XiaomiFanCardEditor
+});
+
+const suffixes = {
+    sleepMode: ["_sleep_mode"],
+    verticalSwing: ["_vertical_swing", "_vertical_oscillate", "_vertical_oscillation"],
+    horizontalAngle: ["_oscillation_angle", "_horizontal_swing_angle", "_swing_mode_angle"],
+    verticalAngle: ["_vertical_oscillation_angle", "_vertical_swing_angle"],
+    favoriteLevel: ["_favorite_level", "_favorite_speed"],
+    timer: ["_delay_off_countdown", "_delay_time", "_power_off_time"],
+    childLock: ["_child_lock"],
+    led: ["_led", "_led_brightness", "_light"],
+    buzzer: ["_buzzer", "_notification_sound"],
+    ionizer: ["_anion", "_ionizer"],
+    temperature: ["_temperature"],
+    humidity: ["_humidity"],
+};
+const findBySuffix = (entries, allowedDomains, wantedSuffixes) => {
+    const candidates = entries.filter((entry) => {
+        const [domain] = entry.entity_id.split(".");
+        return domain !== undefined && allowedDomains.includes(domain);
+    });
+    const exact = candidates.find((entry) => wantedSuffixes.some((suffix) => entry.entity_id.endsWith(suffix)));
+    if (exact) {
+        return exact.entity_id;
+    }
+    const hintGroups = wantedSuffixes.map((suffix) => suffix.split("_").filter((part) => part.length > 2));
+    return candidates.find((entry) => {
+        const searchable = `${entry.entity_id} ${entry.name ?? ""} ${entry.original_name ?? ""}`.toLowerCase();
+        return hintGroups.some((hints) => hints.every((hint) => searchable.includes(hint.toLowerCase())));
+    })?.entity_id;
+};
+const resolveRelatedEntities = async (hass, entityId) => {
+    if (!hass.callWS) {
+        return {};
+    }
+    try {
+        const registry = await hass.callWS({ type: "config/entity_registry/list" });
+        const primary = registry.find((entry) => entry.entity_id === entityId);
+        if (!primary?.device_id) {
+            return {};
+        }
+        const entries = registry.filter((entry) => entry.device_id === primary.device_id);
+        const related = {};
+        const numeric = ["number", "input_number"];
+        const boolean = ["switch", "input_boolean"];
+        const select = ["select"];
+        related.horizontalAngle = findBySuffix(entries, numeric, suffixes.horizontalAngle);
+        related.sleepMode = findBySuffix(entries, [...boolean, "select"], suffixes.sleepMode);
+        related.verticalSwing = findBySuffix(entries, [...boolean, "select"], suffixes.verticalSwing);
+        related.verticalAngle = findBySuffix(entries, numeric, suffixes.verticalAngle);
+        related.favoriteLevel = findBySuffix(entries, numeric, suffixes.favoriteLevel);
+        related.timer = findBySuffix(entries, numeric, suffixes.timer);
+        related.childLock = findBySuffix(entries, boolean, suffixes.childLock);
+        related.led = findBySuffix(entries, [...boolean, ...select], suffixes.led);
+        related.buzzer = findBySuffix(entries, boolean, suffixes.buzzer);
+        related.ionizer = findBySuffix(entries, boolean, suffixes.ionizer);
+        related.temperature = findBySuffix(entries, ["sensor"], suffixes.temperature);
+        related.humidity = findBySuffix(entries, ["sensor"], suffixes.humidity);
+        return related;
+    }
+    catch {
+        return {};
+    }
+};
+
+const TIMER_STEPS = [0, 60, 120, 180, 240, 300, 360, 420, 480];
+const asHassLike = (hass) => hass;
+const displayTimer = (minutes) => {
+    if (!minutes) {
+        return "Off";
+    }
+    const hours = Math.floor(minutes / 60);
+    const remainder = minutes % 60;
+    return hours > 0 ? `${hours}h${remainder > 0 ? ` ${remainder}m` : ""}` : `${remainder}m`;
+};
+class XiaomiFanCard extends i {
+    constructor() {
+        super(...arguments);
+        this.config = { ...DEFAULT_CONFIG };
+        this.services = { loaded: false, names: new Set() };
+        this.related = {};
+        this.actionError = "";
+        this.serviceLoadKey = "";
+        this.loadRequestId = 0;
+        this.onHeaderClick = () => {
+            if (this.hass && this.config) {
+                handleAction(this, this.hass, this.config);
+            }
+        };
+    }
+    static async getConfigElement() {
+        await Promise.resolve().then(function () { return editor; });
+        return document.createElement("xiaomi-fan-card-editor");
+    }
+    static getStubConfig() {
+        return {
+            ...DEFAULT_CONFIG,
+            name: "Xiaomi Fan",
+        };
+    }
+    setConfig(config) {
+        const entity = config?.entity ?? config?.entity_id;
+        if (!config || !entity) {
+            throw new Error("Missing required fan entity.");
+        }
+        const integration = config.integration ??
+            (config.platform === "xiaomi_miio" || config.platform === "xiaomi_miio_fan"
+                ? config.platform
+                : config.platform === "xiaomi_miot"
+                    ? "xiaomi_miot"
+                    : config.platform === "default"
+                        ? "standard"
+                        : "auto");
+        const nextConfig = {
+            ...DEFAULT_CONFIG,
+            ...config,
+            entity,
+            integration,
+            show_sleep: config.show_sleep ?? config.sleep_mode ?? config.force_sleep_mode_support ?? DEFAULT_CONFIG.show_sleep,
+            show_led: config.hide_led_button ? false : (config.show_led ?? DEFAULT_CONFIG.show_led),
+        };
+        const loaderChanged = this.config.entity !== nextConfig.entity ||
+            this.config.integration !== nextConfig.integration ||
+            this.relatedConfigKey(this.config) !== this.relatedConfigKey(nextConfig);
+        this.config = nextConfig;
+        if (loaderChanged) {
+            this.serviceLoadKey = "";
+            this.related = {};
+            this.loadRequestId += 1;
+        }
+    }
+    shouldUpdate(changedProperties) {
+        if (!this.config || !this.hass) {
+            return false;
+        }
+        return (hasConfigOrEntityChanged(this, changedProperties, false) ||
+            changedProperties.has("hass") ||
+            changedProperties.has("services") ||
+            changedProperties.has("related") ||
+            changedProperties.has("actionError"));
+    }
+    updated() {
+        const entityId = this.config.entity;
+        const loadKey = `${entityId}:${this.config.integration ?? "auto"}`;
+        if (!entityId || !this.hass || this.serviceLoadKey === loadKey) {
+            return;
+        }
+        this.serviceLoadKey = loadKey;
+        const hass = asHassLike(this.hass);
+        const requestId = ++this.loadRequestId;
+        const requestedHass = this.hass;
+        const shouldLoadCustomServices = this.config.integration === "xiaomi_miio_fan";
+        const services = shouldLoadCustomServices
+            ? loadServiceAvailability(hass)
+            : Promise.resolve({ loaded: true, names: new Set() });
+        void Promise.all([services, resolveRelatedEntities(hass, entityId)]).then(([services, discovered]) => {
+            if (requestId !== this.loadRequestId ||
+                this.hass !== requestedHass ||
+                this.config.entity !== entityId ||
+                this.serviceLoadKey !== loadKey) {
+                return;
+            }
+            this.services = services;
+            this.related = this.withConfiguredRelatedEntities(discovered);
+        });
+    }
+    render() {
+        if (!this.hass || !this.config?.entity) {
+            return b `<ha-card><div class="empty">Choose a fan entity in card editor.</div></ha-card>`;
+        }
+        const adapter = createFanAdapter(asHassLike(this.hass), this.config.entity, this.services, this.config.integration, this.related);
+        if (!adapter.state.available) {
+            return b `
+        <ha-card class="card ${this.themeClass}">
+          <div class="empty" role="status">
+            <ha-icon icon="mdi:fan-alert"></ha-icon>
+            <span>Fan entity unavailable: ${this.config.entity}</span>
+          </div>
+        </ha-card>
+      `;
+        }
+        return b `
+      <ha-card class="card ${this.themeClass}">
+        ${this.renderHeader(adapter)} ${this.renderVisual(adapter)} ${this.renderAirflowControls(adapter)}
+        ${this.renderFeatureControls(adapter)}
+        ${this.actionError ? b `<div class="action-error" role="alert">${this.actionError}</div>` : ""}
+      </ha-card>
+    `;
+    }
+    get themeClass() {
+        const theme = this.config.theme ?? "auto";
+        return `theme-${theme}`;
+    }
+    withConfiguredRelatedEntities(discovered) {
+        return {
+            ...discovered,
+            sleepMode: this.config.sleep_mode_entity ?? discovered.sleepMode,
+            horizontalAngle: this.config.horizontal_angle_entity ?? discovered.horizontalAngle,
+            verticalSwing: this.config.vertical_swing_entity ?? discovered.verticalSwing,
+            verticalAngle: this.config.vertical_angle_entity ?? discovered.verticalAngle,
+            favoriteLevel: this.config.favorite_level_entity ?? discovered.favoriteLevel,
+            timer: this.config.timer_entity ?? discovered.timer,
+            childLock: this.config.child_lock_entity ?? discovered.childLock,
+            led: this.config.led_entity ?? discovered.led,
+            buzzer: this.config.buzzer_entity ?? discovered.buzzer,
+            ionizer: this.config.ionizer_entity ?? discovered.ionizer,
+            temperature: this.config.temperature_entity ?? discovered.temperature,
+            humidity: this.config.humidity_entity ?? discovered.humidity,
+        };
+    }
+    relatedConfigKey(config) {
+        return [
+            config.horizontal_angle_entity,
+            config.vertical_swing_entity,
+            config.vertical_angle_entity,
+            config.favorite_level_entity,
+            config.sleep_mode_entity,
+            config.timer_entity,
+            config.child_lock_entity,
+            config.led_entity,
+            config.buzzer_entity,
+            config.ionizer_entity,
+            config.temperature_entity,
+            config.humidity_entity,
+        ]
+            .map((value) => value ?? "")
+            .join("|");
+    }
+    execute(action) {
+        this.actionError = "";
+        void action().catch((error) => {
+            this.actionError = error instanceof Error ? error.message : "Fan command failed.";
+        });
+    }
+    renderHeader(adapter) {
+        const state = adapter.state;
+        const title = this.config.name || state.friendlyName;
+        const modeLabel = state.mode === "natural" ? "Natural breeze" : "Straight airflow";
+        return b `
+      <header class="header">
+        <button class="title-button" @click=${this.onHeaderClick} aria-label="Open ${title}">
+          <span class="eyebrow">XIAOMI AIR CIRCULATION</span>
+          <span class="title">${title}</span>
+          <span class="subtitle">
+            <span class="status-dot ${state.isOn ? "on" : ""}"></span>
+            ${state.isOn ? "Running" : "Standby"} · ${modeLabel}
+          </span>
+        </button>
+        <span class="model-badge"
+          >${adapter.profile.known ? (adapter.profile.model?.split(".").at(-1) ?? "XIAOMI") : "FAN"}</span
+        >
+      </header>
+    `;
+    }
+    renderVisual(adapter) {
+        const state = adapter.state;
+        const speed = state.isOn ? state.percentage : 0;
+        const style = `--speed:${speed}; --spin-duration:${Math.max(1.8, 12 - speed / 11)}s;`;
+        const direction = state.verticalSwing ? "vertical" : state.horizontalSwing ? "horizontal" : "still";
+        return b `
+      <section class="visual-section" aria-label="Fan status">
+        <div
+          class="airflow-visual ${direction} ${state.isOn ? "running" : ""} ${this.config.disable_animation ? "no-motion" : ""}"
+          style=${style}
+        >
+          <div class="orbit orbit-one"></div>
+          <div class="orbit orbit-two"></div>
+          <div class="wind wind-one"></div>
+          <div class="wind wind-two"></div>
+          <div class="rotor" aria-hidden="true">
+            <span class="blade blade-one"></span>
+            <span class="blade blade-two"></span>
+            <span class="blade blade-three"></span>
+            <span class="blade blade-four"></span>
+            <span class="hub"></span>
+          </div>
+          <button
+            class="power-button ${state.isOn ? "active" : ""}"
+            @click=${() => this.execute(() => adapter.togglePower())}
+            aria-label=${state.isOn ? "Turn fan off" : "Turn fan on"}
+            aria-pressed=${state.isOn}
+          >
+            <ha-icon icon="mdi:power"></ha-icon>
+          </button>
+          <span class="speed-readout">
+            <strong>${state.percentage}</strong>
+            <small>% AIRFLOW</small>
+          </span>
+        </div>
+        <div class="visual-meta">
+          <span>${state.horizontalAngle !== undefined ? `H ${state.horizontalAngle}°` : "H -"}</span>
+          <span>${state.verticalAngle !== undefined ? `V ${state.verticalAngle}°` : "V -"}</span>
+          <span>${state.timerMinutes ? `OFF ${displayTimer(state.timerMinutes)}` : "NO TIMER"}</span>
+          ${state.temperature !== undefined ? b `<span>${state.temperature}°C</span>` : ""}
+          ${state.humidity !== undefined ? b `<span>${state.humidity}% RH</span>` : ""}
+        </div>
+      </section>
+    `;
+    }
+    renderAirflowControls(adapter) {
+        const state = adapter.state;
+        const levelLabels = Array.from({ length: adapter.capabilities.speedLevels }, (_, index) => index + 1);
+        return b `
+      <section class="controls airflow-controls" aria-label="Airflow controls">
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow">AIRFLOW</span>
+            <strong>Speed level ${state.level || 0}</strong>
+          </div>
+          <span class="value">${state.percentage}%</span>
+        </div>
+        <input
+          class="speed-slider"
+          type="range"
+          min="0"
+          max="100"
+          step="1"
+          .value=${String(state.percentage)}
+          @change=${(event) => this.onPercentageChange(event, adapter)}
+          aria-label="Fan speed percentage"
+        />
+        <div class="level-row" role="group" aria-label="Speed levels">
+          ${levelLabels.map((level) => b `
+              <button
+                class="level-button ${state.level === level ? "selected" : ""}"
+                @click=${() => this.execute(() => adapter.setPercentage(Math.round((level / adapter.capabilities.speedLevels) * 100)))}
+                aria-label="Set speed level ${level}"
+                aria-pressed=${state.level === level}
+              >
+                ${level}
+              </button>
+            `)}
+        </div>
+        ${this.renderModeControls(adapter)}
+        <div class="chip-row">
+          ${adapter.capabilities.horizontalSwing
+            ? b `
+                  <button
+                    class="chip ${state.horizontalSwing ? "selected" : ""}"
+                    @click=${() => this.execute(() => adapter.setHorizontalSwing(!state.horizontalSwing))}
+                    aria-pressed=${state.horizontalSwing}
+                  >
+                    <ha-icon icon="mdi:rotate-3d-variant"></ha-icon>
+                    Horizontal
+                  </button>
+                `
+            : ""}
+          ${adapter.capabilities.verticalSwing
+            ? b `
+                  <button
+                    class="chip ${state.verticalSwing ? "selected" : ""}"
+                    @click=${() => this.execute(() => adapter.setVerticalSwing(!state.verticalSwing))}
+                    aria-pressed=${state.verticalSwing}
+                  >
+                    <ha-icon icon="mdi:swap-vertical"></ha-icon>
+                    Vertical
+                  </button>
+                `
+            : ""}
+          ${this.config.show_sleep !== false && adapter.capabilities.sleepMode
+            ? b `
+                  <button
+                    class="chip ${state.sleepMode ? "selected" : ""}"
+                    @click=${() => this.execute(() => adapter.setSleepMode(!state.sleepMode))}
+                    aria-pressed=${state.sleepMode}
+                  >
+                    <ha-icon icon="mdi:power-sleep"></ha-icon>
+                    Sleep
+                  </button>
+                `
+            : ""}
+          ${adapter.capabilities.horizontalSwing && adapter.capabilities.verticalSwing
+            ? b `
+                  <button
+                    class="chip ${state.horizontalSwing && state.verticalSwing ? "selected" : ""}"
+                    @click=${() => this.execute(() => this.toggleCycle(adapter))}
+                    aria-pressed=${state.horizontalSwing && state.verticalSwing}
+                  >
+                    <ha-icon icon="mdi:autorenew"></ha-icon>
+                    Cycle
+                  </button>
+                `
+            : ""}
+        </div>
+      </section>
+    `;
+    }
+    renderModeControls(adapter) {
+        const state = adapter.state;
+        const availableModes = state.availableModes.filter((mode) => mode.toLowerCase() !== "off");
+        const extraModes = availableModes.filter((mode) => {
+            const normalized = mode.toLowerCase();
+            return !(normalized.includes("natural") ||
+                normalized.includes("nature") ||
+                normalized.includes("normal") ||
+                normalized.includes("straight") ||
+                normalized.includes("manual") ||
+                /^level\s*\d+$/i.test(mode));
+        });
+        if (adapter.capabilities.naturalMode) {
+            return b `
+        <div class="mode-section">
+          <span class="control-label">Mode</span>
+          <div class="mode-row" role="group" aria-label="Fan mode">
+            <button
+              class="mode-button ${state.mode === "normal" ? "selected" : ""}"
+              @click=${() => this.execute(() => adapter.setMode("normal"))}
+              aria-pressed=${state.mode === "normal"}
+            >
+              <span class="mode-icon"><ha-icon icon="mdi:weather-windy"></ha-icon></span>
+              <span>Normal</span>
+            </button>
+            <button
+              class="mode-button ${state.mode === "natural" ? "selected" : ""}"
+              @click=${() => this.execute(() => adapter.setMode("natural"))}
+              aria-pressed=${state.mode === "natural"}
+            >
+              <span class="mode-icon"><ha-icon icon="mdi:leaf"></ha-icon></span>
+              <span>Natural</span>
+            </button>
+          </div>
+        </div>
+        ${extraModes.length > 0 ? this.renderPresetSelector(adapter, extraModes) : ""}
+      `;
+        }
+        if (availableModes.length === 0) {
+            return "";
+        }
+        return this.renderPresetSelector(adapter, availableModes);
+    }
+    renderPresetSelector(adapter, modes) {
+        const current = adapter.state.presetMode ?? modes[0] ?? "";
+        return b `
+      <label class="feature-select mode-select">
+        <span>Preset mode</span>
+        <select
+          .value=${current}
+          @change=${(event) => this.execute(() => adapter.setPresetMode(event.currentTarget.value))}
+        >
+          ${modes.map((mode) => b `<option value=${mode}>${mode}</option>`)}
+        </select>
+      </label>
+    `;
+    }
+    renderFeatureControls(adapter) {
+        const state = adapter.state;
+        const features = [];
+        if (adapter.capabilities.horizontalAngle) {
+            features.push(this.renderAngleControl("Horizontal angle", state.horizontalAngle, adapter.capabilities.horizontalAngles, (angle) => this.execute(() => adapter.setHorizontalAngle(angle))));
+        }
+        if (adapter.capabilities.verticalAngle) {
+            features.push(this.renderAngleControl("Vertical angle", state.verticalAngle, adapter.capabilities.verticalAngles, (angle) => this.execute(() => adapter.setVerticalAngle(angle))));
+        }
+        if (adapter.capabilities.directionNudge) {
+            features.push(b `
+        <div class="nudge-control">
+          <span>Position</span>
+          <div class="nudge-grid">
+            <button @click=${() => this.execute(() => adapter.nudge("up"))} aria-label="Move fan up">
+              <ha-icon icon="mdi:chevron-up"></ha-icon>
+            </button>
+            <button @click=${() => this.execute(() => adapter.nudge("left"))} aria-label="Move fan left">
+              <ha-icon icon="mdi:chevron-left"></ha-icon>
+            </button>
+            <button @click=${() => this.execute(() => adapter.nudge("right"))} aria-label="Move fan right">
+              <ha-icon icon="mdi:chevron-right"></ha-icon>
+            </button>
+            <button @click=${() => this.execute(() => adapter.nudge("down"))} aria-label="Move fan down">
+              <ha-icon icon="mdi:chevron-down"></ha-icon>
+            </button>
+          </div>
+        </div>
+      `);
+        }
+        if (adapter.capabilities.direction && !adapter.capabilities.directionNudge) {
+            const direction = state.direction === "reverse" ? "forward" : "reverse";
+            features.push(b `
+        <button class="feature-button" @click=${() => this.execute(() => adapter.setDirection(direction))}>
+          <ha-icon icon="mdi:rotate-orbit"></ha-icon>
+          <span><small>Direction</small><strong>${state.direction ?? "Forward"}</strong></span>
+        </button>
+      `);
+        }
+        if (adapter.capabilities.favoriteLevel) {
+            features.push(b `
+        <label class="feature-select">
+          <span>Favorite level</span>
+          <input
+            type="number"
+            min="1"
+            max="100"
+            step="1"
+            .value=${String(adapter.state.favoriteLevel ?? adapter.state.level ?? 1)}
+            @change=${(event) => this.execute(() => adapter.setFavoriteLevel(Number(event.currentTarget.value)))}
+          />
+        </label>
+      `);
+        }
+        if (this.config.show_timer !== false && adapter.capabilities.timer) {
+            const nextTimer = this.nextTimer(state.timerMinutes, adapter.capabilities.timerSteps);
+            features.push(b `
+        <button class="feature-button" @click=${() => this.execute(() => adapter.setTimer(nextTimer))}>
+          <ha-icon icon="mdi:timer-outline"></ha-icon>
+          <span><small>Timer</small><strong>${displayTimer(state.timerMinutes)}</strong></span>
+        </button>
+      `);
+        }
+        if (this.config.show_child_lock !== false && adapter.capabilities.childLock) {
+            features.push(b `
+        <button
+          class="feature-button ${state.childLock ? "selected" : ""}"
+          @click=${() => this.execute(() => adapter.setChildLock(!state.childLock))}
+        >
+          <ha-icon icon="mdi:lock${state.childLock ? "" : "-open-outline"}"></ha-icon>
+          <span><small>Child lock</small><strong>${state.childLock ? "On" : "Off"}</strong></span>
+        </button>
+      `);
+        }
+        if (this.config.show_led !== false && adapter.capabilities.led) {
+            features.push(b `
+        <button
+          class="feature-button ${state.led ? "selected" : ""}"
+          @click=${() => this.execute(() => adapter.setLed(!state.led))}
+        >
+          <ha-icon icon="mdi:led-outline"></ha-icon>
+          <span><small>LED</small><strong>${state.led ? "On" : "Off"}</strong></span>
+        </button>
+      `);
+        }
+        if (this.config.show_buzzer !== false && adapter.capabilities.buzzer) {
+            features.push(b `
+        <button
+          class="feature-button ${state.buzzer ? "selected" : ""}"
+          @click=${() => this.execute(() => adapter.setBuzzer(!state.buzzer))}
+        >
+          <ha-icon icon="mdi:bell-outline"></ha-icon>
+          <span><small>Buzzer</small><strong>${state.buzzer ? "On" : "Off"}</strong></span>
+        </button>
+      `);
+        }
+        if (this.config.show_ionizer !== false && adapter.capabilities.ionizer) {
+            features.push(b `
+        <button
+          class="feature-button ${state.ionizer ? "selected" : ""}"
+          @click=${() => this.execute(() => adapter.setIonizer(!state.ionizer))}
+        >
+          <ha-icon icon="mdi:air-filter"></ha-icon>
+          <span><small>Ionizer</small><strong>${state.ionizer ? "On" : "Off"}</strong></span>
+        </button>
+      `);
+        }
+        return features.length > 0
+            ? b `<section class="controls feature-controls" aria-label="Fan features">${features}</section>`
+            : "";
+    }
+    renderAngleControl(label, value, angles, onChange) {
+        const current = value ?? angles[0] ?? 0;
+        return b `
+      <label class="feature-select">
+        <span>${label}</span>
+        ${angles.length > 0
+            ? b `
+                <select
+                  .value=${String(current)}
+                  @change=${(event) => onChange(Number(event.currentTarget.value))}
+                >
+                  ${angles.map((angle) => b `<option value=${angle}>${angle}°</option>`)}
+                </select>
+              `
+            : b `
+                <input
+                  type="number"
+                  min="0"
+                  max="360"
+                  step="1"
+                  .value=${String(current)}
+                  @change=${(event) => onChange(Number(event.currentTarget.value))}
+                  aria-label=${label}
+                />
+              `}
+      </label>
+    `;
+    }
+    nextTimer(current, steps = TIMER_STEPS) {
+        const index = steps.indexOf(current ?? 0);
+        return steps[(index + 1) % steps.length] ?? steps[0] ?? 0;
+    }
+    async toggleCycle(adapter) {
+        const enabled = !(adapter.state.horizontalSwing && adapter.state.verticalSwing);
+        await adapter.setHorizontalSwing(enabled);
+        await adapter.setVerticalSwing(enabled);
+    }
+    onPercentageChange(event, adapter) {
+        const value = Number(event.currentTarget.value);
+        this.execute(() => adapter.setPercentage(value));
+    }
+    static { this.styles = i$3 `
+    :host {
+      display: block;
+      --fan-accent: var(--state-fan-active-color, var(--state-active-color, #5c8dff));
+      --fan-accent-soft: color-mix(in srgb, var(--fan-accent) 18%, transparent);
+      --fan-surface: color-mix(in srgb, var(--ha-card-background, var(--card-background-color)) 88%, var(--fan-accent));
+      --fan-text-muted: var(--secondary-text-color, #8a8f9d);
+      --fan-border: color-mix(in srgb, var(--primary-text-color) 10%, transparent);
+    }
+
+    ha-card {
+      overflow: hidden;
+      border: 1px solid var(--fan-border);
+      border-radius: 28px;
+      background: var(--fan-surface);
+      color: var(--primary-text-color);
+      box-shadow: var(--ha-card-box-shadow, 0 12px 32px rgb(0 0 0 / 12%));
+    }
+
+    button,
+    select,
+    input {
+      font: inherit;
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+    }
+
+    .header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 22px 22px 0;
+    }
+
+    .title-button {
+      display: grid;
+      gap: 5px;
+      padding: 0;
+      background: transparent;
+      color: inherit;
+      text-align: left;
+    }
+
+    .eyebrow {
+      color: var(--fan-text-muted);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.15em;
+    }
+
+    .title {
+      font-size: 21px;
+      font-weight: 750;
+      letter-spacing: -0.02em;
+    }
+
+    .subtitle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--fan-text-muted);
+      font-size: 12px;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--fan-text-muted);
+    }
+
+    .status-dot.on {
+      background: var(--fan-accent);
+      box-shadow: 0 0 0 4px var(--fan-accent-soft);
+    }
+
+    .model-badge {
+      padding: 7px 10px;
+      border: 1px solid var(--fan-border);
+      border-radius: 999px;
+      color: var(--fan-text-muted);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+    }
+
+    .visual-section {
+      padding: 8px 18px 10px;
+    }
+
+    .airflow-visual {
+      position: relative;
+      display: grid;
+      place-items: center;
+      width: min(100%, 310px);
+      aspect-ratio: 1;
+      margin: 0 auto;
+      isolation: isolate;
+    }
+
+    .airflow-visual::before {
+      position: absolute;
+      inset: 15%;
+      border: 1px solid var(--fan-accent-soft);
+      border-radius: 50%;
+      content: "";
+    }
+
+    .airflow-visual::after {
+      position: absolute;
+      inset: 7%;
+      border: 1px dashed var(--fan-accent-soft);
+      border-radius: 50%;
+      content: "";
+      opacity: 0.8;
+    }
+
+    .airflow-visual.no-motion *,
+    .airflow-visual.no-motion::before,
+    .airflow-visual.no-motion::after {
+      animation: none !important;
+    }
+
+    .orbit {
+      position: absolute;
+      border: 1px solid color-mix(in srgb, var(--fan-accent) 24%, transparent);
+      border-radius: 50%;
+      transform: rotate(18deg);
+    }
+
+    .orbit-one {
+      width: 76%;
+      height: 32%;
+    }
+
+    .orbit-two {
+      width: 88%;
+      height: 46%;
+      transform: rotate(-26deg);
+    }
+
+    .horizontal .orbit-one {
+      animation: orbit-horizontal 8s ease-in-out infinite;
+    }
+
+    .vertical .orbit-two {
+      animation: orbit-vertical 8s ease-in-out infinite;
+    }
+
+    .wind {
+      position: absolute;
+      width: 42%;
+      height: 4px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, transparent, var(--fan-accent), transparent);
+      opacity: 0;
+    }
+
+    .running .wind {
+      animation: wind-flow var(--spin-duration) linear infinite;
+      opacity: 0.7;
+    }
+
+    .wind-one {
+      transform: translateY(-44px) rotate(-12deg);
+    }
+
+    .wind-two {
+      transform: translateY(44px) rotate(12deg);
+      animation-delay: -0.7s !important;
+    }
+
+    .rotor {
+      position: relative;
+      z-index: 2;
+      width: 46%;
+      aspect-ratio: 1;
+      border: 12px solid color-mix(in srgb, var(--fan-accent) 18%, var(--card-background-color));
+      border-radius: 50%;
+      background: color-mix(in srgb, var(--fan-accent) 7%, var(--card-background-color));
+      box-shadow:
+        inset 0 0 0 1px var(--fan-accent-soft),
+        0 18px 40px rgb(0 0 0 / 16%);
+    }
+
+    .running .rotor {
+      animation: rotor-spin var(--spin-duration) linear infinite;
+    }
+
+    .blade {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 39%;
+      height: 22%;
+      border-radius: 100% 12% 100% 12%;
+      background: linear-gradient(135deg, var(--fan-accent), color-mix(in srgb, var(--fan-accent) 40%, white));
+      transform-origin: 0 50%;
+      opacity: 0.88;
+    }
+
+    .blade-one {
+      transform: translateY(-50%) rotate(-10deg);
+    }
+
+    .blade-two {
+      transform: translateY(-50%) rotate(80deg);
+    }
+
+    .blade-three {
+      transform: translateY(-50%) rotate(170deg);
+    }
+
+    .blade-four {
+      transform: translateY(-50%) rotate(260deg);
+    }
+
+    .hub {
+      position: absolute;
+      inset: 37%;
+      border-radius: 50%;
+      background: var(--fan-surface);
+      box-shadow: 0 0 0 5px var(--fan-accent-soft);
+    }
+
+    .power-button {
+      position: absolute;
+      z-index: 3;
+      display: grid;
+      place-items: center;
+      width: 58px;
+      height: 58px;
+      border: 5px solid var(--fan-surface);
+      border-radius: 50%;
+      background: var(--fan-accent-soft);
+      color: var(--fan-text-muted);
+      box-shadow: 0 8px 24px rgb(0 0 0 / 18%);
+    }
+
+    .power-button.active {
+      background: var(--fan-accent);
+      color: white;
+    }
+
+    .power-button ha-icon {
+      --mdc-icon-size: 24px;
+    }
+
+    .speed-readout {
+      position: absolute;
+      right: 3%;
+      bottom: 19%;
+      z-index: 4;
+      display: grid;
+      justify-items: end;
+      color: var(--fan-text-muted);
+    }
+
+    .speed-readout strong {
+      color: var(--primary-text-color);
+      font-size: 22px;
+      line-height: 1;
+    }
+
+    .speed-readout small {
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+    }
+
+    .visual-meta {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      color: var(--fan-text-muted);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+    }
+
+    .controls {
+      margin: 0 14px 14px;
+      padding: 16px;
+      border: 1px solid var(--fan-border);
+      border-radius: 22px;
+      background: color-mix(in srgb, var(--card-background-color) 48%, transparent);
+    }
+
+    .section-heading {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .section-heading div {
+      display: grid;
+      gap: 4px;
+    }
+
+    .section-heading strong {
+      font-size: 16px;
+    }
+
+    .value {
+      color: var(--fan-accent);
+      font-size: 24px;
+      font-weight: 800;
+    }
+
+    .speed-slider {
+      width: 100%;
+      margin: 18px 0 10px;
+      accent-color: var(--fan-accent);
+      cursor: pointer;
+    }
+
+    .mode-section {
+      display: grid;
+      gap: 8px;
+      margin: 16px 0;
+    }
+
+    .control-label {
+      color: var(--fan-text-muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .mode-row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .mode-button {
+      display: grid;
+      justify-items: center;
+      gap: 7px;
+      padding: 10px 6px;
+      border: 1px solid var(--fan-border);
+      border-radius: 16px;
+      background: transparent;
+      color: var(--fan-text-muted);
+      font-size: 11px;
+    }
+
+    .mode-button.selected {
+      border-color: var(--fan-accent-soft);
+      background: var(--fan-accent-soft);
+      color: var(--fan-accent);
+    }
+
+    .mode-icon {
+      display: grid;
+      place-items: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: color-mix(in srgb, var(--fan-text-muted) 20%, transparent);
+    }
+
+    .mode-button.selected .mode-icon {
+      background: var(--fan-accent);
+      color: white;
+    }
+
+    .mode-icon ha-icon {
+      --mdc-icon-size: 20px;
+    }
+
+    .level-row,
+    .chip-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .level-row {
+      margin-bottom: 14px;
+    }
+
+    .level-button,
+    .chip {
+      min-height: 34px;
+      border: 1px solid var(--fan-border);
+      border-radius: 12px;
+      background: transparent;
+      color: var(--fan-text-muted);
+    }
+
+    .level-button {
+      flex: 1;
+      font-size: 13px;
+      font-weight: 750;
+    }
+
+    .level-button.selected,
+    .chip.selected {
+      border-color: transparent;
+      background: var(--fan-accent-soft);
+      color: var(--fan-accent);
+    }
+
+    .chip {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      flex: 1;
+      padding: 0 8px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .chip ha-icon {
+      --mdc-icon-size: 16px;
+    }
+
+    .feature-controls {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .feature-select,
+    .nudge-control,
+    .feature-button {
+      min-width: 0;
+      padding: 11px;
+      border: 1px solid var(--fan-border);
+      border-radius: 15px;
+      background: transparent;
+      color: var(--primary-text-color);
+    }
+
+    .feature-select,
+    .nudge-control {
+      display: grid;
+      gap: 7px;
+      color: var(--fan-text-muted);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .feature-select select,
+    .feature-select input[type="number"] {
+      width: 100%;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: var(--primary-text-color);
+      font-size: 14px;
+      font-weight: 750;
+    }
+
+    .feature-button {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-align: left;
+    }
+
+    .feature-button ha-icon {
+      flex: 0 0 auto;
+      padding: 8px;
+      border-radius: 11px;
+      background: var(--fan-accent-soft);
+      color: var(--fan-accent);
+    }
+
+    .feature-button span {
+      display: grid;
+      gap: 2px;
+    }
+
+    .feature-button small {
+      color: var(--fan-text-muted);
+      font-size: 10px;
+    }
+
+    .feature-button strong {
+      font-size: 13px;
+    }
+
+    .feature-button.selected {
+      border-color: var(--fan-accent-soft);
+      background: var(--fan-accent-soft);
+    }
+
+    .nudge-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 4px;
+    }
+
+    .nudge-grid button {
+      min-height: 28px;
+      border-radius: 8px;
+      background: var(--fan-accent-soft);
+      color: var(--fan-accent);
+    }
+
+    .nudge-grid button:first-child {
+      grid-column: 2;
+    }
+
+    .empty {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 120px;
+      padding: 20px;
+      color: var(--fan-text-muted);
+      text-align: center;
+    }
+
+    .action-error {
+      margin: 0 14px 14px;
+      padding: 10px 12px;
+      border: 1px solid var(--error-color, #db4437);
+      border-radius: 12px;
+      color: var(--error-color, #db4437);
+      font-size: 12px;
+    }
+
+    .theme-minimal {
+      border-radius: 16px;
+      box-shadow: none;
+    }
+
+    .theme-glass {
+      background: color-mix(in srgb, var(--card-background-color) 54%, transparent);
+      backdrop-filter: blur(18px);
+    }
+
+    .theme-industrial {
+      --fan-accent: var(--state-fan-active-color, #e9a23b);
+    }
+
+    @keyframes rotor-spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @keyframes wind-flow {
+      0% {
+        transform: translateX(-20px) scaleX(0.5);
+      }
+      50% {
+        transform: translateX(20px) scaleX(1);
+      }
+      100% {
+        transform: translateX(65px) scaleX(0.5);
+      }
+    }
+
+    @keyframes orbit-horizontal {
+      0%,
+      100% {
+        transform: rotate(18deg) scaleX(1);
+      }
+      50% {
+        transform: rotate(18deg) scaleX(0.7);
+      }
+    }
+
+    @keyframes orbit-vertical {
+      0%,
+      100% {
+        transform: rotate(-26deg) scaleY(1);
+      }
+      50% {
+        transform: rotate(-26deg) scaleY(0.7);
+      }
+    }
+
+    @media (max-width: 360px) {
+      .visual-meta {
+        gap: 8px;
+        font-size: 9px;
+      }
+
+      .chip {
+        font-size: 10px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .running .rotor,
+      .running .wind,
+      .horizontal .orbit-one,
+      .vertical .orbit-two {
+        animation: none;
+      }
+    }
+  `; }
+}
+__decorate([
+    n({ attribute: false })
+], XiaomiFanCard.prototype, "hass", void 0);
+__decorate([
+    r()
+], XiaomiFanCard.prototype, "config", void 0);
+__decorate([
+    r()
+], XiaomiFanCard.prototype, "services", void 0);
+__decorate([
+    r()
+], XiaomiFanCard.prototype, "related", void 0);
+__decorate([
+    r()
+], XiaomiFanCard.prototype, "actionError", void 0);
+if (!customElements.get("xiaomi-fan-card")) {
+    customElements.define("xiaomi-fan-card", XiaomiFanCard);
+}
+
+const customCards = window.customCards ?? [];
+if (!customCards.some((card) => typeof card === "object" && card !== null && card.type === "xiaomi-fan-card")) {
+    customCards.push({
+        type: "xiaomi-fan-card",
+        name: "Xiaomi Fan Card",
+        description: "Modern capability-aware card for Xiaomi and generic Home Assistant fans.",
+        preview: true,
+    });
+}
+window.customCards = customCards;

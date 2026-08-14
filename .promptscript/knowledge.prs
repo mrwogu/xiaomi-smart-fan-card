@@ -1,0 +1,67 @@
+# External ecosystem rules and community operating knowledge
+
+@knowledge {
+  """
+  ## HACS publisher requirements
+
+  Primary references:
+
+  - HACS publisher documentation: https://hacs.xyz/docs/publish/
+  - HACS dashboard plugin requirements: https://hacs.xyz/docs/publish/plugin/
+  - HACS GitHub Action: https://hacs.xyz/docs/publish/action/
+  - HACS general requirements and hacs.json: https://hacs.xyz/docs/publish/start/
+
+  This repository is a HACS dashboard repository. HACS calls this backend
+  category `plugin`, while the HACS UI calls it `Dashboard`.
+
+  Keep the repository public, maintain a useful GitHub description, add
+  searchable topics, keep a complete README, and keep hacs.json at the
+  repository root. A dashboard plugin needs a JavaScript file under
+  `dist/` or the repository root. HACS searches `dist/` first, then the latest
+  release, then the default branch. `dist/xiaomi-fan-card.js` is therefore
+  tracked and must remain present on the default branch. The same file is also
+  attached to published GitHub releases.
+
+  Keep the manifest filename, bundle filename, HACS installation directory,
+  README resource URL, and release workflow synchronized. HACS versions are
+  published GitHub releases, not tags alone. Until the first release exists,
+  the default branch must contain a valid bundle.
+
+  Validate HACS changes with the pinned hacs/action workflow. Do not silence
+  a check simply because a repository is not yet in the default store. Custom
+  repository installation is the expected pre-approval path.
+
+  ## Home Assistant frontend and community practice
+
+  Primary references:
+
+  - Custom card developer documentation: https://developers.home-assistant.io/docs/frontend/custom-ui/custom-card/
+  - Home Assistant help and support: https://www.home-assistant.io/help/
+  - Home Assistant Code of Conduct: https://www.home-assistant.io/code_of_conduct
+  - Community forum guidelines: https://community.home-assistant.io/guidelines
+
+  Use public Home Assistant frontend APIs and the entity/service contract.
+  Keep the card integration-agnostic and degrade safely when an integration
+  does not expose an optional capability. Respect local control and privacy:
+  no telemetry, hidden network access, credential collection, or device
+  protocol implementation belongs in this card.
+
+  Treat accessibility and calm UI behavior as product requirements. Preserve
+  keyboard operation, labels, disabled states, readable contrast, and
+  prefers-reduced-motion support. Do not make decorative animation necessary
+  to understand or operate a fan.
+
+  Use GitHub Issues for reproducible card defects and feature proposals.
+  Use GitHub Discussions or the Home Assistant Community forum for questions,
+  setup help, and integration diagnosis. Ask for Home Assistant version,
+  HACS version, browser, integration, entity attributes, card configuration,
+  console errors, and reproduction steps. Require users to redact tokens,
+  hostnames, private entity names, location data, and personal dashboards.
+  Never request a full diagnostics export when a minimal redacted example is
+  enough.
+
+  Be respectful of the Home Assistant Code of Conduct and HACS community
+  norms. Do not present this custom card as an official Home Assistant
+  feature or imply that HACS approval guarantees device compatibility.
+  """
+}

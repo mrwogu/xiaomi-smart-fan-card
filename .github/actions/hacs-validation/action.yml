@@ -1,0 +1,24 @@
+name: HACS validation
+description: Run the pinned HACS repository validator
+
+inputs:
+  ignore:
+    description: Space-separated HACS checks to ignore
+    required: false
+    default: ""
+  category:
+    description: HACS repository category
+    required: true
+  comment:
+    description: Post a validation comment on pull requests
+    required: false
+    default: "true"
+  github_token:
+    description: GitHub token used by the validator
+    required: false
+    default: ${{ github.token }}
+
+runs:
+  using: docker
+  # Pin the validator image instead of inheriting the mutable upstream main tag.
+  image: docker://ghcr.io/hacs/action@sha256:41f6310585d9fb72c7a0e183cce0594355715bc24112b62bc4279b83412edccb

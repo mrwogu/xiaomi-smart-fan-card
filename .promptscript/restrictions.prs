@@ -1,0 +1,16 @@
+# Non-negotiable project and security restrictions
+
+@restrictions {
+  - "Never commit passwords, tokens, cookies, personal entity data, private dashboards, or device identifiers"
+  - "Never print, upload, or transmit Home Assistant credentials or saved login material"
+  - "Never add telemetry, analytics, tracking pixels, remote code, or hidden network requests"
+  - "Never make the card communicate directly with Xiaomi devices"
+  - "Never assume a Xiaomi model, attribute, service, or related entity exists without capability checks"
+  - "Never expose a control unless the primary entity, related entity, model profile, or registered service makes it actionable"
+  - "Never bypass tests, lint, typecheck, HACS validation, or security checks to make CI green"
+  - "Never edit AGENTS.md or CLAUDE.md directly; update .promptscript and compile generated instructions"
+  - "Never edit generated dist output by hand; run npm run build and review the generated bundle"
+  - "Never remove or rename the tracked HACS bundle without updating hacs.json, workflows, release assets, and README instructions"
+  - "Never use mutable GitHub Action references when an immutable commit pin is available"
+  - "Never push, publish, create a release, or alter remote repository settings without explicit user approval"
+}

@@ -1,0 +1,56 @@
+# Coding, testing, release, and repository organization standards
+
+@standards {
+  typescript: [
+    "Use strict TypeScript and preserve noUncheckedIndexedAccess assumptions",
+    "Prefer existing shared types, adapters, and state helpers over duplicate logic",
+    "Use unknown with a type guard instead of any for untrusted Home Assistant data",
+    "Keep integration-specific service names inside adapters or service-dispatcher code",
+    "Do not widen a capability or control unless the live entity or service makes it actionable"
+  ]
+
+  frontend: [
+    "Use Lit and Home Assistant public frontend APIs already used by the card",
+    "Preserve keyboard access, readable labels, disabled states, and reduced-motion behavior",
+    "Avoid direct device communication, browser storage, telemetry, remote scripts, and tracking",
+    "Keep rendering decisions capability-aware so unsupported fan models do not show dead controls"
+  ]
+
+  organization: [
+    "Keep pure state and model logic in src/state",
+    "Keep integration behavior in src/adapters",
+    "Keep Home Assistant service dispatch in src/services",
+    "Keep test fixtures redacted, deterministic, and reusable",
+    "Keep generated agent files derived from .promptscript and never edit them directly"
+  ]
+
+  testing: [
+    "Use Vitest for unit tests and cover new state, adapter, and service behavior",
+    "Prefer focused tests for normalization, capability gating, model profiles, and action dispatch",
+    "Run npm run validate before a broad pull request",
+    "Treat real Home Assistant and device testing as supplemental, never as a reason to skip unit tests"
+  ]
+
+  formatting: [
+    "Use Prettier for TypeScript, Markdown, JSON, YAML, and repository documentation",
+    "Use ESLint for src, tests, and vitest.config.ts",
+    "Use prs validate --strict for PromptScript sources",
+    "Keep all generated text, comments, and user-facing copy in English",
+    "Use hyphens only, never em dashes or en dashes"
+  ]
+
+  git: {
+    format: "Conventional Commits"
+    allowedTypes: [feat, fix, docs, test, refactor, chore, ci, perf, revert]
+    subjectLimit: 70
+    rule: "Do not commit or push unless the user explicitly requests it"
+  }
+
+  release: [
+    "Use Release Please for version, changelog, tag, and GitHub release creation",
+    "Do not hand-edit generated release versions or changelog entries",
+    "Validate vMAJOR.MINOR.PATCH tags before manual release workflow dispatch",
+    "Build and verify dist/xiaomi-fan-card.js before publishing",
+    "Keep HACS filename, resource URL, release asset, and README examples synchronized"
+  ]
+}

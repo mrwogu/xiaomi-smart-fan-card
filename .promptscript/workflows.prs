@@ -1,0 +1,82 @@
+# Repeatable procedures for agents and maintainers
+
+@workflows {
+  feature: {
+    description: "Implement a user-facing card or adapter feature safely"
+    content: """
+      1. Read AGENTS.md, CLAUDE.md, README.md, relevant source, tests, and the
+         current PromptScript source. Use the code graph when available.
+      2. Identify the correct boundary: state helper, adapter, service
+         dispatcher, card rendering, editor, or documentation.
+      3. Add the smallest implementation that preserves capability gating and
+         existing aliases.
+      4. Add focused Vitest coverage and redacted fixtures for every new branch.
+      5. Update README configuration, compatibility notes, and media slots when
+         the visible behavior changes.
+      6. Run the narrowest tests, then npm run validate for the complete change.
+      7. Run npm run build, review dist/xiaomi-fan-card.js, and include the
+         generated HACS bundle in the same change.
+      8. Stop before commit or push unless the user explicitly authorizes it.
+    """
+  }
+
+  bugfix: {
+    description: "Reproduce and fix a card regression"
+    content: """
+      1. Reproduce with a minimal redacted Home Assistant state or service fixture.
+      2. Find the first incorrect normalization, capability decision, adapter
+         selection, dispatch, or render condition.
+      3. Write a failing focused test before changing behavior.
+      4. Fix the root cause without adding model-specific assumptions to generic code.
+      5. Run focused tests, npm run validate, and rebuild the HACS bundle.
+      6. Document required Home Assistant integration behavior and migration
+         notes if the fix changes visible configuration.
+    """
+  }
+
+  documentation: {
+    description: "Update the HACS-first README, guides, or community support content"
+    content: """
+      1. Keep the first README screen focused on what the card does, HACS
+         installation, a minimal card example, and visual media slots.
+      2. Keep HACS resource paths, hacs.json filename, dist filename, and
+         custom element names synchronized.
+      3. Prefer short user-facing steps, collapsible reference tables, and
+         explicit links to official HACS and Home Assistant documentation.
+      4. Add or update screenshot and animation placeholders under docs/media.
+      5. Avoid claims of official Home Assistant support or unverified model behavior.
+      6. Run Prettier and the documentation checks before finishing.
+    """
+  }
+
+  release: {
+    description: "Prepare a validated HACS release without publishing it"
+    content: """
+      1. Confirm changes use Conventional Commits and the working tree is understood.
+      2. Run prs validate --strict and npm run validate.
+      3. Confirm hacs.json, README resource URL, dist bundle, and release
+         workflow all use the same artifact filename.
+      4. Review security workflow permissions, immutable action pins, and
+         Dependabot coverage.
+      5. Let Release Please create the version PR and release. Do not manually
+         edit generated CHANGELOG sections.
+      6. Before any remote action, ask for explicit user approval. This project
+         does not push or publish by default.
+    """
+  }
+
+  promptscript: {
+    description: "Change agent instructions and regenerate all targets"
+    content: """
+      1. Edit .promptscript/project.prs or its imported fragments, never generated
+         AGENTS.md, CLAUDE.md, Factory droids, or Claude agents.
+      2. Keep the source modular: context, standards, restrictions, knowledge,
+         workflows, and agents each have one responsibility.
+      3. Run prs validate --strict.
+      4. Run prs compile and inspect every generated target.
+      5. Run Prettier on generated Markdown and npm run validate.
+      6. Review generated instruction diffs for accidental loss of rules,
+         duplicated sections, secrets, or unsupported target syntax.
+    """
+  }
+}

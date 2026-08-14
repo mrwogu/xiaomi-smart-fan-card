@@ -1,0 +1,51 @@
+# Project architecture and ownership map
+
+@context {
+  project: "xiaomi-smart-fan-card"
+  purpose: "Capability-aware Lovelace card for Xiaomi and generic Home Assistant fans"
+  language: TypeScript
+  runtime: "Node.js 24 and npm 11"
+  packageManager: npm
+  distribution: {
+    hacsCategory: plugin
+    displayName: "Xiaomi Fan Card"
+    bundle: "dist/xiaomi-fan-card.js"
+    element: "custom:xiaomi-fan-card"
+  }
+
+  architecture: {
+    "src/card.ts": "Lit card rendering, controls, events, telemetry, and editor integration"
+    "src/adapters": "Integration-specific action and capability adapters"
+    "src/state": "Pure state normalization, capability detection, model profiles, and related entities"
+    "src/services": "Home Assistant service dispatch and service capability checks"
+    "src/config.ts": "Card configuration defaults and normalization"
+    "src/types.ts": "Shared Home Assistant, card, adapter, and state types"
+    "tests/unit": "Fast unit coverage for pure state and adapter behavior"
+    "tests/fixtures": "Redacted Home Assistant state and device fixtures"
+    "rollup.config.mjs": "Production bundle entry and output"
+    "dist": "Tracked HACS bundle generated from src"
+    ".github/workflows": "Quality, HACS, security, release, and artifact automation"
+    ".promptscript": "Source of truth for agent instructions and generated agent files"
+  }
+
+  """
+  ## Runtime flow
+
+  Home Assistant supplies `hass`, the primary fan entity, related device
+  entities, and registered services. The card normalizes this information,
+  selects an adapter, derives capabilities, and renders only actionable
+  controls. Actions go through Home Assistant services or related entity
+  state updates. The card never talks directly to Xiaomi devices.
+
+  ## Change boundaries
+
+  - Add or change pure capability rules in `src/state`.
+  - Add integration behavior through an adapter in `src/adapters`.
+  - Keep service names and calls behind `src/services`.
+  - Keep rendering and user interaction in `src/card.ts`.
+  - Add a focused unit test for every behavior rule and adapter branch.
+  - Update `dist/xiaomi-fan-card.js` after source changes because HACS tracks
+    the bundle on the default branch and attaches it to releases.
+  - Update README and fixtures when user-facing behavior changes.
+  """
+}

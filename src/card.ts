@@ -1,0 +1,1257 @@
+import { LitElement, css, html, type CSSResultGroup, type PropertyValues } from "lit";
+import { property, state } from "lit/decorators.js";
+import {
+  handleAction,
+  hasConfigOrEntityChanged,
+  type HomeAssistant,
+  type LovelaceCardEditor,
+} from "custom-card-helpers";
+import { createFanAdapter } from "./adapters";
+import { DEFAULT_CONFIG } from "./config";
+import "./editor";
+import { loadServiceAvailability } from "./services/service-dispatcher";
+import { resolveRelatedEntities } from "./state/related-entities";
+import type { FanAdapter, FanCardConfig, HassLike, RelatedEntities, ServiceAvailability } from "./types";
+
+const TIMER_STEPS = [0, 60, 120, 180, 240, 300, 360, 420, 480];
+
+const asHassLike = (hass: HomeAssistant): HassLike => hass as unknown as HassLike;
+
+const displayTimer = (minutes: number | undefined): string => {
+  if (!minutes) {
+    return "Off";
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  return hours > 0 ? `${hours}h${remainder > 0 ? ` ${remainder}m` : ""}` : `${remainder}m`;
+};
+
+export class XiaomiFanCard extends LitElement {
+  @property({ attribute: false }) public hass!: HomeAssistant;
+
+  @state() private config: FanCardConfig = { ...DEFAULT_CONFIG } as FanCardConfig;
+
+  @state() private services: ServiceAvailability = { loaded: false, names: new Set() };
+
+  @state() private related: RelatedEntities = {};
+
+  @state() private actionError = "";
+
+  private serviceLoadKey = "";
+  private loadRequestId = 0;
+
+  public static async getConfigElement(): Promise<LovelaceCardEditor> {
+    await import("./editor");
+    return document.createElement("xiaomi-fan-card-editor") as LovelaceCardEditor;
+  }
+
+  public static getStubConfig(): Partial<FanCardConfig> {
+    return {
+      ...DEFAULT_CONFIG,
+      name: "Xiaomi Fan",
+    };
+  }
+
+  public setConfig(config: FanCardConfig): void {
+    const entity = config?.entity ?? config?.entity_id;
+    if (!config || !entity) {
+      throw new Error("Missing required fan entity.");
+    }
+
+    const integration =
+      config.integration ??
+      (config.platform === "xiaomi_miio" || config.platform === "xiaomi_miio_fan"
+        ? config.platform
+        : config.platform === "xiaomi_miot"
+          ? "xiaomi_miot"
+          : config.platform === "default"
+            ? "standard"
+            : "auto");
+
+    const nextConfig = {
+      ...DEFAULT_CONFIG,
+      ...config,
+      entity,
+      integration,
+      show_sleep:
+        config.show_sleep ?? config.sleep_mode ?? config.force_sleep_mode_support ?? DEFAULT_CONFIG.show_sleep,
+      show_led: config.hide_led_button ? false : (config.show_led ?? DEFAULT_CONFIG.show_led),
+    };
+    const loaderChanged =
+      this.config.entity !== nextConfig.entity ||
+      this.config.integration !== nextConfig.integration ||
+      this.relatedConfigKey(this.config) !== this.relatedConfigKey(nextConfig);
+
+    this.config = nextConfig;
+    if (loaderChanged) {
+      this.serviceLoadKey = "";
+      this.related = {};
+      this.loadRequestId += 1;
+    }
+  }
+
+  protected shouldUpdate(changedProperties: PropertyValues): boolean {
+    if (!this.config || !this.hass) {
+      return false;
+    }
+
+    return (
+      hasConfigOrEntityChanged(this, changedProperties, false) ||
+      changedProperties.has("hass") ||
+      changedProperties.has("services") ||
+      changedProperties.has("related") ||
+      changedProperties.has("actionError")
+    );
+  }
+
+  protected updated(): void {
+    const entityId = this.config.entity;
+    const loadKey = `${entityId}:${this.config.integration ?? "auto"}`;
+    if (!entityId || !this.hass || this.serviceLoadKey === loadKey) {
+      return;
+    }
+
+    this.serviceLoadKey = loadKey;
+    const hass = asHassLike(this.hass);
+    const requestId = ++this.loadRequestId;
+    const requestedHass = this.hass;
+    const shouldLoadCustomServices = this.config.integration === "xiaomi_miio_fan";
+    const services = shouldLoadCustomServices
+      ? loadServiceAvailability(hass)
+      : Promise.resolve<ServiceAvailability>({ loaded: true, names: new Set() });
+    void Promise.all([services, resolveRelatedEntities(hass, entityId)]).then(([services, discovered]) => {
+      if (
+        requestId !== this.loadRequestId ||
+        this.hass !== requestedHass ||
+        this.config.entity !== entityId ||
+        this.serviceLoadKey !== loadKey
+      ) {
+        return;
+      }
+
+      this.services = services;
+      this.related = this.withConfiguredRelatedEntities(discovered);
+    });
+  }
+
+  protected render() {
+    if (!this.hass || !this.config?.entity) {
+      return html`<ha-card><div class="empty">Choose a fan entity in card editor.</div></ha-card>`;
+    }
+
+    const adapter = createFanAdapter(
+      asHassLike(this.hass),
+      this.config.entity,
+      this.services,
+      this.config.integration,
+      this.related,
+    );
+    if (!adapter.state.available) {
+      return html`
+        <ha-card class="card ${this.themeClass}">
+          <div class="empty" role="status">
+            <ha-icon icon="mdi:fan-alert"></ha-icon>
+            <span>Fan entity unavailable: ${this.config.entity}</span>
+          </div>
+        </ha-card>
+      `;
+    }
+
+    return html`
+      <ha-card class="card ${this.themeClass}">
+        ${this.renderHeader(adapter)} ${this.renderVisual(adapter)} ${this.renderAirflowControls(adapter)}
+        ${this.renderFeatureControls(adapter)}
+        ${this.actionError ? html`<div class="action-error" role="alert">${this.actionError}</div>` : ""}
+      </ha-card>
+    `;
+  }
+
+  private get themeClass(): string {
+    const theme = this.config.theme ?? "auto";
+    return `theme-${theme}`;
+  }
+
+  private withConfiguredRelatedEntities(discovered: RelatedEntities): RelatedEntities {
+    return {
+      ...discovered,
+      sleepMode: this.config.sleep_mode_entity ?? discovered.sleepMode,
+      horizontalAngle: this.config.horizontal_angle_entity ?? discovered.horizontalAngle,
+      verticalSwing: this.config.vertical_swing_entity ?? discovered.verticalSwing,
+      verticalAngle: this.config.vertical_angle_entity ?? discovered.verticalAngle,
+      favoriteLevel: this.config.favorite_level_entity ?? discovered.favoriteLevel,
+      timer: this.config.timer_entity ?? discovered.timer,
+      childLock: this.config.child_lock_entity ?? discovered.childLock,
+      led: this.config.led_entity ?? discovered.led,
+      buzzer: this.config.buzzer_entity ?? discovered.buzzer,
+      ionizer: this.config.ionizer_entity ?? discovered.ionizer,
+      temperature: this.config.temperature_entity ?? discovered.temperature,
+      humidity: this.config.humidity_entity ?? discovered.humidity,
+    };
+  }
+
+  private relatedConfigKey(config: Partial<FanCardConfig>): string {
+    return [
+      config.horizontal_angle_entity,
+      config.vertical_swing_entity,
+      config.vertical_angle_entity,
+      config.favorite_level_entity,
+      config.sleep_mode_entity,
+      config.timer_entity,
+      config.child_lock_entity,
+      config.led_entity,
+      config.buzzer_entity,
+      config.ionizer_entity,
+      config.temperature_entity,
+      config.humidity_entity,
+    ]
+      .map((value) => value ?? "")
+      .join("|");
+  }
+
+  private execute(action: () => Promise<void>): void {
+    this.actionError = "";
+    void action().catch((error: unknown) => {
+      this.actionError = error instanceof Error ? error.message : "Fan command failed.";
+    });
+  }
+
+  private renderHeader(adapter: FanAdapter) {
+    const state = adapter.state;
+    const title = this.config.name || state.friendlyName;
+    const modeLabel = state.mode === "natural" ? "Natural breeze" : "Straight airflow";
+
+    return html`
+      <header class="header">
+        <button class="title-button" @click=${this.onHeaderClick} aria-label="Open ${title}">
+          <span class="eyebrow">XIAOMI AIR CIRCULATION</span>
+          <span class="title">${title}</span>
+          <span class="subtitle">
+            <span class="status-dot ${state.isOn ? "on" : ""}"></span>
+            ${state.isOn ? "Running" : "Standby"} · ${modeLabel}
+          </span>
+        </button>
+        <span class="model-badge"
+          >${adapter.profile.known ? (adapter.profile.model?.split(".").at(-1) ?? "XIAOMI") : "FAN"}</span
+        >
+      </header>
+    `;
+  }
+
+  private renderVisual(adapter: FanAdapter) {
+    const state = adapter.state;
+    const speed = state.isOn ? state.percentage : 0;
+    const style = `--speed:${speed}; --spin-duration:${Math.max(1.8, 12 - speed / 11)}s;`;
+    const direction = state.verticalSwing ? "vertical" : state.horizontalSwing ? "horizontal" : "still";
+
+    return html`
+      <section class="visual-section" aria-label="Fan status">
+        <div
+          class="airflow-visual ${direction} ${state.isOn ? "running" : ""} ${
+            this.config.disable_animation ? "no-motion" : ""
+          }"
+          style=${style}
+        >
+          <div class="orbit orbit-one"></div>
+          <div class="orbit orbit-two"></div>
+          <div class="wind wind-one"></div>
+          <div class="wind wind-two"></div>
+          <div class="rotor" aria-hidden="true">
+            <span class="blade blade-one"></span>
+            <span class="blade blade-two"></span>
+            <span class="blade blade-three"></span>
+            <span class="blade blade-four"></span>
+            <span class="hub"></span>
+          </div>
+          <button
+            class="power-button ${state.isOn ? "active" : ""}"
+            @click=${() => this.execute(() => adapter.togglePower())}
+            aria-label=${state.isOn ? "Turn fan off" : "Turn fan on"}
+            aria-pressed=${state.isOn}
+          >
+            <ha-icon icon="mdi:power"></ha-icon>
+          </button>
+          <span class="speed-readout">
+            <strong>${state.percentage}</strong>
+            <small>% AIRFLOW</small>
+          </span>
+        </div>
+        <div class="visual-meta">
+          <span>${state.horizontalAngle !== undefined ? `H ${state.horizontalAngle}°` : "H -"}</span>
+          <span>${state.verticalAngle !== undefined ? `V ${state.verticalAngle}°` : "V -"}</span>
+          <span>${state.timerMinutes ? `OFF ${displayTimer(state.timerMinutes)}` : "NO TIMER"}</span>
+          ${state.temperature !== undefined ? html`<span>${state.temperature}°C</span>` : ""}
+          ${state.humidity !== undefined ? html`<span>${state.humidity}% RH</span>` : ""}
+        </div>
+      </section>
+    `;
+  }
+
+  private renderAirflowControls(adapter: FanAdapter) {
+    const state = adapter.state;
+    const levelLabels = Array.from({ length: adapter.capabilities.speedLevels }, (_, index) => index + 1);
+
+    return html`
+      <section class="controls airflow-controls" aria-label="Airflow controls">
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow">AIRFLOW</span>
+            <strong>Speed level ${state.level || 0}</strong>
+          </div>
+          <span class="value">${state.percentage}%</span>
+        </div>
+        <input
+          class="speed-slider"
+          type="range"
+          min="0"
+          max="100"
+          step="1"
+          .value=${String(state.percentage)}
+          @change=${(event: Event) => this.onPercentageChange(event, adapter)}
+          aria-label="Fan speed percentage"
+        />
+        <div class="level-row" role="group" aria-label="Speed levels">
+          ${levelLabels.map(
+            (level) => html`
+              <button
+                class="level-button ${state.level === level ? "selected" : ""}"
+                @click=${() =>
+                  this.execute(() =>
+                    adapter.setPercentage(Math.round((level / adapter.capabilities.speedLevels) * 100)),
+                  )}
+                aria-label="Set speed level ${level}"
+                aria-pressed=${state.level === level}
+              >
+                ${level}
+              </button>
+            `,
+          )}
+        </div>
+        ${this.renderModeControls(adapter)}
+        <div class="chip-row">
+          ${
+            adapter.capabilities.horizontalSwing
+              ? html`
+                  <button
+                    class="chip ${state.horizontalSwing ? "selected" : ""}"
+                    @click=${() => this.execute(() => adapter.setHorizontalSwing(!state.horizontalSwing))}
+                    aria-pressed=${state.horizontalSwing}
+                  >
+                    <ha-icon icon="mdi:rotate-3d-variant"></ha-icon>
+                    Horizontal
+                  </button>
+                `
+              : ""
+          }
+          ${
+            adapter.capabilities.verticalSwing
+              ? html`
+                  <button
+                    class="chip ${state.verticalSwing ? "selected" : ""}"
+                    @click=${() => this.execute(() => adapter.setVerticalSwing(!state.verticalSwing))}
+                    aria-pressed=${state.verticalSwing}
+                  >
+                    <ha-icon icon="mdi:swap-vertical"></ha-icon>
+                    Vertical
+                  </button>
+                `
+              : ""
+          }
+          ${
+            this.config.show_sleep !== false && adapter.capabilities.sleepMode
+              ? html`
+                  <button
+                    class="chip ${state.sleepMode ? "selected" : ""}"
+                    @click=${() => this.execute(() => adapter.setSleepMode(!state.sleepMode))}
+                    aria-pressed=${state.sleepMode}
+                  >
+                    <ha-icon icon="mdi:power-sleep"></ha-icon>
+                    Sleep
+                  </button>
+                `
+              : ""
+          }
+          ${
+            adapter.capabilities.horizontalSwing && adapter.capabilities.verticalSwing
+              ? html`
+                  <button
+                    class="chip ${state.horizontalSwing && state.verticalSwing ? "selected" : ""}"
+                    @click=${() => this.execute(() => this.toggleCycle(adapter))}
+                    aria-pressed=${state.horizontalSwing && state.verticalSwing}
+                  >
+                    <ha-icon icon="mdi:autorenew"></ha-icon>
+                    Cycle
+                  </button>
+                `
+              : ""
+          }
+        </div>
+      </section>
+    `;
+  }
+
+  private renderModeControls(adapter: FanAdapter) {
+    const state = adapter.state;
+    const availableModes = state.availableModes.filter((mode) => mode.toLowerCase() !== "off");
+    const extraModes = availableModes.filter((mode) => {
+      const normalized = mode.toLowerCase();
+      return !(
+        normalized.includes("natural") ||
+        normalized.includes("nature") ||
+        normalized.includes("normal") ||
+        normalized.includes("straight") ||
+        normalized.includes("manual") ||
+        /^level\s*\d+$/i.test(mode)
+      );
+    });
+
+    if (adapter.capabilities.naturalMode) {
+      return html`
+        <div class="mode-section">
+          <span class="control-label">Mode</span>
+          <div class="mode-row" role="group" aria-label="Fan mode">
+            <button
+              class="mode-button ${state.mode === "normal" ? "selected" : ""}"
+              @click=${() => this.execute(() => adapter.setMode("normal"))}
+              aria-pressed=${state.mode === "normal"}
+            >
+              <span class="mode-icon"><ha-icon icon="mdi:weather-windy"></ha-icon></span>
+              <span>Normal</span>
+            </button>
+            <button
+              class="mode-button ${state.mode === "natural" ? "selected" : ""}"
+              @click=${() => this.execute(() => adapter.setMode("natural"))}
+              aria-pressed=${state.mode === "natural"}
+            >
+              <span class="mode-icon"><ha-icon icon="mdi:leaf"></ha-icon></span>
+              <span>Natural</span>
+            </button>
+          </div>
+        </div>
+        ${extraModes.length > 0 ? this.renderPresetSelector(adapter, extraModes) : ""}
+      `;
+    }
+
+    if (availableModes.length === 0) {
+      return "";
+    }
+
+    return this.renderPresetSelector(adapter, availableModes);
+  }
+
+  private renderPresetSelector(adapter: FanAdapter, modes: string[]) {
+    const current = adapter.state.presetMode ?? modes[0] ?? "";
+    return html`
+      <label class="feature-select mode-select">
+        <span>Preset mode</span>
+        <select
+          .value=${current}
+          @change=${(event: Event) =>
+            this.execute(() => adapter.setPresetMode((event.currentTarget as HTMLSelectElement).value))}
+        >
+          ${modes.map((mode) => html`<option value=${mode}>${mode}</option>`)}
+        </select>
+      </label>
+    `;
+  }
+
+  private renderFeatureControls(adapter: FanAdapter) {
+    const state = adapter.state;
+    const features: unknown[] = [];
+
+    if (adapter.capabilities.horizontalAngle) {
+      features.push(
+        this.renderAngleControl(
+          "Horizontal angle",
+          state.horizontalAngle,
+          adapter.capabilities.horizontalAngles,
+          (angle) => this.execute(() => adapter.setHorizontalAngle(angle)),
+        ),
+      );
+    }
+
+    if (adapter.capabilities.verticalAngle) {
+      features.push(
+        this.renderAngleControl("Vertical angle", state.verticalAngle, adapter.capabilities.verticalAngles, (angle) =>
+          this.execute(() => adapter.setVerticalAngle(angle)),
+        ),
+      );
+    }
+
+    if (adapter.capabilities.directionNudge) {
+      features.push(html`
+        <div class="nudge-control">
+          <span>Position</span>
+          <div class="nudge-grid">
+            <button @click=${() => this.execute(() => adapter.nudge("up"))} aria-label="Move fan up">
+              <ha-icon icon="mdi:chevron-up"></ha-icon>
+            </button>
+            <button @click=${() => this.execute(() => adapter.nudge("left"))} aria-label="Move fan left">
+              <ha-icon icon="mdi:chevron-left"></ha-icon>
+            </button>
+            <button @click=${() => this.execute(() => adapter.nudge("right"))} aria-label="Move fan right">
+              <ha-icon icon="mdi:chevron-right"></ha-icon>
+            </button>
+            <button @click=${() => this.execute(() => adapter.nudge("down"))} aria-label="Move fan down">
+              <ha-icon icon="mdi:chevron-down"></ha-icon>
+            </button>
+          </div>
+        </div>
+      `);
+    }
+
+    if (adapter.capabilities.direction && !adapter.capabilities.directionNudge) {
+      const direction = state.direction === "reverse" ? "forward" : "reverse";
+      features.push(html`
+        <button class="feature-button" @click=${() => this.execute(() => adapter.setDirection(direction))}>
+          <ha-icon icon="mdi:rotate-orbit"></ha-icon>
+          <span><small>Direction</small><strong>${state.direction ?? "Forward"}</strong></span>
+        </button>
+      `);
+    }
+
+    if (adapter.capabilities.favoriteLevel) {
+      features.push(html`
+        <label class="feature-select">
+          <span>Favorite level</span>
+          <input
+            type="number"
+            min="1"
+            max="100"
+            step="1"
+            .value=${String(adapter.state.favoriteLevel ?? adapter.state.level ?? 1)}
+            @change=${(event: Event) =>
+              this.execute(() => adapter.setFavoriteLevel(Number((event.currentTarget as HTMLInputElement).value)))}
+          />
+        </label>
+      `);
+    }
+
+    if (this.config.show_timer !== false && adapter.capabilities.timer) {
+      const nextTimer = this.nextTimer(state.timerMinutes, adapter.capabilities.timerSteps);
+      features.push(html`
+        <button class="feature-button" @click=${() => this.execute(() => adapter.setTimer(nextTimer))}>
+          <ha-icon icon="mdi:timer-outline"></ha-icon>
+          <span><small>Timer</small><strong>${displayTimer(state.timerMinutes)}</strong></span>
+        </button>
+      `);
+    }
+
+    if (this.config.show_child_lock !== false && adapter.capabilities.childLock) {
+      features.push(html`
+        <button
+          class="feature-button ${state.childLock ? "selected" : ""}"
+          @click=${() => this.execute(() => adapter.setChildLock(!state.childLock))}
+        >
+          <ha-icon icon="mdi:lock${state.childLock ? "" : "-open-outline"}"></ha-icon>
+          <span><small>Child lock</small><strong>${state.childLock ? "On" : "Off"}</strong></span>
+        </button>
+      `);
+    }
+
+    if (this.config.show_led !== false && adapter.capabilities.led) {
+      features.push(html`
+        <button
+          class="feature-button ${state.led ? "selected" : ""}"
+          @click=${() => this.execute(() => adapter.setLed(!state.led))}
+        >
+          <ha-icon icon="mdi:led-outline"></ha-icon>
+          <span><small>LED</small><strong>${state.led ? "On" : "Off"}</strong></span>
+        </button>
+      `);
+    }
+
+    if (this.config.show_buzzer !== false && adapter.capabilities.buzzer) {
+      features.push(html`
+        <button
+          class="feature-button ${state.buzzer ? "selected" : ""}"
+          @click=${() => this.execute(() => adapter.setBuzzer(!state.buzzer))}
+        >
+          <ha-icon icon="mdi:bell-outline"></ha-icon>
+          <span><small>Buzzer</small><strong>${state.buzzer ? "On" : "Off"}</strong></span>
+        </button>
+      `);
+    }
+
+    if (this.config.show_ionizer !== false && adapter.capabilities.ionizer) {
+      features.push(html`
+        <button
+          class="feature-button ${state.ionizer ? "selected" : ""}"
+          @click=${() => this.execute(() => adapter.setIonizer(!state.ionizer))}
+        >
+          <ha-icon icon="mdi:air-filter"></ha-icon>
+          <span><small>Ionizer</small><strong>${state.ionizer ? "On" : "Off"}</strong></span>
+        </button>
+      `);
+    }
+
+    return features.length > 0
+      ? html`<section class="controls feature-controls" aria-label="Fan features">${features}</section>`
+      : "";
+  }
+
+  private renderAngleControl(
+    label: string,
+    value: number | undefined,
+    angles: number[],
+    onChange: (angle: number) => void,
+  ) {
+    const current = value ?? angles[0] ?? 0;
+    return html`
+      <label class="feature-select">
+        <span>${label}</span>
+        ${
+          angles.length > 0
+            ? html`
+                <select
+                  .value=${String(current)}
+                  @change=${(event: Event) => onChange(Number((event.currentTarget as HTMLSelectElement).value))}
+                >
+                  ${angles.map((angle) => html`<option value=${angle}>${angle}°</option>`)}
+                </select>
+              `
+            : html`
+                <input
+                  type="number"
+                  min="0"
+                  max="360"
+                  step="1"
+                  .value=${String(current)}
+                  @change=${(event: Event) => onChange(Number((event.currentTarget as HTMLInputElement).value))}
+                  aria-label=${label}
+                />
+              `
+        }
+      </label>
+    `;
+  }
+
+  private nextTimer(current: number | undefined, steps = TIMER_STEPS): number {
+    const index = steps.indexOf(current ?? 0);
+    return steps[(index + 1) % steps.length] ?? steps[0] ?? 0;
+  }
+
+  private async toggleCycle(adapter: FanAdapter): Promise<void> {
+    const enabled = !(adapter.state.horizontalSwing && adapter.state.verticalSwing);
+    await adapter.setHorizontalSwing(enabled);
+    await adapter.setVerticalSwing(enabled);
+  }
+
+  private onPercentageChange(event: Event, adapter: FanAdapter): void {
+    const value = Number((event.currentTarget as HTMLInputElement).value);
+    this.execute(() => adapter.setPercentage(value));
+  }
+
+  private onHeaderClick = (): void => {
+    if (this.hass && this.config) {
+      handleAction(this, this.hass, this.config, "tap");
+    }
+  };
+
+  static styles: CSSResultGroup = css`
+    :host {
+      display: block;
+      --fan-accent: var(--state-fan-active-color, var(--state-active-color, #5c8dff));
+      --fan-accent-soft: color-mix(in srgb, var(--fan-accent) 18%, transparent);
+      --fan-surface: color-mix(in srgb, var(--ha-card-background, var(--card-background-color)) 88%, var(--fan-accent));
+      --fan-text-muted: var(--secondary-text-color, #8a8f9d);
+      --fan-border: color-mix(in srgb, var(--primary-text-color) 10%, transparent);
+    }
+
+    ha-card {
+      overflow: hidden;
+      border: 1px solid var(--fan-border);
+      border-radius: 28px;
+      background: var(--fan-surface);
+      color: var(--primary-text-color);
+      box-shadow: var(--ha-card-box-shadow, 0 12px 32px rgb(0 0 0 / 12%));
+    }
+
+    button,
+    select,
+    input {
+      font: inherit;
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+    }
+
+    .header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 22px 22px 0;
+    }
+
+    .title-button {
+      display: grid;
+      gap: 5px;
+      padding: 0;
+      background: transparent;
+      color: inherit;
+      text-align: left;
+    }
+
+    .eyebrow {
+      color: var(--fan-text-muted);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.15em;
+    }
+
+    .title {
+      font-size: 21px;
+      font-weight: 750;
+      letter-spacing: -0.02em;
+    }
+
+    .subtitle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--fan-text-muted);
+      font-size: 12px;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--fan-text-muted);
+    }
+
+    .status-dot.on {
+      background: var(--fan-accent);
+      box-shadow: 0 0 0 4px var(--fan-accent-soft);
+    }
+
+    .model-badge {
+      padding: 7px 10px;
+      border: 1px solid var(--fan-border);
+      border-radius: 999px;
+      color: var(--fan-text-muted);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+    }
+
+    .visual-section {
+      padding: 8px 18px 10px;
+    }
+
+    .airflow-visual {
+      position: relative;
+      display: grid;
+      place-items: center;
+      width: min(100%, 310px);
+      aspect-ratio: 1;
+      margin: 0 auto;
+      isolation: isolate;
+    }
+
+    .airflow-visual::before {
+      position: absolute;
+      inset: 15%;
+      border: 1px solid var(--fan-accent-soft);
+      border-radius: 50%;
+      content: "";
+    }
+
+    .airflow-visual::after {
+      position: absolute;
+      inset: 7%;
+      border: 1px dashed var(--fan-accent-soft);
+      border-radius: 50%;
+      content: "";
+      opacity: 0.8;
+    }
+
+    .airflow-visual.no-motion *,
+    .airflow-visual.no-motion::before,
+    .airflow-visual.no-motion::after {
+      animation: none !important;
+    }
+
+    .orbit {
+      position: absolute;
+      border: 1px solid color-mix(in srgb, var(--fan-accent) 24%, transparent);
+      border-radius: 50%;
+      transform: rotate(18deg);
+    }
+
+    .orbit-one {
+      width: 76%;
+      height: 32%;
+    }
+
+    .orbit-two {
+      width: 88%;
+      height: 46%;
+      transform: rotate(-26deg);
+    }
+
+    .horizontal .orbit-one {
+      animation: orbit-horizontal 8s ease-in-out infinite;
+    }
+
+    .vertical .orbit-two {
+      animation: orbit-vertical 8s ease-in-out infinite;
+    }
+
+    .wind {
+      position: absolute;
+      width: 42%;
+      height: 4px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, transparent, var(--fan-accent), transparent);
+      opacity: 0;
+    }
+
+    .running .wind {
+      animation: wind-flow var(--spin-duration) linear infinite;
+      opacity: 0.7;
+    }
+
+    .wind-one {
+      transform: translateY(-44px) rotate(-12deg);
+    }
+
+    .wind-two {
+      transform: translateY(44px) rotate(12deg);
+      animation-delay: -0.7s !important;
+    }
+
+    .rotor {
+      position: relative;
+      z-index: 2;
+      width: 46%;
+      aspect-ratio: 1;
+      border: 12px solid color-mix(in srgb, var(--fan-accent) 18%, var(--card-background-color));
+      border-radius: 50%;
+      background: color-mix(in srgb, var(--fan-accent) 7%, var(--card-background-color));
+      box-shadow:
+        inset 0 0 0 1px var(--fan-accent-soft),
+        0 18px 40px rgb(0 0 0 / 16%);
+    }
+
+    .running .rotor {
+      animation: rotor-spin var(--spin-duration) linear infinite;
+    }
+
+    .blade {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 39%;
+      height: 22%;
+      border-radius: 100% 12% 100% 12%;
+      background: linear-gradient(135deg, var(--fan-accent), color-mix(in srgb, var(--fan-accent) 40%, white));
+      transform-origin: 0 50%;
+      opacity: 0.88;
+    }
+
+    .blade-one {
+      transform: translateY(-50%) rotate(-10deg);
+    }
+
+    .blade-two {
+      transform: translateY(-50%) rotate(80deg);
+    }
+
+    .blade-three {
+      transform: translateY(-50%) rotate(170deg);
+    }
+
+    .blade-four {
+      transform: translateY(-50%) rotate(260deg);
+    }
+
+    .hub {
+      position: absolute;
+      inset: 37%;
+      border-radius: 50%;
+      background: var(--fan-surface);
+      box-shadow: 0 0 0 5px var(--fan-accent-soft);
+    }
+
+    .power-button {
+      position: absolute;
+      z-index: 3;
+      display: grid;
+      place-items: center;
+      width: 58px;
+      height: 58px;
+      border: 5px solid var(--fan-surface);
+      border-radius: 50%;
+      background: var(--fan-accent-soft);
+      color: var(--fan-text-muted);
+      box-shadow: 0 8px 24px rgb(0 0 0 / 18%);
+    }
+
+    .power-button.active {
+      background: var(--fan-accent);
+      color: white;
+    }
+
+    .power-button ha-icon {
+      --mdc-icon-size: 24px;
+    }
+
+    .speed-readout {
+      position: absolute;
+      right: 3%;
+      bottom: 19%;
+      z-index: 4;
+      display: grid;
+      justify-items: end;
+      color: var(--fan-text-muted);
+    }
+
+    .speed-readout strong {
+      color: var(--primary-text-color);
+      font-size: 22px;
+      line-height: 1;
+    }
+
+    .speed-readout small {
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+    }
+
+    .visual-meta {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      color: var(--fan-text-muted);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+    }
+
+    .controls {
+      margin: 0 14px 14px;
+      padding: 16px;
+      border: 1px solid var(--fan-border);
+      border-radius: 22px;
+      background: color-mix(in srgb, var(--card-background-color) 48%, transparent);
+    }
+
+    .section-heading {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .section-heading div {
+      display: grid;
+      gap: 4px;
+    }
+
+    .section-heading strong {
+      font-size: 16px;
+    }
+
+    .value {
+      color: var(--fan-accent);
+      font-size: 24px;
+      font-weight: 800;
+    }
+
+    .speed-slider {
+      width: 100%;
+      margin: 18px 0 10px;
+      accent-color: var(--fan-accent);
+      cursor: pointer;
+    }
+
+    .mode-section {
+      display: grid;
+      gap: 8px;
+      margin: 16px 0;
+    }
+
+    .control-label {
+      color: var(--fan-text-muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .mode-row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .mode-button {
+      display: grid;
+      justify-items: center;
+      gap: 7px;
+      padding: 10px 6px;
+      border: 1px solid var(--fan-border);
+      border-radius: 16px;
+      background: transparent;
+      color: var(--fan-text-muted);
+      font-size: 11px;
+    }
+
+    .mode-button.selected {
+      border-color: var(--fan-accent-soft);
+      background: var(--fan-accent-soft);
+      color: var(--fan-accent);
+    }
+
+    .mode-icon {
+      display: grid;
+      place-items: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: color-mix(in srgb, var(--fan-text-muted) 20%, transparent);
+    }
+
+    .mode-button.selected .mode-icon {
+      background: var(--fan-accent);
+      color: white;
+    }
+
+    .mode-icon ha-icon {
+      --mdc-icon-size: 20px;
+    }
+
+    .level-row,
+    .chip-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .level-row {
+      margin-bottom: 14px;
+    }
+
+    .level-button,
+    .chip {
+      min-height: 34px;
+      border: 1px solid var(--fan-border);
+      border-radius: 12px;
+      background: transparent;
+      color: var(--fan-text-muted);
+    }
+
+    .level-button {
+      flex: 1;
+      font-size: 13px;
+      font-weight: 750;
+    }
+
+    .level-button.selected,
+    .chip.selected {
+      border-color: transparent;
+      background: var(--fan-accent-soft);
+      color: var(--fan-accent);
+    }
+
+    .chip {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      flex: 1;
+      padding: 0 8px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .chip ha-icon {
+      --mdc-icon-size: 16px;
+    }
+
+    .feature-controls {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .feature-select,
+    .nudge-control,
+    .feature-button {
+      min-width: 0;
+      padding: 11px;
+      border: 1px solid var(--fan-border);
+      border-radius: 15px;
+      background: transparent;
+      color: var(--primary-text-color);
+    }
+
+    .feature-select,
+    .nudge-control {
+      display: grid;
+      gap: 7px;
+      color: var(--fan-text-muted);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .feature-select select,
+    .feature-select input[type="number"] {
+      width: 100%;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: var(--primary-text-color);
+      font-size: 14px;
+      font-weight: 750;
+    }
+
+    .feature-button {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-align: left;
+    }
+
+    .feature-button ha-icon {
+      flex: 0 0 auto;
+      padding: 8px;
+      border-radius: 11px;
+      background: var(--fan-accent-soft);
+      color: var(--fan-accent);
+    }
+
+    .feature-button span {
+      display: grid;
+      gap: 2px;
+    }
+
+    .feature-button small {
+      color: var(--fan-text-muted);
+      font-size: 10px;
+    }
+
+    .feature-button strong {
+      font-size: 13px;
+    }
+
+    .feature-button.selected {
+      border-color: var(--fan-accent-soft);
+      background: var(--fan-accent-soft);
+    }
+
+    .nudge-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 4px;
+    }
+
+    .nudge-grid button {
+      min-height: 28px;
+      border-radius: 8px;
+      background: var(--fan-accent-soft);
+      color: var(--fan-accent);
+    }
+
+    .nudge-grid button:first-child {
+      grid-column: 2;
+    }
+
+    .empty {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 120px;
+      padding: 20px;
+      color: var(--fan-text-muted);
+      text-align: center;
+    }
+
+    .action-error {
+      margin: 0 14px 14px;
+      padding: 10px 12px;
+      border: 1px solid var(--error-color, #db4437);
+      border-radius: 12px;
+      color: var(--error-color, #db4437);
+      font-size: 12px;
+    }
+
+    .theme-minimal {
+      border-radius: 16px;
+      box-shadow: none;
+    }
+
+    .theme-glass {
+      background: color-mix(in srgb, var(--card-background-color) 54%, transparent);
+      backdrop-filter: blur(18px);
+    }
+
+    .theme-industrial {
+      --fan-accent: var(--state-fan-active-color, #e9a23b);
+    }
+
+    @keyframes rotor-spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @keyframes wind-flow {
+      0% {
+        transform: translateX(-20px) scaleX(0.5);
+      }
+      50% {
+        transform: translateX(20px) scaleX(1);
+      }
+      100% {
+        transform: translateX(65px) scaleX(0.5);
+      }
+    }
+
+    @keyframes orbit-horizontal {
+      0%,
+      100% {
+        transform: rotate(18deg) scaleX(1);
+      }
+      50% {
+        transform: rotate(18deg) scaleX(0.7);
+      }
+    }
+
+    @keyframes orbit-vertical {
+      0%,
+      100% {
+        transform: rotate(-26deg) scaleY(1);
+      }
+      50% {
+        transform: rotate(-26deg) scaleY(0.7);
+      }
+    }
+
+    @media (max-width: 360px) {
+      .visual-meta {
+        gap: 8px;
+        font-size: 9px;
+      }
+
+      .chip {
+        font-size: 10px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .running .rotor,
+      .running .wind,
+      .horizontal .orbit-one,
+      .vertical .orbit-two {
+        animation: none;
+      }
+    }
+  `;
+}
+
+if (!customElements.get("xiaomi-fan-card")) {
+  customElements.define("xiaomi-fan-card", XiaomiFanCard);
+}

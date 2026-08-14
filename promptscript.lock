@@ -1,0 +1,6 @@
+version: 1
+dependencies:
+  https://github.com/denysdovhan/agents:
+    version: latest
+    commit: 49965622f3b083d1620443e05a37968c7447570f
+    integrity: sha256-pending

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Home Assistant integration support
+    url: https://community.home-assistant.io/
+    about: Ask about device setup or integration behavior in the Home Assistant community.
+  - name: Security vulnerability
+    url: https://github.com/mrwogu/xiaomi-smart-fan-card/security/advisories/new
+    about: Report security issues privately.

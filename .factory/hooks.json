@@ -1,0 +1,30 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Create|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "prs hook pre-edit",
+            "timeout": 5,
+            "statusMessage": "PromptScript: checking generated files..."
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Create|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "prs hook post-edit",
+            "timeout": 15,
+            "statusMessage": "PromptScript: compiling..."
+          }
+        ]
+      }
+    ]
+  }
+}

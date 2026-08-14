@@ -1,0 +1,67 @@
+name: Bug report
+description: Report reproducible card behavior.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include Xiaomi tokens, Home Assistant credentials, private URLs, or personal dashboard data.
+  - type: input
+    id: card-version
+    attributes:
+      label: Card version
+      description: Release tag or commit SHA.
+      placeholder: v0.1.0
+    validations:
+      required: true
+  - type: input
+    id: ha-version
+    attributes:
+      label: Home Assistant version
+      placeholder: 2026.8.0
+    validations:
+      required: true
+  - type: input
+    id: integration
+    attributes:
+      label: Integration
+      placeholder: xiaomi_miio, xiaomi_miio_fan, xiaomi_miot, or other
+    validations:
+      required: true
+  - type: input
+    id: model
+    attributes:
+      label: Fan model
+      placeholder: xiaomi.fan.p76
+  - type: textarea
+    id: config
+    attributes:
+      label: Card configuration
+      description: Provide a minimal redacted YAML configuration.
+      render: yaml
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      placeholder: |
+        1. Add the card
+        2. Select ...
+        3. Press ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
