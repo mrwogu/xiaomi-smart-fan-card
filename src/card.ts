@@ -1540,6 +1540,26 @@ export class XiaomiFanCard extends LitElement {
       gap: var(--fan-control-gap);
     }
 
+    .angle-controls {
+      padding: 0;
+      border: 0;
+      background: transparent;
+    }
+
+    .angle-controls .nudge-control {
+      grid-column: 1 / -1;
+      grid-template-columns: max-content auto;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      min-height: 0;
+    }
+
+    .angle-controls .nudge-control > span {
+      align-self: start;
+      padding-top: 8px;
+    }
+
     .feature-select,
     .nudge-control,
     .feature-button {
