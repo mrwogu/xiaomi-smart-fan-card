@@ -60,7 +60,7 @@ jobs:
         run: test -s dist/xiaomi-fan-card.js
 
       - name: Upload bundle to release
-        uses: softprops/action-gh-release@72f2c25fcb47643c292f7107632f7a47c1df5cd8 # v2.3.2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
           tag_name: ${{ github.event.release.tag_name || inputs.tag }}
           files: dist/xiaomi-fan-card.js
