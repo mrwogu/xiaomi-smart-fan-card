@@ -22,7 +22,7 @@ coverage/
 .DS_Store
 *.log
 
-# Screen recording sources (gifs are committed instead)
+# Screen recording sources (encoded WebP is committed instead)
 docs/media/*.webm
 docs/media/*.gif
 *.crdownload

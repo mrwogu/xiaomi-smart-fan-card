@@ -6,7 +6,7 @@ Nested values take precedence over the legacy top-level aliases. `type` is
 required by Lovelace. The defaults below apply after configuration
 normalization.
 
-See [screenshots.md](screenshots.md) for ready to paste layout recipes and
+See the [README recipes](../README.md#recipes) for ready to paste layouts and
 [compatibility.md](compatibility.md) for capability and integration details.
 
 ## Full example
@@ -21,11 +21,11 @@ layout:
   columns: auto
   order: [header, visual, airflow, position, features]
 header:
-  variant: compact
+  variant: full
   show: true
   show_name: true
   show_status: true
-  show_mode: false
+  show_mode: true
 visual:
   show: true
   show_graphic: true
@@ -36,8 +36,8 @@ visual:
 controls:
   show: true
   selection_mode: auto
-  timer_mode: select
-  angle_mode: select
+  timer_mode: cycle
+  angle_mode: cycle
   show_speed_slider: true
   show_speed_levels: true
   show_horizontal_swing: true
@@ -107,15 +107,15 @@ These keys are still accepted for older YAML configurations. The nested
 
 ## `header`
 
-| Parameter             | Default                     | Description                                                                         |
-| --------------------- | --------------------------- | ----------------------------------------------------------------------------------- |
-| `header.show`         | `true`                      | Show the card header.                                                               |
-| `header.variant`      | `compact`                   | `compact` keeps secondary metadata minimal; `full` shows the expanded header style. |
-| `header.show_eyebrow` | `false` (`true` for `full`) | Show the Xiaomi Air Circulation eyebrow.                                            |
-| `header.show_name`    | `true`                      | Show the fan name.                                                                  |
-| `header.show_status`  | `true`                      | Show running or standby status.                                                     |
-| `header.show_mode`    | `false` (`true` for `full`) | Show the current airflow mode.                                                      |
-| `header.show_model`   | `false` (`true` for `full`) | Show the known model badge.                                                         |
+| Parameter             | Default                        | Description                                                                         |
+| --------------------- | ------------------------------ | ----------------------------------------------------------------------------------- |
+| `header.show`         | `true`                         | Show the card header.                                                               |
+| `header.variant`      | `full`                         | `full` shows the expanded header style; `compact` keeps secondary metadata minimal. |
+| `header.show_eyebrow` | `true` (`false` for `compact`) | Show the Xiaomi Air Circulation eyebrow.                                            |
+| `header.show_name`    | `true`                         | Show the fan name.                                                                  |
+| `header.show_status`  | `true`                         | Show running or standby status.                                                     |
+| `header.show_mode`    | `true` (`false` for `compact`) | Show the current airflow mode.                                                      |
+| `header.show_model`   | `true` (`false` for `compact`) | Show the known model badge.                                                         |
 
 ## `visual`
 
@@ -130,31 +130,31 @@ These keys are still accepted for older YAML configurations. The nested
 
 ## `controls`
 
-| Parameter                         | Default  | Description                                                   |
-| --------------------------------- | -------- | ------------------------------------------------------------- |
-| `controls.show`                   | `true`   | Show interactive controls.                                    |
-| `controls.show_speed_slider`      | `true`   | Show the percentage slider.                                   |
-| `controls.show_speed_levels`      | `true`   | Show speed level buttons or a selector.                       |
-| `controls.show_modes`             | `true`   | Show normal, natural, and preset mode controls.               |
-| `controls.show_preset_mode`       | `true`   | Include generic preset modes.                                 |
-| `controls.show_horizontal_swing`  | `true`   | Show the horizontal oscillation toggle.                       |
-| `controls.show_vertical_swing`    | `true`   | Show the vertical oscillation toggle when available.          |
-| `controls.show_sleep`             | `true`   | Show the sleep mode control when available.                   |
-| `controls.show_cycle`             | `true`   | Show the combined horizontal and vertical cycle toggle.       |
-| `controls.show_horizontal_angle`  | `true`   | Show the horizontal angle selector.                           |
-| `controls.show_vertical_angle`    | `true`   | Show the vertical angle selector when available.              |
-| `controls.show_nudge`             | `true`   | Show directional nudge buttons when available.                |
-| `controls.show_nudge_with_angles` | `false`  | Keep nudge buttons visible when angle controls are shown.     |
-| `controls.show_direction`         | `true`   | Show forward or reverse direction for standard fan entities.  |
-| `controls.show_favorite_level`    | `true`   | Show the favorite level number control when available.        |
-| `controls.show_timer`             | `true`   | Show the timer control next to the optional feature controls. |
-| `controls.show_child_lock`        | `true`   | Show the child lock control when available.                   |
-| `controls.show_led`               | `true`   | Show the LED control when available.                          |
-| `controls.show_buzzer`            | `true`   | Show the buzzer control when available.                       |
-| `controls.show_ionizer`           | `true`   | Show the ionizer control when available.                      |
-| `controls.selection_mode`         | `auto`   | Speed level presentation: `auto`, `buttons`, or `select`.     |
-| `controls.timer_mode`             | `select` | Timer presentation: `select` or `cycle`.                      |
-| `controls.angle_mode`             | `select` | Angle presentation: `select` or `cycle`.                      |
+| Parameter                         | Default | Description                                                   |
+| --------------------------------- | ------- | ------------------------------------------------------------- |
+| `controls.show`                   | `true`  | Show interactive controls.                                    |
+| `controls.show_speed_slider`      | `true`  | Show the percentage slider.                                   |
+| `controls.show_speed_levels`      | `true`  | Show speed level buttons or a selector.                       |
+| `controls.show_modes`             | `true`  | Show normal, natural, and preset mode controls.               |
+| `controls.show_preset_mode`       | `true`  | Include generic preset modes.                                 |
+| `controls.show_horizontal_swing`  | `true`  | Show the horizontal oscillation toggle.                       |
+| `controls.show_vertical_swing`    | `true`  | Show the vertical oscillation toggle when available.          |
+| `controls.show_sleep`             | `true`  | Show the sleep mode control when available.                   |
+| `controls.show_cycle`             | `true`  | Show the combined horizontal and vertical cycle toggle.       |
+| `controls.show_horizontal_angle`  | `true`  | Show the horizontal angle selector.                           |
+| `controls.show_vertical_angle`    | `true`  | Show the vertical angle selector when available.              |
+| `controls.show_nudge`             | `true`  | Show directional nudge buttons when available.                |
+| `controls.show_nudge_with_angles` | `false` | Keep nudge buttons visible when angle controls are shown.     |
+| `controls.show_direction`         | `true`  | Show forward or reverse direction for standard fan entities.  |
+| `controls.show_favorite_level`    | `true`  | Show the favorite level number control when available.        |
+| `controls.show_timer`             | `true`  | Show the timer control next to the optional feature controls. |
+| `controls.show_child_lock`        | `true`  | Show the child lock control when available.                   |
+| `controls.show_led`               | `true`  | Show the LED control when available.                          |
+| `controls.show_buzzer`            | `true`  | Show the buzzer control when available.                       |
+| `controls.show_ionizer`           | `true`  | Show the ionizer control when available.                      |
+| `controls.selection_mode`         | `auto`  | Speed level presentation: `auto`, `buttons`, or `select`.     |
+| `controls.timer_mode`             | `cycle` | Timer presentation: `cycle` or `select`.                      |
+| `controls.angle_mode`             | `cycle` | Angle presentation: `cycle` or `select`.                      |
 
 ## `details`
 
@@ -183,11 +183,22 @@ These keys are still accepted for older YAML configurations. The nested
 `styles` contains typed CSS token groups for `card`, `header`, `visual`,
 `controls`, and `details`. Every group accepts `background`, `border`,
 `border_radius`, `color`, `font_size`, `gap`, `padding`, and `shadow`.
-Two tokens are group specific: `visual` also accepts `size` for the graphic
-diameter, and `controls` also accepts `height` for the minimum control height.
+Three tokens are group specific: `card` also accepts `accent`, `visual` also
+accepts `size` for the graphic diameter, and `controls` also accepts `height`
+for the minimum control height. `accent` replaces the color the card derives
+from `--state-fan-active-color`, so the speed ring, slider, active buttons,
+status dot, and every mixed tint follow it, including inside a theme.
 Values are CSS values, for example `18px`, `0.8rem`, or
 `1px solid rgba(120, 140, 180, 0.35)`. Keys that the stylesheet does not
 consume are ignored and are not offered by the visual editor.
+
+Tokens compose with `layout.theme`: the theme sets the base design tokens and
+`styles` overrides individual ones. Six complete looks are in
+[Style it your way](../README.md#style-it-your-way).
+
+<div align="center">
+  <img src="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/styles-cycle.webp" alt="The same card styled as neon night, paper, cockpit, frost, ink, and sunset" width="360">
+</div>
 
 ## `related_entities`
 
@@ -209,10 +220,12 @@ consume are ignored and are not offered by the visual editor.
 ## Behavior notes
 
 `selection_mode` is `auto`, `buttons`, or `select`. `timer_mode` and `angle_mode`
-are `select` or `cycle`. The default block order is `header`, `visual`,
-`airflow`, `position`, `features`; omitted blocks are appended in that order.
-The full header also enables its eyebrow, mode, and known model badge by default,
-while each `show_*` option can still override that behavior.
+default to `cycle`, which advances through the values with one button instead of
+opening a dropdown; set either to `select` for a dropdown. The default block
+order is `header`, `visual`, `airflow`, `position`, `features`; omitted blocks
+are appended in that order. The default full header also enables its eyebrow,
+mode, and known model badge, `compact` collapses all three, and each `show_*`
+option can still override that behavior.
 
 When `details.show_timer_when_off` is `false`, the inactive timer detail is
 hidden while an active timer remains visible. `details.position: side` places
