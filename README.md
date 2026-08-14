@@ -11,7 +11,7 @@ Capability-aware. Five themes. Native visual editor. No telemetry.
 [![codecov](https://codecov.io/gh/mrwogu/xiaomi-smart-fan-card/branch/main/graph/badge.svg)](https://codecov.io/gh/mrwogu/xiaomi-smart-fan-card)
 [![Latest release](https://img.shields.io/github/v/release/mrwogu/xiaomi-smart-fan-card)](https://github.com/mrwogu/xiaomi-smart-fan-card/releases)
 
-<img src="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/hero-light-dark.webp" alt="The default card side by side in Home Assistant light and dark mode, with the airflow graphic, speed slider, mode buttons, angle controls, and device toggles" width="720">
+![The default card side by side in Home Assistant light and dark mode, with the airflow graphic, speed slider, mode buttons, angle controls, and device toggles](https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/hero-light-dark.webp)
 
 <sub>Default configuration, light and dark, nothing but the entity set.</sub>
 
@@ -47,9 +47,7 @@ One option, `layout.theme`, changes the entire surface. Same entity, same state,
 same controls, five looks. The hero above is `auto`; the loop below cycles all
 five in dark mode.
 
-<div align="center">
-  <img src="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/themes-cycle.webp" alt="The same card cycling through the auto, mushroom, minimal, glass, and industrial themes" width="420">
-</div>
+![The same card cycling through the auto, mushroom, minimal, glass, and industrial themes](https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/themes-cycle.webp)
 
 | Theme      | `layout.theme` | What changes                                                     |
 | ---------- | -------------- | ---------------------------------------------------------------- |
@@ -64,47 +62,11 @@ text, background, and accent unless a theme deliberately claims one.
 
 ## Layouts that fit your dashboard
 
-<table>
-  <tr>
-    <td align="center" width="50%">
-      <img src="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/layout-columns.webp" alt="The same card switching between one stacked control column and two paired control columns" width="300"><br>
-      <strong>One or two control columns</strong><br>
-      <code>layout.columns: one</code> stacks angles, position pad, and device
-      toggles; <code>two</code> pairs them and shortens the card.
-    </td>
-    <td align="center" width="50%">
-      <img src="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/layout-density.webp" alt="The same card switching between comfortable density with details below the graphic and compact density with details beside it" width="320"><br>
-      <strong>Comfortable or information dense</strong><br>
-      <code>layout.density: compact</code> with
-      <code>details.position: side</code> trims a third of the height.
-    </td>
-  </tr>
-  <tr>
-    <td align="center" width="50%">
-      <img src="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/layout-order.webp" alt="Card with the airflow controls placed above the graphic" width="320"><br>
-      <strong>Your order</strong><br>
-      <code>layout.order</code> moves header, visual, airflow, position, features.
-    </td>
-    <td align="center" width="50%">
-      <img src="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/layout-narrow.webp" alt="Card rendered in a 320 px dashboard column with reflowed control rows" width="190"><br>
-      <strong>Narrow columns</strong><br>
-      Container queries reflow the rows down to 320 px.
-    </td>
-  </tr>
-  <tr>
-    <td align="center" width="50%">
-      <img src="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/layout-tile.webp" alt="Minimal tile with name, status, and speed slider" width="340"><br>
-      <strong>Status tile</strong><br>
-      Name, status, speed. Nothing else.
-    </td>
-    <td align="center" width="50%">
-      <img src="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/controls-position.webp" alt="Angle selectors next to the position pad" width="340"><br>
-      <strong>Position block</strong><br>
-      Angle cycling next to the nudge pad with
-      <code>controls.show_nudge_with_angles: true</code>.
-    </td>
-  </tr>
-</table>
+| One or two control columns                                                                                                                                                                                                                                                                                                                           | Comfortable or information dense                                                                                                                                                                                                                                                                                                                                     |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ![The same card switching between one stacked control column and two paired control columns](https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/layout-columns.webp)<br>**One or two control columns**<br>`layout.columns: one` stacks angles, position pad, and device toggles; `two` pairs them and shortens the card. | ![The same card switching between comfortable density with details below the graphic and compact density with details beside it](https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/layout-density.webp)<br>**Comfortable or information dense**<br>`layout.density: compact` with `details.position: side` trims a third of the height. |
+| ![Card with the airflow controls placed above the graphic](https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/layout-order.webp)<br>**Your order**<br>`layout.order` moves header, visual, airflow, position, features.                                                                                                  | ![Card rendered in a 320 px dashboard column with reflowed control rows](https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/layout-narrow.webp)<br>**Narrow columns**<br>Container queries reflow the rows down to 320 px.                                                                                                               |
+| ![Minimal tile with name, status, and speed slider](https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/layout-tile.webp)<br>**Status tile**<br>Name, status, speed. Nothing else.                                                                                                                                        | ![Angle selectors next to the position pad](https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/controls-position.webp)<br>**Position block**<br>Angle cycling next to the nudge pad with `controls.show_nudge_with_angles: true`.                                                                                                        |
 
 ## Configure it by clicking
 
@@ -112,9 +74,7 @@ The visual editor is built on Home Assistant's own form schema: entity
 selectors with domain filters, collapsible panels with icons, paired switches,
 drag and drop block ordering, and helper text where an option needs it.
 
-<div align="center">
-  <img src="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/editor-config.webp" alt="Walking through the visual editor panels: header, visual, controls sub panels, details, layout, and styles" width="420">
-</div>
+![Walking through the visual editor panels: header, visual, controls sub panels, details, layout, and styles](https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/editor-config.webp)
 
 Panels group what belongs together: header, visual, controls with sub panels for
 speed, modes, oscillation, angles and features, then details, layout, styles,
@@ -122,9 +82,7 @@ and related entities.
 
 ## See it move
 
-<div align="center">
-  <img src="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/controls-speed.webp" alt="Sweeping the speed slider while the ring, the percentage readout, and the speed level buttons follow" width="380">
-</div>
+![Sweeping the speed slider while the ring, the percentage readout, and the speed level buttons follow](https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/controls-speed.webp)
 
 Slider feedback is immediate: the ring, the readout, and the level buttons
 follow your finger and the service call fires when you let go. Decorative
@@ -137,9 +95,7 @@ of YAML instead of a theme fork. `styles.card.accent` repaints the ring, slider,
 active buttons, and every tint derived from them. Six starting points, all on
 the same entity:
 
-<div align="center">
-  <img src="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/styles-cycle.webp" alt="The same card styled as neon night, paper, cockpit, frost, ink, and sunset" width="420">
-</div>
+![The same card styled as neon night, paper, cockpit, frost, ink, and sunset](https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/styles-cycle.webp)
 
 <details>
 <summary>YAML for the six looks above</summary>
@@ -265,11 +221,10 @@ styles:
 `auto` keeps the card on standard fan actions and only uses custom Xiaomi
 services when you select that integration explicitly.
 
-<div align="center">
-  <img src="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/integration-modes.webp" alt="The same card for a Xiaomi P76 with angles, timer, and device toggles, then for a plain Home Assistant fan entity with speed, presets, oscillation, and direction only" width="380"><br>
-  <em>Same card, two entities. The plain <code>fan</code> drops what it cannot
-  do and keeps what it can.</em>
-</div>
+![The same card for a Xiaomi P76 with angles, timer, and device toggles, then for a plain Home Assistant fan entity with speed, presets, oscillation, and direction only](https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/integration-modes.webp)
+
+_Same card, two entities. The plain `fan` drops what it cannot do and keeps
+what it can._
 
 ### Feature coverage
 
@@ -520,8 +475,8 @@ Media lives in `docs/media` as WebP. Every card shot and loop is rendered in a
 headless browser at 1.5x against a mocked `hass`, so all frames of one animation
 share a single box and every image matches the shipped defaults. The editor
 walkthrough is the one real Home Assistant recording, kept at 560 px and 10 fps
-with its source ignored by git. README and docs reference media through absolute
-`raw.githubusercontent.com` URLs, because HACS renders the README outside the
+with its source ignored by git. README images use absolute
+`raw.githubusercontent.com` URLs because HACS renders the README outside the
 repository and drops relative paths. Keep published media redacted: no tokens,
 hostnames, locations, device identifiers, or personal dashboards.
 

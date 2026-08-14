@@ -30,6 +30,5 @@ jobs:
         uses: ./.github/actions/hacs-validation
         with:
           category: plugin
-          ignore: images
           comment: false
           github_token: ${{ github.token }}
