@@ -38,7 +38,7 @@ const SURFACE_STYLE_TOKENS = [
  * editor never offers a styling field that cannot change the rendered card.
  */
 export const STYLE_TOKENS = {
-  card: SURFACE_STYLE_TOKENS,
+  card: [...SURFACE_STYLE_TOKENS, "accent"],
   header: SURFACE_STYLE_TOKENS,
   visual: [...SURFACE_STYLE_TOKENS, "size"],
   controls: [...SURFACE_STYLE_TOKENS, "height"],
@@ -66,12 +66,12 @@ export const DEFAULT_CONFIG = {
   integration: "auto",
   header: {
     show: true,
-    variant: "compact",
-    show_eyebrow: false,
+    variant: "full",
+    show_eyebrow: true,
     show_name: true,
     show_status: true,
-    show_mode: false,
-    show_model: false,
+    show_mode: true,
+    show_model: true,
   },
   visual: {
     show: true,
@@ -103,8 +103,8 @@ export const DEFAULT_CONFIG = {
     show_buzzer: true,
     show_ionizer: true,
     selection_mode: "auto",
-    timer_mode: "select",
-    angle_mode: "select",
+    timer_mode: "cycle",
+    angle_mode: "cycle",
   },
   details: {
     show: true,
@@ -150,7 +150,7 @@ const themeValue = (value: unknown): FanTheme =>
 
 const normalizeHeader = (value: unknown): Required<FanHeaderConfig> => {
   const input = recordValue(value);
-  const variant = enumValue<FanHeaderVariant>(input.variant, ["full", "compact"], "compact");
+  const variant = enumValue<FanHeaderVariant>(input.variant, ["full", "compact"], "full");
 
   return {
     show: booleanValue(input.show, true),
@@ -211,8 +211,8 @@ const normalizeControls = (
     show_buzzer: booleanValue(input.show_buzzer, legacy.showBuzzer),
     show_ionizer: booleanValue(input.show_ionizer, legacy.showIonizer),
     selection_mode: enumValue<FanSelectionMode>(input.selection_mode, ["auto", "buttons", "select"], "auto"),
-    timer_mode: enumValue<FanTimerMode>(input.timer_mode, ["cycle", "select"], "select"),
-    angle_mode: enumValue<FanAngleMode>(input.angle_mode, ["cycle", "select"], "select"),
+    timer_mode: enumValue<FanTimerMode>(input.timer_mode, ["cycle", "select"], "cycle"),
+    angle_mode: enumValue<FanAngleMode>(input.angle_mode, ["cycle", "select"], "cycle"),
   };
 };
 

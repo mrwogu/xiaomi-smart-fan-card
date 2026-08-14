@@ -388,6 +388,51 @@ describe("XiaomiFanCard", () => {
     });
   });
 
+  it("recolors every accent tint from the card style token", async () => {
+    const { card } = await renderCard({
+      ...baseConfig,
+      layout: { theme: "industrial" },
+      styles: { card: { accent: "#ff7a59", border_radius: "26px" } },
+    });
+    const style = card.shadowRoot?.querySelector("ha-card")?.getAttribute("style") ?? "";
+
+    expect(style).toContain("--fan-accent: #ff7a59");
+    expect(style).toContain("--fan-card-border-radius: 26px");
+  });
+
+  it("shows the Xiaomi eyebrow only for a Xiaomi fan", async () => {
+    const { card } = await renderCard({
+      ...baseConfig,
+      header: { show: true, variant: "full" },
+    });
+
+    expect(card.shadowRoot?.querySelector(".header .eyebrow")).toBeTruthy();
+
+    const genericHass: HassLike = {
+      states: {
+        "fan.living_room": {
+          state: "on",
+          attributes: { friendly_name: "Living Room Fan", percentage: 40, supported_features: 15 },
+        },
+      },
+      callService: vi.fn(async () => undefined),
+      callWS: vi.fn(async () => []) as unknown as NonNullable<HassLike["callWS"]>,
+    };
+    const generic = new XiaomiFanCard();
+    generic.hass = genericHass as unknown as HomeAssistant;
+    generic.setConfig({
+      type: "custom:xiaomi-fan-card",
+      entity: "fan.living_room",
+      integration: "standard",
+      header: { show: true, variant: "full" },
+    });
+    document.body.append(generic);
+    await settle(generic);
+
+    expect(generic.shadowRoot?.querySelector(".header .eyebrow")).toBeNull();
+    expect(generic.shadowRoot?.querySelector(".header .title")?.textContent).toContain("Living Room Fan");
+  });
+
   it("previews the dragged speed before committing it to the fan", async () => {
     const { card, callService } = await renderCard({
       ...baseConfig,

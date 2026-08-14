@@ -120,6 +120,7 @@ export type FanDetailsPosition = "below" | "side";
 export type FanBlock = "header" | "visual" | "airflow" | "position" | "features";
 
 export interface FanStyleBlock {
+  accent?: string;
   background?: string;
   border?: string;
   border_radius?: string;

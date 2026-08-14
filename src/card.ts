@@ -28,6 +28,7 @@ import type {
 
 const TIMER_STEPS = [0, 60, 120, 180, 240, 300, 360, 420, 480];
 const STYLE_VARIABLES: Record<keyof FanStyleBlock, string> = {
+  accent: "accent",
   background: "background",
   border: "border",
   border_radius: "border-radius",
@@ -40,13 +41,23 @@ const STYLE_VARIABLES: Record<keyof FanStyleBlock, string> = {
   size: "size",
 };
 
+/**
+ * Accent drives every tint through color-mix, so it has to land on the shared
+ * variable instead of a block scoped one, and inline styles are what lets it
+ * win over a theme class.
+ */
+const GLOBAL_STYLE_VARIABLES: Partial<Record<keyof FanStyleBlock, string>> = {
+  accent: "--fan-accent",
+};
+
 const asHassLike = (hass: HomeAssistant): HassLike => hass as unknown as HassLike;
 
 const styleMapFor = (group: FanStyleBlock, prefix: string): Record<string, string> =>
   Object.entries(group).reduce<Record<string, string>>((styles, [key, value]) => {
-    const variable = STYLE_VARIABLES[key as keyof FanStyleBlock];
+    const token = key as keyof FanStyleBlock;
+    const variable = STYLE_VARIABLES[token];
     if (variable && typeof value === "string") {
-      styles[`--${prefix}-${variable}`] = value;
+      styles[GLOBAL_STYLE_VARIABLES[token] ?? `--${prefix}-${variable}`] = value;
     }
     return styles;
   }, {});
@@ -347,7 +358,13 @@ export class XiaomiFanCard extends LitElement {
     return html`
       <header class="header" style=${styleMap(styleMapFor(this.config.styles.header, "fan-header"))}>
         <button class="title-button" @click=${this.onHeaderClick} aria-label=${this.t("open", { title })}>
-          ${this.config.header.show_eyebrow ? html`<span class="eyebrow">${this.t("xiaomiAirCirculation")}</span>` : ""}
+          ${
+            // The eyebrow names a Xiaomi product line, so a generic fan entity
+            // must never claim it even when the full header is active.
+            this.config.header.show_eyebrow && adapter.capabilities.isXiaomi
+              ? html`<span class="eyebrow">${this.t("xiaomiAirCirculation")}</span>`
+              : ""
+          }
           ${this.config.header.show_name ? html`<span class="title">${title}</span>` : ""}
           ${
             this.config.header.show_status || this.config.header.show_mode

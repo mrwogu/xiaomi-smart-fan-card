@@ -90,7 +90,7 @@ export const getConfigForm = () => {
         grid([
           selectField("selection_mode", ["auto", "buttons", "select"], "show"),
           selectField("timer_mode", ["cycle", "select"], "show"),
-          selectField("angle_mode", ["select", "cycle"], "show"),
+          selectField("angle_mode", ["cycle", "select"], "show"),
         ]),
         section("speed", "mdi:speedometer", [
           grid([booleanField("show_speed_slider", "show"), booleanField("show_speed_levels", "show")], "180px"),

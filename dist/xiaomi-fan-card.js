@@ -1124,7 +1124,7 @@ const SURFACE_STYLE_TOKENS = [
  * editor never offers a styling field that cannot change the rendered card.
  */
 const STYLE_TOKENS = {
-    card: SURFACE_STYLE_TOKENS,
+    card: [...SURFACE_STYLE_TOKENS, "accent"],
     header: SURFACE_STYLE_TOKENS,
     visual: [...SURFACE_STYLE_TOKENS, "size"],
     controls: [...SURFACE_STYLE_TOKENS, "height"],
@@ -1137,12 +1137,12 @@ const DEFAULT_CONFIG = {
     integration: "auto",
     header: {
         show: true,
-        variant: "compact",
-        show_eyebrow: false,
+        variant: "full",
+        show_eyebrow: true,
         show_name: true,
         show_status: true,
-        show_mode: false,
-        show_model: false,
+        show_mode: true,
+        show_model: true,
     },
     visual: {
         show: true,
@@ -1174,8 +1174,8 @@ const DEFAULT_CONFIG = {
         show_buzzer: true,
         show_ionizer: true,
         selection_mode: "auto",
-        timer_mode: "select",
-        angle_mode: "select",
+        timer_mode: "cycle",
+        angle_mode: "cycle",
     },
     details: {
         show: true,
@@ -1210,7 +1210,7 @@ const integrationValue = (value) => enumValue(value, ["auto", "standard", "xiaom
 const themeValue = (value) => enumValue(value, ["auto", "mushroom", "minimal", "glass", "industrial"], "auto");
 const normalizeHeader = (value) => {
     const input = recordValue(value);
-    const variant = enumValue(input.variant, ["full", "compact"], "compact");
+    const variant = enumValue(input.variant, ["full", "compact"], "full");
     return {
         show: booleanValue(input.show, true),
         variant,
@@ -1256,8 +1256,8 @@ const normalizeControls = (value, legacy) => {
         show_buzzer: booleanValue(input.show_buzzer, legacy.showBuzzer),
         show_ionizer: booleanValue(input.show_ionizer, legacy.showIonizer),
         selection_mode: enumValue(input.selection_mode, ["auto", "buttons", "select"], "auto"),
-        timer_mode: enumValue(input.timer_mode, ["cycle", "select"], "select"),
-        angle_mode: enumValue(input.angle_mode, ["cycle", "select"], "select"),
+        timer_mode: enumValue(input.timer_mode, ["cycle", "select"], "cycle"),
+        angle_mode: enumValue(input.angle_mode, ["cycle", "select"], "cycle"),
     };
 };
 const normalizeDetails = (value) => {
@@ -1466,7 +1466,7 @@ const getConfigForm = () => {
                 grid([
                     selectField("selection_mode", ["auto", "buttons", "select"], "show"),
                     selectField("timer_mode", ["cycle", "select"], "show"),
-                    selectField("angle_mode", ["select", "cycle"], "show"),
+                    selectField("angle_mode", ["cycle", "select"], "show"),
                 ]),
                 section("speed", "mdi:speedometer", [
                     grid([booleanField("show_speed_slider", "show"), booleanField("show_speed_levels", "show")], "180px"),
@@ -1691,6 +1691,7 @@ const english = {
     ionizerEntity: "Ionizer entity",
     temperatureEntity: "Temperature entity",
     humidityEntity: "Humidity entity",
+    accent: "Accent color",
     background: "Background",
     border: "Border",
     borderRadius: "Border radius",
@@ -1846,6 +1847,7 @@ const TRANSLATIONS = {
         ionizerEntity: "Encja jonizatora",
         temperatureEntity: "Encja temperatury",
         humidityEntity: "Encja wilgotności",
+        accent: "Kolor akcentu",
         background: "Tło",
         border: "Obramowanie",
         borderRadius: "Promień obramowania",
@@ -1999,6 +2001,7 @@ const TRANSLATIONS = {
         ionizerEntity: "Entidad del ionizador",
         temperatureEntity: "Entidad de temperatura",
         humidityEntity: "Entidad de humedad",
+        accent: "Color de acento",
         background: "Fondo",
         border: "Borde",
         borderRadius: "Radio del borde",
@@ -2152,6 +2155,7 @@ const TRANSLATIONS = {
         ionizerEntity: "Entité de l'ioniseur",
         temperatureEntity: "Entité de température",
         humidityEntity: "Entité d'humidité",
+        accent: "Couleur d'accent",
         background: "Arrière-plan",
         border: "Bordure",
         borderRadius: "Rayon de bordure",
@@ -2305,6 +2309,7 @@ const TRANSLATIONS = {
         ionizerEntity: "Entità ionizzatore",
         temperatureEntity: "Entità temperatura",
         humidityEntity: "Entità umidità",
+        accent: "Colore accento",
         background: "Sfondo",
         border: "Bordo",
         borderRadius: "Raggio bordo",
@@ -2401,6 +2406,7 @@ const FIELD_TRANSLATIONS = {
     columns: "columns",
     order: "order",
     card: "card",
+    accent: "accent",
     background: "background",
     border: "border",
     border_radius: "borderRadius",
@@ -2452,8 +2458,8 @@ const OPTION_TRANSLATIONS = {
     "selection_mode.select": "select",
     "timer_mode.cycle": "cycle",
     "timer_mode.select": "select",
-    "angle_mode.select": "select",
     "angle_mode.cycle": "cycle",
+    "angle_mode.select": "select",
     "position.below": "below",
     "position.side": "side",
     "theme.auto": "auto",
@@ -2613,6 +2619,7 @@ const getAirflowAxis = (horizontal, vertical) => {
 
 const TIMER_STEPS = [0, 60, 120, 180, 240, 300, 360, 420, 480];
 const STYLE_VARIABLES = {
+    accent: "accent",
     background: "background",
     border: "border",
     border_radius: "border-radius",
@@ -2624,11 +2631,20 @@ const STYLE_VARIABLES = {
     shadow: "shadow",
     size: "size",
 };
+/**
+ * Accent drives every tint through color-mix, so it has to land on the shared
+ * variable instead of a block scoped one, and inline styles are what lets it
+ * win over a theme class.
+ */
+const GLOBAL_STYLE_VARIABLES = {
+    accent: "--fan-accent",
+};
 const asHassLike = (hass) => hass;
 const styleMapFor = (group, prefix) => Object.entries(group).reduce((styles, [key, value]) => {
-    const variable = STYLE_VARIABLES[key];
+    const token = key;
+    const variable = STYLE_VARIABLES[token];
     if (variable && typeof value === "string") {
-        styles[`--${prefix}-${variable}`] = value;
+        styles[GLOBAL_STYLE_VARIABLES[token] ?? `--${prefix}-${variable}`] = value;
     }
     return styles;
 }, {});
@@ -2880,7 +2896,12 @@ class XiaomiFanCard extends i$2 {
         return b `
       <header class="header" style=${o(styleMapFor(this.config.styles.header, "fan-header"))}>
         <button class="title-button" @click=${this.onHeaderClick} aria-label=${this.t("open", { title })}>
-          ${this.config.header.show_eyebrow ? b `<span class="eyebrow">${this.t("xiaomiAirCirculation")}</span>` : ""}
+          ${
+        // The eyebrow names a Xiaomi product line, so a generic fan entity
+        // must never claim it even when the full header is active.
+        this.config.header.show_eyebrow && adapter.capabilities.isXiaomi
+            ? b `<span class="eyebrow">${this.t("xiaomiAirCirculation")}</span>`
+            : ""}
           ${this.config.header.show_name ? b `<span class="title">${title}</span>` : ""}
           ${this.config.header.show_status || this.config.header.show_mode
             ? b `

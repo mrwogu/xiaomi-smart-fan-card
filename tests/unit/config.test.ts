@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { normalizeCardConfig } from "../../src/config";
 
 describe("normalizeCardConfig", () => {
-  it("keeps legacy aliases and resolves a compact header", () => {
+  it("keeps legacy aliases and resolves the default full header", () => {
     const config = normalizeCardConfig({
       type: "custom:xiaomi-fan-card",
       entity_id: "fan.p76",
@@ -15,6 +15,21 @@ describe("normalizeCardConfig", () => {
     expect(config.integration).toBe("xiaomi_miio_fan");
     expect(config.controls.show_sleep).toBe(false);
     expect(config.controls.show_led).toBe(false);
+    expect(config.header.variant).toBe("full");
+    expect(config.header.show_eyebrow).toBe(true);
+    expect(config.header.show_mode).toBe(true);
+    expect(config.header.show_model).toBe(true);
+    expect(config.controls.timer_mode).toBe("cycle");
+    expect(config.controls.angle_mode).toBe("cycle");
+  });
+
+  it("collapses the compact header metadata", () => {
+    const config = normalizeCardConfig({
+      type: "custom:xiaomi-fan-card",
+      entity: "fan.example",
+      header: { variant: "compact" },
+    });
+
     expect(config.header.variant).toBe("compact");
     expect(config.header.show_eyebrow).toBe(false);
     expect(config.header.show_mode).toBe(false);
@@ -82,14 +97,15 @@ describe("normalizeCardConfig", () => {
       type: "custom:xiaomi-fan-card",
       entity: "fan.example",
       styles: {
-        card: { size: "40px", height: "40px", padding: "20px" },
-        visual: { size: "220px" },
+        card: { size: "40px", height: "40px", padding: "20px", accent: "#ff7a59" },
+        visual: { size: "220px", accent: "#ff7a59" },
         controls: { height: "52px" },
         details: { height: "40px" },
       },
     });
 
-    expect(config.styles.card).toEqual({ padding: "20px" });
+    expect(config.styles.card).toEqual({ padding: "20px", accent: "#ff7a59" });
+    expect("accent" in config.styles.visual).toBe(false);
     expect(config.styles.visual.size).toBe("220px");
     expect(config.styles.controls.height).toBe("52px");
     expect(config.styles.details).toEqual({});
@@ -115,16 +131,17 @@ describe("normalizeCardConfig", () => {
       theme: "unknown" as never,
       integration: "unknown" as never,
       header: { variant: "large" as never },
-      controls: { selection_mode: "grid" as never, angle_mode: "grid" as never },
+      controls: { selection_mode: "grid" as never, angle_mode: "grid" as never, timer_mode: "grid" as never },
       details: { position: "inline" as never },
       layout: { density: "dense" as never },
     });
 
     expect(config.theme).toBe("auto");
     expect(config.integration).toBe("auto");
-    expect(config.header.variant).toBe("compact");
+    expect(config.header.variant).toBe("full");
     expect(config.controls.selection_mode).toBe("auto");
-    expect(config.controls.angle_mode).toBe("select");
+    expect(config.controls.angle_mode).toBe("cycle");
+    expect(config.controls.timer_mode).toBe("cycle");
     expect(config.controls.show_nudge_with_angles).toBe(false);
     expect(config.details.position).toBe("below");
     expect(config.details.show_timer_when_off).toBe(true);
