@@ -43,45 +43,24 @@ Capability-aware. Five themes. Native visual editor. No telemetry.
 
 ## Five themes, one card
 
-One option, `layout.theme`, changes the entire surface. Same entity, same
-controls, same state.
+One option, `layout.theme`, changes the entire surface. Same entity, same state,
+same controls, five looks. The hero above is `auto` in light mode; the loop
+below cycles all five in dark mode.
 
-The hero above is the auto theme in light mode. Below is the same card, same
-state, in dark mode.
+<div align="center">
+  <img src="docs/media/themes-cycle.webp" alt="The same card cycling through the auto, mushroom, minimal, glass, and industrial themes" width="420">
+</div>
 
-<table>
-  <tr>
-    <td align="center" width="50%">
-      <a href="docs/media/two-columns-full-theme-auto.webp"><img src="docs/media/thumbs/two-columns-full-theme-auto.webp" alt="Auto theme following the Home Assistant theme" width="360"></a><br>
-      <strong>Auto</strong><br><code>layout.theme: auto</code><br>
-      Inherits your Home Assistant colors, radius, and shadow.
-    </td>
-    <td align="center" width="50%">
-      <a href="docs/media/two-columns-full-theme-mushroom.webp"><img src="docs/media/thumbs/two-columns-full-theme-mushroom.webp" alt="Mushroom theme with rounded pills and soft panels" width="360"></a><br>
-      <strong>Mushroom</strong><br><code>layout.theme: mushroom</code><br>
-      Soft panels and pill controls for Mushroom dashboards.
-    </td>
-  </tr>
-  <tr>
-    <td align="center" width="50%">
-      <a href="docs/media/two-columns-full-theme-minimal.webp"><img src="docs/media/thumbs/two-columns-full-theme-minimal.webp" alt="Minimal theme without borders" width="360"></a><br>
-      <strong>Minimal</strong><br><code>layout.theme: minimal</code><br>
-      No chrome, no borders, content first.
-    </td>
-    <td align="center" width="50%">
-      <a href="docs/media/two-columns-full-theme-glass.webp"><img src="docs/media/thumbs/two-columns-full-theme-glass.webp" alt="Glass theme with translucent blurred surface" width="360"></a><br>
-      <strong>Glass</strong><br><code>layout.theme: glass</code><br>
-      Translucent surface with backdrop blur.
-    </td>
-  </tr>
-  <tr>
-    <td align="center" colspan="2">
-      <a href="docs/media/two-columns-full-theme-industrial.webp"><img src="docs/media/thumbs/two-columns-full-theme-industrial.webp" alt="Industrial theme with monospace metrics and amber accent" width="360"></a><br>
-      <strong>Industrial</strong><br><code>layout.theme: industrial</code><br>
-      Technical labels, monospace metrics, amber accent.
-    </td>
-  </tr>
-</table>
+| Theme      | `layout.theme` | What changes                                                     |
+| ---------- | -------------- | ---------------------------------------------------------------- |
+| Auto       | `auto`         | Inherits your Home Assistant colors, radius, and shadow          |
+| Mushroom   | `mushroom`     | Soft tinted panels and pill controls                             |
+| Minimal    | `minimal`      | No borders, no shadow, content first                             |
+| Glass      | `glass`        | Translucent surface with backdrop blur                           |
+| Industrial | `industrial`   | Sharp corners, uppercase labels, monospace metrics, amber accent |
+
+Themes only override design tokens, so your Home Assistant theme still drives
+text, background, and accent unless a theme deliberately claims one.
 
 ## Layouts that fit your dashboard
 
@@ -114,8 +93,8 @@ state, in dark mode.
     <td align="center" colspan="2">
       <a href="docs/media/one-column-theme-auto.webp"><img src="docs/media/thumbs/one-column-theme-auto.webp" alt="All controls stacked in a single column" width="300"></a><br>
       <strong>One control column</strong><br>
-      <code>layout.columns: one</code> stacks every control group; the shots above
-      use <code>two</code>.
+      <code>layout.columns: one</code> stacks every control group; the dashboard
+      shots above use <code>two</code>.
     </td>
   </tr>
 </table>
@@ -401,9 +380,9 @@ The production bundle is tracked for HACS at `dist/xiaomi-fan-card.js`. See
 release automation, and generated PromptScript instructions.
 
 Media lives in `docs/media` as WebP: full captures at their native width,
-cropped 560 px thumbnails in `docs/media/thumbs` for the galleries, and
-animations at 560 px and 10 fps. Recording sources stay local and are ignored by
-git. Keep published media redacted: no tokens, hostnames, locations, device
+cropped 560 px thumbnails in `docs/media/thumbs` for the galleries, screen
+recordings at 560 px and 10 fps, and the theme loop rendered headless at 1.5x so
+every frame shares one box. Recording sources stay local and are ignored by git. Keep published media redacted: no tokens, hostnames, locations, device
 identifiers, or personal dashboards.
 
 ## License
