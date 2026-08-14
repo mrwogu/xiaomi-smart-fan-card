@@ -3072,12 +3072,14 @@ class XiaomiFanCard extends i {
       display: block;
       container-type: inline-size;
       --fan-accent: var(--state-fan-active-color, var(--state-active-color, #5c8dff));
+      --fan-background: var(--ha-card-background, var(--card-background-color, #1c1c1c));
       --fan-accent-soft: color-mix(in srgb, var(--fan-accent) 18%, transparent);
-      --fan-surface: color-mix(in srgb, var(--ha-card-background, var(--card-background-color)) 88%, var(--fan-accent));
-      --fan-panel: color-mix(in srgb, var(--card-background-color) 48%, transparent);
-      --fan-text: var(--primary-text-color);
+      --fan-surface: color-mix(in srgb, var(--fan-background) 88%, var(--fan-accent));
+      --fan-panel: color-mix(in srgb, var(--fan-background) 48%, transparent);
+      --fan-control-surface: color-mix(in srgb, var(--fan-background) 42%, var(--fan-panel));
+      --fan-text: var(--primary-text-color, #f5f7fb);
       --fan-text-muted: var(--secondary-text-color, #8a8f9d);
-      --fan-border: color-mix(in srgb, var(--primary-text-color) 10%, transparent);
+      --fan-border: color-mix(in srgb, var(--fan-text) 18%, transparent);
       --fan-shadow: var(--ha-card-box-shadow, 0 12px 32px rgb(0 0 0 / 12%));
       --fan-focus: var(--ha-focus-color, var(--primary-color, var(--fan-accent)));
       --fan-radius-card: 28px;
@@ -3300,9 +3302,9 @@ class XiaomiFanCard extends i {
       z-index: 2;
       width: 46%;
       aspect-ratio: 1;
-      border: 12px solid color-mix(in srgb, var(--fan-accent) 18%, var(--card-background-color));
+      border: 12px solid color-mix(in srgb, var(--fan-accent) 18%, var(--fan-background));
       border-radius: 50%;
-      background: color-mix(in srgb, var(--fan-accent) 7%, var(--card-background-color));
+      background: color-mix(in srgb, var(--fan-accent) 7%, var(--fan-background));
       box-shadow:
         inset 0 0 0 1px var(--fan-accent-soft),
         0 18px 40px rgb(0 0 0 / 16%);
@@ -3382,7 +3384,7 @@ class XiaomiFanCard extends i {
     }
 
     .speed-readout strong {
-      color: var(--primary-text-color);
+      color: var(--fan-text);
       font-size: 22px;
       line-height: 1;
     }
@@ -3555,11 +3557,14 @@ class XiaomiFanCard extends i {
     .feature-button {
       min-width: 0;
       min-height: var(--fan-control-height);
+      color: var(--fan-text);
+    }
+
+    .feature-button {
       padding: 11px;
       border: 1px solid var(--fan-border);
       border-radius: var(--fan-radius-control);
-      background: var(--fan-panel);
-      color: var(--primary-text-color);
+      background: var(--fan-control-surface);
     }
 
     .feature-select,
@@ -3571,15 +3576,35 @@ class XiaomiFanCard extends i {
       font-weight: 700;
     }
 
+    .feature-select {
+      align-self: start;
+    }
+
+    .feature-select,
+    .nudge-control {
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+    }
+
+    .feature-select > span,
+    .nudge-control > span {
+      color: color-mix(in srgb, var(--fan-text) 72%, transparent);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
     .feature-select select,
     .feature-select input[type="number"] {
       box-sizing: border-box;
       min-height: var(--fan-control-height);
       width: 100%;
-      border: 1px solid var(--input-outlined-idle-border-color, var(--fan-border));
-      border-radius: var(--fan-radius-control);
+      padding: 0 12px;
+      border: 1px solid color-mix(in srgb, var(--fan-text) 36%, transparent);
+      border-radius: 12px;
       outline: none;
-      background: var(--input-fill-color, transparent);
+      background: var(--fan-control-surface);
       color: var(--input-ink-color, var(--fan-text));
       font-size: 14px;
       font-weight: 750;
@@ -3587,12 +3612,12 @@ class XiaomiFanCard extends i {
 
     .feature-select select:hover,
     .feature-select input[type="number"]:hover {
-      border-color: var(--input-outlined-hover-border-color, var(--fan-accent-soft));
+      border-color: color-mix(in srgb, var(--fan-accent) 64%, transparent);
     }
 
     .feature-select select:focus-visible,
     .feature-select input[type="number"]:focus-visible {
-      border-color: var(--input-outlined-focus-border-color, var(--fan-focus));
+      border-color: var(--fan-focus);
     }
 
     .feature-button {
@@ -3636,12 +3661,22 @@ class XiaomiFanCard extends i {
         ". up ."
         "left center right"
         ". down .";
-      gap: 4px;
+      align-items: center;
+      justify-items: center;
+      gap: 6px;
+      max-width: 180px;
+      margin: 0 auto;
+      padding: 6px;
+      border: 1px solid var(--fan-border);
+      border-radius: 16px;
+      background: color-mix(in srgb, var(--fan-panel) 72%, transparent);
     }
 
     .nudge-grid button {
-      min-height: var(--fan-control-height);
-      border-radius: var(--fan-radius-control);
+      width: 44px;
+      min-height: 44px;
+      padding: 0;
+      border-radius: 50%;
       background: var(--fan-accent-soft);
       color: var(--fan-accent);
     }
@@ -3694,21 +3729,21 @@ class XiaomiFanCard extends i {
     }
 
     .theme-mushroom {
-      --fan-panel: color-mix(in srgb, var(--fan-accent) 8%, var(--card-background-color));
+      --fan-panel: color-mix(in srgb, var(--fan-accent) 8%, var(--fan-background));
       --fan-radius-card: 30px;
       --fan-radius-panel: 24px;
-      --fan-radius-control: 999px;
+      --fan-radius-control: 14px;
       --fan-visual-size: 270px;
       --fan-shadow: 0 14px 32px rgb(0 0 0 / 10%);
     }
 
     .theme-glass {
-      --fan-panel: color-mix(in srgb, var(--card-background-color) 28%, transparent);
+      --fan-panel: color-mix(in srgb, var(--fan-background) 28%, transparent);
       --fan-radius-card: 28px;
       --fan-radius-panel: 20px;
       --fan-radius-control: 14px;
       --fan-shadow: 0 20px 50px rgb(0 0 0 / 18%);
-      background: color-mix(in srgb, var(--card-background-color) 54%, transparent);
+      background: color-mix(in srgb, var(--fan-background) 54%, transparent);
       backdrop-filter: blur(18px);
     }
 
@@ -3717,7 +3752,7 @@ class XiaomiFanCard extends i {
       --fan-radius-card: 8px;
       --fan-radius-panel: 6px;
       --fan-radius-control: 4px;
-      --fan-panel: color-mix(in srgb, #e9a23b 5%, var(--card-background-color));
+      --fan-panel: color-mix(in srgb, #e9a23b 5%, var(--fan-background));
       --fan-shadow: none;
       --fan-display-font: ui-monospace, SFMono-Regular, Menlo, monospace;
       --fan-visual-size: 270px;
