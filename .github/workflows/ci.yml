@@ -62,6 +62,10 @@ jobs:
     permissions:
       contents: read
     steps:
+      # Codecov needs the git tree to build the report network and fix paths.
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
       - name: Download coverage artifact
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
@@ -76,4 +80,5 @@ jobs:
           flags: unit
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: true
           version: v11.3.1
