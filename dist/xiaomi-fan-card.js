@@ -2901,8 +2901,7 @@ class XiaomiFanCard extends i$2 {
     }
     renderVisual(adapter) {
         const state = adapter.state;
-        const previewed = this.speedPreview ?? state.percentage;
-        const speed = state.isOn || this.speedPreview !== undefined ? previewed : 0;
+        const speed = this.speedPreview ?? (state.isOn ? state.percentage : 0);
         const style = `--speed:${speed}; --spin-duration:${Math.max(1.8, 12 - speed / 11)}s;`;
         const axis = getAirflowAxis(state.horizontalSwing, state.verticalSwing);
         const animationDisabled = this.config.disable_animation || this.config.visual.animation === "disabled";
@@ -2945,7 +2944,7 @@ class XiaomiFanCard extends i$2 {
                   ${this.config.visual.show_speed
                 ? b `
                           <span class="speed-readout">
-                            <strong>${previewed}%</strong>
+                            <strong>${speed}%</strong>
                             <small>${this.t("airflow")}</small>
                           </span>
                         `
@@ -3803,6 +3802,10 @@ class XiaomiFanCard extends i$2 {
       animation: rotor-spin var(--spin-duration) linear infinite;
     }
 
+    .airflow-visual:not(.running) .rotor {
+      opacity: 0.55;
+    }
+
     .blade {
       position: absolute;
       top: 50%;
@@ -3851,11 +3854,14 @@ class XiaomiFanCard extends i$2 {
       place-items: center;
       width: 60px;
       height: 60px;
-      border: 5px solid var(--fan-surface);
+      border: 5px solid var(--fan-background);
       border-radius: 50%;
-      background: var(--fan-accent-soft);
-      color: var(--fan-text-muted);
-      box-shadow: 0 8px 24px rgb(0 0 0 / 18%);
+      /* Opaque so the icon keeps card-level contrast over the lit blades. */
+      background: var(--fan-background);
+      color: var(--fan-text);
+      box-shadow:
+        0 0 0 1px var(--fan-border),
+        0 8px 24px rgb(0 0 0 / 18%);
       transition:
         background-color var(--fan-transition),
         color var(--fan-transition),
@@ -4419,9 +4425,12 @@ class XiaomiFanCard extends i$2 {
         color: var(--fan-accent);
       }
 
-      .power-button:hover,
       .nudge-grid button:hover {
         background: var(--fan-accent-hover);
+      }
+
+      .power-button:hover {
+        background: color-mix(in srgb, var(--fan-background) 74%, var(--fan-accent));
       }
 
       .power-button.active:hover {

@@ -448,6 +448,7 @@ describe("XiaomiFanCard", () => {
     card.hass = hass as unknown as HomeAssistant;
     card.setConfig({
       ...baseConfig,
+      visual: { show: true, show_graphic: true, show_speed: true },
       controls: { ...baseConfig.controls, show_speed_slider: true, show_speed_levels: true },
     });
     document.body.append(card);
@@ -457,6 +458,8 @@ describe("XiaomiFanCard", () => {
     expect(root?.querySelector(".value")?.textContent?.trim()).toBe("0%");
     expect((root?.querySelector(".speed-slider") as HTMLInputElement).value).toBe("0");
     expect(root?.querySelector(".level-button.selected")).toBeNull();
+    expect(root?.querySelector(".speed-readout strong")?.textContent).toBe("0%");
+    expect(root?.querySelector(".airflow-visual")?.classList.contains("running")).toBe(false);
   });
 
   it("renders details as labelled list items with the sensor unit", async () => {
