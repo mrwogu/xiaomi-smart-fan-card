@@ -19,6 +19,7 @@ concurrency:
 jobs:
   validate:
     name: Validate HACS plugin
+    if: github.event.repository.visibility == 'public'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
