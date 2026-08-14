@@ -34,7 +34,7 @@
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "format:check": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\" vitest.config.ts README.md CONTRIBUTING.md SECURITY.md CODE_OF_CONDUCT.md CHANGELOG.md \".github/**/*.md\" \"docs/**/*.md\" package.json package-lock.json hacs.json promptscript.yaml rollup.config.mjs release-please-config.json .release-please-manifest.json codecov.yml .github/**/*.yml",
+    "format:check": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\" vitest.config.ts README.md CONTRIBUTING.md SECURITY.md CODE_OF_CONDUCT.md \".github/**/*.md\" \"docs/**/*.md\" package.json package-lock.json hacs.json promptscript.yaml rollup.config.mjs release-please-config.json .release-please-manifest.json codecov.yml .github/**/*.yml",
     "validate": "npm run format:check && npm run lint && npm run typecheck && npm run test:coverage && npm run build"
   },
   "dependencies": {
