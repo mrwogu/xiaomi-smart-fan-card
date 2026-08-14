@@ -19,6 +19,11 @@ const FIELD_TRANSLATIONS: Record<string, TranslationKey> = {
   layout: "layout",
   styles: "styles",
   related_entities: "relatedEntities",
+  speed: "speed",
+  modes: "modes",
+  oscillation: "swing",
+  angles: "angles",
+  features: "fanFeatures",
   show: "show",
   variant: "variant",
   show_eyebrow: "eyebrow",
@@ -62,10 +67,6 @@ const FIELD_TRANSLATIONS: Record<string, TranslationKey> = {
   columns: "columns",
   order: "order",
   card: "card",
-  header_style: "header",
-  visual_style: "visual",
-  controls_style: "controls",
-  details_style: "details",
   background: "background",
   border: "border",
   border_radius: "borderRadius",
@@ -88,6 +89,19 @@ const FIELD_TRANSLATIONS: Record<string, TranslationKey> = {
   ionizer_entity: "ionizerEntity",
   temperature_entity: "temperatureEntity",
   humidity_entity: "humidityEntity",
+};
+
+const FIELD_HELPERS: Record<string, TranslationKey> = {
+  integration: "helperIntegration",
+  selection_mode: "helperSelectionMode",
+  timer_mode: "helperTimerMode",
+  angle_mode: "helperAngleMode",
+  show_nudge_with_angles: "helperNudgeWithAngles",
+  theme: "helperTheme",
+  density: "helperDensity",
+  columns: "helperColumns",
+  order: "helperOrder",
+  styles: "helperStyles",
 };
 
 const OPTION_TRANSLATIONS: Record<string, TranslationKey> = {
@@ -147,6 +161,7 @@ export class XiaomiFanCardEditor extends LitElement implements LovelaceCardEdito
         .data=${this.config}
         .schema=${schema}
         .computeLabel=${this.computeLabel}
+        .computeHelper=${this.computeHelper}
         .localizeValue=${this.localizeValue}
         @value-changed=${this.handleValueChanged}
       ></ha-form>
@@ -156,6 +171,11 @@ export class XiaomiFanCardEditor extends LitElement implements LovelaceCardEdito
   private computeLabel = (schema: FormSchema): string => {
     const key = FIELD_TRANSLATIONS[schema.name];
     return key ? this.t(key) : schema.name;
+  };
+
+  private computeHelper = (schema: FormSchema): string | undefined => {
+    const key = FIELD_HELPERS[schema.name];
+    return key ? this.t(key) : undefined;
   };
 
   private localizeValue = (key: string): string => {

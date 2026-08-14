@@ -16,6 +16,23 @@ const services = {
   },
 };
 
+type SchemaField = Record<string, unknown> & { name?: string; type?: string; schema?: SchemaField[] };
+
+const flattenGrids = (schema: SchemaField[]): SchemaField[] =>
+  schema.flatMap((field) => (field.type === "grid" && field.schema ? flattenGrids(field.schema) : [field]));
+
+const findPanel = (schema: SchemaField[], name: string): SchemaField => {
+  const panel = schema.find((field) => field.name === name);
+  if (!panel?.schema) {
+    throw new Error(`Missing panel: ${name}`);
+  }
+
+  return panel;
+};
+
+const panelFields = (schema: SchemaField[], name: string): SchemaField[] =>
+  flattenGrids(findPanel(schema, name).schema!);
+
 const createHass = (timerValue = "120", verticalAngleValue = "30") => {
   const callService = vi.fn(
     async (_domain: string, _service: string, _serviceData?: Record<string, unknown>): Promise<void> => undefined,
@@ -47,6 +64,14 @@ const createHass = (timerValue = "120", verticalAngleValue = "30") => {
     "number.fan_timer": {
       state: timerValue,
       attributes: { min: 0, max: 480, step: 60, unit_of_measurement: "min" },
+    },
+    "sensor.fan_temperature": {
+      state: "70.5",
+      attributes: { unit_of_measurement: "°F" },
+    },
+    "sensor.fan_humidity": {
+      state: "48",
+      attributes: {},
     },
   };
   const hass: HassLike = {
@@ -290,36 +315,151 @@ describe("XiaomiFanCard", () => {
   });
 
   it("exposes native entity selectors through the config form", () => {
-    const schema = XiaomiFanCard.getConfigForm().schema as Array<Record<string, unknown>>;
+    const schema = XiaomiFanCard.getConfigForm().schema as SchemaField[];
     const entity = schema.find((field) => field.name === "entity") as {
       selector: { entity: { domain: string[] } };
     };
-    const related = schema.find((field) => field.name === "related_entities") as {
-      schema: Array<Record<string, unknown>>;
-    };
-    const details = schema.find((field) => field.name === "details") as {
-      schema: Array<Record<string, unknown>>;
-    };
-    const timer = related.schema.find((field) => field.name === "timer_entity") as {
+    const related = findPanel(schema, "related_entities");
+    const timer = related.schema!.find((field) => field.name === "timer_entity") as {
       selector: { entity: { domain: string[] } };
-    };
-    const header = schema.find((field) => field.name === "header") as {
-      schema: Array<Record<string, unknown>>;
-    };
-    const controls = schema.find((field) => field.name === "controls") as {
-      schema: Array<Record<string, unknown>>;
     };
 
     expect(entity.selector.entity.domain).toEqual(["fan"]);
     expect(related.schema).toHaveLength(12);
     expect(timer.selector.entity.domain).toEqual(["number", "input_number"]);
-    expect(details.schema.some((field) => field.name === "show_timer_when_off")).toBe(true);
-    expect(header.schema.find((field) => field.name === "show_name")?.visible).toEqual([
+    expect(panelFields(schema, "details").some((field) => field.name === "show_timer_when_off")).toBe(true);
+    expect(panelFields(schema, "header").find((field) => field.name === "show_name")?.visible).toEqual([
       { field: "show", value: true },
     ]);
-    expect(controls.schema.find((field) => field.name === "show_timer")?.visible).toEqual([
+  });
+
+  it("groups control toggles into flattened sub panels that keep their conditions", () => {
+    const schema = XiaomiFanCard.getConfigForm().schema as SchemaField[];
+    const controls = findPanel(schema, "controls");
+    const groups = controls.schema!.filter((field) => field.type === "expandable");
+    const features = panelFields(controls.schema!, "features");
+
+    expect(groups.map((group) => group.name)).toEqual(["speed", "modes", "oscillation", "angles", "features"]);
+    expect(groups.every((group) => group.flatten === true)).toBe(true);
+    expect(groups.every((group) => typeof group.icon === "string")).toBe(true);
+    expect(features.find((field) => field.name === "show_timer")?.visible).toEqual([{ field: "show", value: true }]);
+    expect(
+      panelFields(controls.schema!, "angles").find((field) => field.name === "show_nudge_with_angles")?.visible,
+    ).toEqual([
       { field: "show", value: true },
+      { field: "show_nudge", value: true },
     ]);
+  });
+
+  it("offers only styling tokens that the stylesheet consumes", () => {
+    const schema = XiaomiFanCard.getConfigForm().schema as SchemaField[];
+    const styles = findPanel(schema, "styles");
+    const tokens = (name: string) => panelFields(styles.schema!, name).map((field) => field.name);
+
+    expect(tokens("card")).not.toContain("size");
+    expect(tokens("card")).not.toContain("height");
+    expect(tokens("visual")).toContain("size");
+    expect(tokens("controls")).toContain("height");
+    expect(tokens("details")).toEqual([
+      "background",
+      "border",
+      "border_radius",
+      "color",
+      "font_size",
+      "gap",
+      "padding",
+      "shadow",
+    ]);
+  });
+
+  it("reports a layout size for masonry and section dashboards", async () => {
+    const { card } = await renderCard({
+      ...baseConfig,
+      header: { show: true, variant: "full" },
+      visual: { show: true, show_graphic: true },
+    });
+
+    expect(card.getCardSize()).toBeGreaterThan(4);
+    expect(card.getGridOptions()).toEqual({
+      columns: 12,
+      rows: card.getCardSize(),
+      min_columns: 6,
+      min_rows: 2,
+    });
+  });
+
+  it("previews the dragged speed before committing it to the fan", async () => {
+    const { card, callService } = await renderCard({
+      ...baseConfig,
+      controls: { ...baseConfig.controls, show_speed_slider: true },
+    });
+    const root = card.shadowRoot;
+    const slider = root?.querySelector(".speed-slider") as HTMLInputElement;
+
+    slider.value = "80";
+    slider.dispatchEvent(new Event("input"));
+    await settle(card);
+
+    expect(root?.querySelector(".value")?.textContent).toContain("80%");
+    expect(slider.getAttribute("style")).toContain("--fan-speed-progress");
+    expect(callService).not.toHaveBeenCalled();
+
+    slider.dispatchEvent(new Event("change"));
+    await settle(card);
+
+    expect(callService).toHaveBeenCalledWith("fan", "set_percentage", {
+      entity_id: "fan.p76",
+      percentage: 80,
+    });
+  });
+
+  it("renders details as labelled list items with the sensor unit", async () => {
+    const { card } = await renderCard({
+      ...baseConfig,
+      visual: { show: true, show_graphic: false, show_details: true },
+      details: {
+        show_horizontal_angle: true,
+        show_vertical_angle: false,
+        show_timer: true,
+        show_temperature: true,
+        show_humidity: false,
+      },
+      related_entities: {
+        ...baseConfig.related_entities,
+        temperature_entity: "sensor.fan_temperature",
+      },
+    });
+    const items = [...(card.shadowRoot?.querySelectorAll(".visual-meta .meta-item") ?? [])];
+
+    expect(card.shadowRoot?.querySelector(".visual-meta")?.getAttribute("role")).toBe("list");
+    expect(items.every((item) => item.getAttribute("role") === "listitem")).toBe(true);
+    expect(items.every((item) => Boolean(item.querySelector('ha-icon[aria-hidden="true"]')))).toBe(true);
+    expect(items.map((item) => item.getAttribute("aria-label"))).toEqual([
+      "Horizontal angle 60 degrees",
+      "Timer: 2h",
+      "Temperature: 70.5°F",
+    ]);
+    expect(items.at(-1)?.textContent).toContain("70.5°F");
+  });
+
+  it("falls back to default units when a related sensor reports none", async () => {
+    const { card } = await renderCard({
+      ...baseConfig,
+      visual: { show: true, show_graphic: false, show_details: true },
+      details: {
+        show_horizontal_angle: false,
+        show_vertical_angle: false,
+        show_timer: false,
+        show_temperature: false,
+        show_humidity: true,
+      },
+      related_entities: {
+        ...baseConfig.related_entities,
+        humidity_entity: "sensor.fan_humidity",
+      },
+    });
+
+    expect(card.shadowRoot?.querySelector(".visual-meta")?.textContent).toContain("48%");
   });
 
   it("localizes native editor labels and option values", async () => {
@@ -334,7 +474,22 @@ describe("XiaomiFanCard", () => {
 
     expect(editor.computeLabel({ name: "header" })).toBe("Nagłówek");
     expect(editor.computeLabel({ name: "show_horizontal_angle" })).toBe("Kąt poziomy");
+    expect(editor.computeLabel({ name: "angles" })).toBe("Kąty i pozycja");
     expect(editor.localizeValue("angle_mode.options.cycle")).toBe("Cykl");
     expect(editor.localizeValue("integration.options.xiaomi_miio_fan")).toBe("Wentylator Xiaomi Miio");
+  });
+
+  it("explains ambiguous editor fields with localized helper text", async () => {
+    const editor = (await XiaomiFanCard.getConfigElement()) as unknown as {
+      hass?: HomeAssistant;
+      setConfig: (config: FanCardConfig) => void;
+      computeHelper: (schema: { name: string }) => string | undefined;
+    };
+    editor.hass = { language: "en" } as HomeAssistant;
+    editor.setConfig(baseConfig);
+
+    expect(editor.computeHelper({ name: "selection_mode" })).toContain("buttons");
+    expect(editor.computeHelper({ name: "styles" })).toContain("CSS");
+    expect(editor.computeHelper({ name: "show_led" })).toBeUndefined();
   });
 });

@@ -326,7 +326,7 @@ These keys are still accepted for older YAML configurations. The nested
 | `details.show_horizontal_angle` | `true`  | Show the current horizontal angle.                        |
 | `details.show_vertical_angle`   | `true`  | Show the current vertical angle.                          |
 | `details.show_timer`            | `true`  | Show the current timer value.                             |
-| `details.show_timer_when_off`   | `true`  | Keep the `NO TIMER` detail visible when the timer is off. |
+| `details.show_timer_when_off`   | `true`  | Keep the timer detail visible when the timer is off.      |
 | `details.show_temperature`      | `true`  | Show temperature when available.                          |
 | `details.show_humidity`         | `true`  | Show humidity when available.                             |
 | `details.position`              | `below` | Place details below the graphic or beside it with `side`. |
@@ -343,10 +343,13 @@ These keys are still accepted for older YAML configurations. The nested
 #### `styles`
 
 `styles` contains typed CSS token groups for `card`, `header`, `visual`,
-`controls`, and `details`. Each group accepts `background`, `border`,
-`border_radius`, `color`, `font_size`, `gap`, `height`, `padding`, `shadow`,
-and `size`. Values are CSS values, for example `18px`, `0.8rem`, or
-`1px solid rgba(120, 140, 180, 0.35)`. Unsupported keys are ignored.
+`controls`, and `details`. Every group accepts `background`, `border`,
+`border_radius`, `color`, `font_size`, `gap`, `padding`, and `shadow`.
+Two tokens are group specific: `visual` also accepts `size` for the graphic
+diameter, and `controls` also accepts `height` for the minimum control height.
+Values are CSS values, for example `18px`, `0.8rem`, or
+`1px solid rgba(120, 140, 180, 0.35)`. Keys that the stylesheet does not
+consume are ignored and are not offered by the visual editor.
 
 #### `related_entities`
 
@@ -374,11 +377,21 @@ while each `show_*` option can still override that behavior.
 When `details.show_timer_when_off` is `false`, the inactive timer detail is
 hidden while an active timer remains visible. `details.position: side` places
 temperature, humidity, angle, and timer details beside the graphic on wide
-cards and falls back below the graphic on narrow cards.
+cards and falls back below the graphic on narrow cards. Temperature and
+humidity details use the `unit_of_measurement` of the resolved sensor, so a
+Fahrenheit sensor renders `°F` without extra configuration.
+
+The card reports its own size to Home Assistant. Masonry dashboards use
+`getCardSize`, and sections dashboards use `getGridOptions` with a
+twelve-column default whose row count follows the enabled header variant,
+graphic, and control groups.
 
 The visual editor uses Home Assistant's native form schema. The fan and related
 entity fields therefore use Home Assistant entity selectors with domain filters,
 search, and the current entity registry instead of a card-maintained list.
+Options are grouped into collapsible panels with icons, related switches are
+paired side by side, the block order field supports drag and drop reordering,
+and ambiguous fields carry helper text below the control.
 
 Timer controls use minutes. Related numeric timer entities with
 `unit_of_measurement` set to `s`, `sec`, `second`, or `seconds` are converted

@@ -77,6 +77,24 @@ describe("normalizeCardConfig", () => {
     expect("unknown" in config.styles.card).toBe(false);
   });
 
+  it("keeps only the styling tokens each block consumes", () => {
+    const config = normalizeCardConfig({
+      type: "custom:xiaomi-fan-card",
+      entity: "fan.example",
+      styles: {
+        card: { size: "40px", height: "40px", padding: "20px" },
+        visual: { size: "220px" },
+        controls: { height: "52px" },
+        details: { height: "40px" },
+      },
+    });
+
+    expect(config.styles.card).toEqual({ padding: "20px" });
+    expect(config.styles.visual.size).toBe("220px");
+    expect(config.styles.controls.height).toBe("52px");
+    expect(config.styles.details).toEqual({});
+  });
+
   it("expands the full header defaults", () => {
     const config = normalizeCardConfig({
       type: "custom:xiaomi-fan-card",

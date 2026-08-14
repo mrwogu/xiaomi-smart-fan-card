@@ -22,18 +22,28 @@ import type {
 
 export const DEFAULT_BLOCK_ORDER: readonly FanBlock[] = ["header", "visual", "airflow", "position", "features"];
 
-const STYLE_TOKEN_KEYS: readonly (keyof FanStyleBlock)[] = [
+const SURFACE_STYLE_TOKENS = [
   "background",
   "border",
   "border_radius",
   "color",
   "font_size",
   "gap",
-  "height",
   "padding",
   "shadow",
-  "size",
-];
+] as const;
+
+/**
+ * Only tokens that the stylesheet actually consumes are accepted, so the visual
+ * editor never offers a styling field that cannot change the rendered card.
+ */
+export const STYLE_TOKENS = {
+  card: SURFACE_STYLE_TOKENS,
+  header: SURFACE_STYLE_TOKENS,
+  visual: [...SURFACE_STYLE_TOKENS, "size"],
+  controls: [...SURFACE_STYLE_TOKENS, "height"],
+  details: SURFACE_STYLE_TOKENS,
+} as const satisfies Record<keyof Required<FanStylesConfig>, readonly (keyof FanStyleBlock)[]>;
 
 type RelatedEntitiesConfigKey =
   | "horizontal_angle_entity"
@@ -246,11 +256,11 @@ const normalizeLayout = (value: unknown, theme: unknown): Required<FanLayoutConf
   };
 };
 
-const normalizeStyleBlock = (value: unknown): FanStyleBlock => {
+const normalizeStyleBlock = (value: unknown, allowed: readonly (keyof FanStyleBlock)[]): FanStyleBlock => {
   const input = recordValue(value);
   const tokens: FanStyleBlock = {};
 
-  for (const key of STYLE_TOKEN_KEYS) {
+  for (const key of allowed) {
     const token = input[key];
     if (typeof token === "string" && token.trim() !== "") {
       tokens[key] = token;
@@ -264,11 +274,11 @@ const normalizeStyles = (value: unknown): Required<FanStylesConfig> => {
   const input = recordValue(value);
 
   return {
-    card: normalizeStyleBlock(input.card),
-    header: normalizeStyleBlock(input.header),
-    visual: normalizeStyleBlock(input.visual),
-    controls: normalizeStyleBlock(input.controls),
-    details: normalizeStyleBlock(input.details),
+    card: normalizeStyleBlock(input.card, STYLE_TOKENS.card),
+    header: normalizeStyleBlock(input.header, STYLE_TOKENS.header),
+    visual: normalizeStyleBlock(input.visual, STYLE_TOKENS.visual),
+    controls: normalizeStyleBlock(input.controls, STYLE_TOKENS.controls),
+    details: normalizeStyleBlock(input.details, STYLE_TOKENS.details),
   };
 };
 

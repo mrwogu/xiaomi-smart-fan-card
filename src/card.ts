@@ -62,6 +62,9 @@ export class XiaomiFanCard extends LitElement {
 
   @state() private actionError = "";
 
+  @state() private speedPreview?: number;
+
+  private speedDragging = false;
   private serviceLoadKey = "";
   private loadRequestId = 0;
   private translatorLanguage = "";
@@ -80,6 +83,15 @@ export class XiaomiFanCard extends LitElement {
       ...DEFAULT_CONFIG,
       name: "Xiaomi Fan",
     };
+  }
+
+  public getCardSize(): number {
+    return this.estimatedRows();
+  }
+
+  public getGridOptions(): { columns: number; rows: number; min_columns: number; min_rows: number } {
+    const rows = this.estimatedRows();
+    return { columns: 12, rows, min_columns: 6, min_rows: Math.min(rows, 2) };
   }
 
   public setConfig(config: FanCardConfig): void {
@@ -112,11 +124,16 @@ export class XiaomiFanCard extends LitElement {
       changedProperties.has("hass") ||
       changedProperties.has("services") ||
       changedProperties.has("related") ||
-      changedProperties.has("actionError")
+      changedProperties.has("actionError") ||
+      changedProperties.has("speedPreview")
     );
   }
 
-  protected updated(): void {
+  protected updated(changedProperties: PropertyValues): void {
+    if (changedProperties.has("hass") && this.speedPreview !== undefined && !this.speedDragging) {
+      this.speedPreview = undefined;
+    }
+
     const entityId = this.config.entity;
     const loadKey = `${entityId}:${this.config.integration ?? "auto"}`;
     if (!entityId || !this.hass || this.serviceLoadKey === loadKey) {
@@ -180,7 +197,14 @@ export class XiaomiFanCard extends LitElement {
     return html`
       <ha-card class="card ${this.themeClass}" style=${styleMap(styleMapFor(this.config.styles.card, "fan-card"))}>
         ${this.config.layout.order.map((section) => sections[section])}
-        ${this.actionError ? html`<div class="action-error" role="alert">${this.actionError}</div>` : ""}
+        ${
+          this.actionError
+            ? html`<div class="action-error" role="alert">
+                <ha-icon icon="mdi:alert-circle-outline" aria-hidden="true"></ha-icon>
+                <span>${this.actionError}</span>
+              </div>`
+            : ""
+        }
       </ha-card>
     `;
   }
@@ -216,6 +240,44 @@ export class XiaomiFanCard extends LitElement {
         ? this.t("hoursMinutes", { hours, minutes: remainder })
         : this.t("hoursOnly", { hours })
       : this.t("minutesOnly", { minutes: remainder });
+  }
+
+  private estimatedRows(): number {
+    const { header, visual, controls } = this.config;
+    let rows = 1;
+
+    if (header.show) {
+      rows += header.variant === "full" ? 2 : 1;
+    }
+
+    if (visual.show && visual.show_graphic) {
+      rows += 5;
+    } else if (visual.show && visual.show_details) {
+      rows += 1;
+    }
+
+    if (controls.show) {
+      if (controls.show_speed_slider || controls.show_speed_levels) {
+        rows += 3;
+      }
+
+      if (controls.show_modes) {
+        rows += 2;
+      }
+
+      rows += 2;
+    }
+
+    return rows;
+  }
+
+  private relatedUnit(kind: "temperature" | "humidity", fallback: string): string {
+    const entityId =
+      kind === "temperature"
+        ? (this.config.temperature_entity ?? this.related.temperature)
+        : (this.config.humidity_entity ?? this.related.humidity);
+    const unit = entityId ? this.hass?.states[entityId]?.attributes["unit_of_measurement"] : undefined;
+    return typeof unit === "string" && unit.trim() !== "" ? unit : fallback;
   }
 
   private relatedAngleValue(axis: "horizontal" | "vertical", fallback: number | undefined): number | undefined {
@@ -313,7 +375,8 @@ export class XiaomiFanCard extends LitElement {
 
   private renderVisual(adapter: FanAdapter) {
     const state = adapter.state;
-    const speed = state.isOn ? state.percentage : 0;
+    const previewed = this.speedPreview ?? state.percentage;
+    const speed = state.isOn || this.speedPreview !== undefined ? previewed : 0;
     const style = `--speed:${speed}; --spin-duration:${Math.max(1.8, 12 - speed / 11)}s;`;
     const axis = getAirflowAxis(state.horizontalSwing, state.verticalSwing);
     const animationDisabled = this.config.disable_animation || this.config.visual.animation === "disabled";
@@ -337,6 +400,7 @@ export class XiaomiFanCard extends LitElement {
                 >
                   <div class="orbit orbit-one"></div>
                   <div class="orbit orbit-two"></div>
+                  <div class="speed-ring" aria-hidden="true"></div>
                   <div class="wind wind-horizontal"></div>
                   <div class="wind wind-vertical"></div>
                   <div class="rotor" aria-hidden="true">
@@ -364,8 +428,8 @@ export class XiaomiFanCard extends LitElement {
                     this.config.visual.show_speed
                       ? html`
                           <span class="speed-readout">
-                            <strong>${state.percentage}</strong>
-                            <small>% ${this.t("airflow")}</small>
+                            <strong>${previewed}%</strong>
+                            <small>${this.t("airflow")}</small>
                           </span>
                         `
                       : ""
@@ -401,50 +465,67 @@ export class XiaomiFanCard extends LitElement {
       return "";
     }
 
+    const temperatureUnit = this.relatedUnit("temperature", "°C");
+    const humidityUnit = this.relatedUnit("humidity", "%");
+
     return html`
-      <div class="visual-meta" style=${styleMap(styleMapFor(this.config.styles.details, "fan-details"))}>
+      <div class="visual-meta" role="list" style=${styleMap(styleMapFor(this.config.styles.details, "fan-details"))}>
         ${
           details.show_horizontal_angle && adapter.capabilities.horizontalAngle && horizontalAngle !== undefined
-            ? html`
-                <span
-                  aria-label=${this.t("horizontalAngleValue", {
-                    value: horizontalAngle ?? this.t("unavailable"),
-                  })}
-                  >${
-                    horizontalAngle !== undefined
-                      ? this.t("horizontalAngleShort", { value: horizontalAngle })
-                      : this.t("horizontalAngleUnavailable")
-                  }</span
-                >
-              `
+            ? this.renderMetaItem(
+                "mdi:arrow-left-right",
+                `${horizontalAngle}°`,
+                this.t("horizontalAngleValue", { value: horizontalAngle }),
+              )
             : ""
         }
         ${
           details.show_vertical_angle && adapter.capabilities.verticalAngle && verticalAngle !== undefined
-            ? html`
-                <span
-                  aria-label=${this.t("verticalAngleValue", {
-                    value: verticalAngle ?? this.t("unavailable"),
-                  })}
-                  >${
-                    verticalAngle !== undefined
-                      ? this.t("verticalAngleShort", { value: verticalAngle })
-                      : this.t("verticalAngleUnavailable")
-                  }</span
-                >
-              `
+            ? this.renderMetaItem(
+                "mdi:swap-vertical",
+                `${verticalAngle}°`,
+                this.t("verticalAngleValue", { value: verticalAngle }),
+              )
             : ""
         }
         ${
           details.show_timer && (details.show_timer_when_off || Boolean(state.timerMinutes))
-            ? html`<span
-                >${state.timerMinutes ? this.t("timerOff", { timer: this.displayTimer(state.timerMinutes) }) : this.t("noTimer")}</span
-              >`
+            ? this.renderMetaItem(
+                "mdi:timer-outline",
+                this.displayTimer(state.timerMinutes),
+                `${this.t("timer")}: ${this.displayTimer(state.timerMinutes)}`,
+                Boolean(state.timerMinutes),
+              )
             : ""
         }
-        ${details.show_temperature && state.temperature !== undefined ? html`<span>${state.temperature}°C</span>` : ""}
-        ${details.show_humidity && state.humidity !== undefined ? html`<span>${state.humidity}% RH</span>` : ""}
+        ${
+          details.show_temperature && state.temperature !== undefined
+            ? this.renderMetaItem(
+                "mdi:thermometer",
+                `${state.temperature}${temperatureUnit}`,
+                `${this.t("temperature")}: ${state.temperature}${temperatureUnit}`,
+              )
+            : ""
+        }
+        ${
+          details.show_humidity && state.humidity !== undefined
+            ? this.renderMetaItem(
+                "mdi:water-percent",
+                `${state.humidity}${humidityUnit} RH`,
+                `${this.t("humidity")}: ${state.humidity}${humidityUnit}`,
+              )
+            : ""
+        }
       </div>
+    `;
+  }
+
+  private renderMetaItem(icon: string, value: string, label: string, active = false) {
+    return html`
+      <span class="meta-item ${active ? "active" : ""}" role="listitem" aria-label=${label}>
+        <ha-icon icon=${icon} aria-hidden="true"></ha-icon>
+        <span class="meta-value">${value}</span>
+      </span>
     `;
   }
 
@@ -469,6 +550,12 @@ export class XiaomiFanCard extends LitElement {
       return "";
     }
 
+    const displayPercentage = this.speedPreview ?? state.percentage;
+    const displayLevel =
+      this.speedPreview === undefined
+        ? state.level || 0
+        : Math.round((this.speedPreview / 100) * adapter.capabilities.speedLevels);
+
     return html`
       <section
         class="controls airflow-controls"
@@ -481,9 +568,9 @@ export class XiaomiFanCard extends LitElement {
                 <div class="section-heading">
                   <div>
                     <span class="eyebrow">${this.t("airflow")}</span>
-                    <strong>${this.t("speedLevel", { level: state.level || 0 })}</strong>
+                    <strong>${this.t("speedLevel", { level: displayLevel })}</strong>
                   </div>
-                  <span class="value">${state.percentage}%</span>
+                  <span class="value">${displayPercentage}%</span>
                 </div>
               `
             : ""
@@ -497,9 +584,12 @@ export class XiaomiFanCard extends LitElement {
                   min="0"
                   max="100"
                   step="1"
-                  .value=${String(state.percentage)}
+                  .value=${String(displayPercentage)}
+                  style=${styleMap({ "--fan-speed-progress": String(displayPercentage) })}
+                  @input=${this.onPercentagePreview}
                   @change=${(event: Event) => this.onPercentageChange(event, adapter)}
                   aria-label=${this.t("fanSpeedPercentage")}
+                  aria-valuetext="${displayPercentage}%"
                 />
               `
             : ""
@@ -530,7 +620,7 @@ export class XiaomiFanCard extends LitElement {
             : ""
         }
         ${controls.show_modes ? this.renderModeControls(adapter) : ""}
-        <div class="chip-row">
+        <div class="chip-row" ?hidden=${!hasChipControls} role="group" aria-label=${this.t("swing")}>
           ${
             controls.show_horizontal_swing && adapter.capabilities.horizontalSwing
               ? html`
@@ -789,7 +879,7 @@ export class XiaomiFanCard extends LitElement {
     return html`
       <div
         class="angle-layout ${hasTwoColumns ? "two-column" : "single-column"}"
-        style=${styleMap(styleMapFor(this.config.styles.controls, "fan-controls"))}
+        style=${styleMap(styleMapFor(this.config.styles.controls, "fan-control"))}
       >
         ${
           angleFeatures.length > 0
@@ -1022,8 +1112,15 @@ export class XiaomiFanCard extends LitElement {
     await adapter.setVerticalSwing(enabled);
   }
 
+  private onPercentagePreview = (event: Event): void => {
+    this.speedDragging = true;
+    this.speedPreview = Number((event.currentTarget as HTMLInputElement).value);
+  };
+
   private onPercentageChange(event: Event, adapter: FanAdapter): void {
     const value = Number((event.currentTarget as HTMLInputElement).value);
+    this.speedDragging = false;
+    this.speedPreview = value;
     this.execute(() => adapter.setPercentage(value));
   }
 
@@ -1037,48 +1134,84 @@ export class XiaomiFanCard extends LitElement {
     :host {
       display: block;
       container-type: inline-size;
-      --fan-accent: var(--state-fan-active-color, var(--state-active-color, #5c8dff));
+
+      /* Theme inputs */
+      --fan-accent: var(--state-fan-active-color, var(--state-active-color, var(--primary-color, #5c8dff)));
       --fan-background: var(--ha-card-background, var(--card-background-color, #1c1c1c));
-      --fan-accent-soft: color-mix(in srgb, var(--fan-accent) 18%, transparent);
-      --fan-surface: color-mix(in srgb, var(--fan-background) 88%, var(--fan-accent));
-      --fan-panel: color-mix(in srgb, var(--fan-background) 48%, transparent);
-      --fan-control-surface: color-mix(in srgb, var(--fan-background) 42%, var(--fan-panel));
       --fan-text: var(--primary-text-color, #f5f7fb);
-      --fan-text-muted: var(--secondary-text-color, #8a8f9d);
-      --fan-border: color-mix(in srgb, var(--fan-text) 18%, transparent);
-      --fan-shadow: var(--ha-card-box-shadow, 0 12px 32px rgb(0 0 0 / 12%));
+      --fan-text-muted: var(--secondary-text-color, #9aa0ab);
       --fan-focus: var(--ha-focus-color, var(--primary-color, var(--fan-accent)));
-      --fan-radius-card: 28px;
-      --fan-radius-panel: 22px;
+      --fan-error: var(--error-color, #db4437);
+
+      /* Geometry */
+      --fan-radius-card: var(--ha-card-border-radius, 24px);
+      --fan-radius-panel: 18px;
       --fan-radius-control: 12px;
-      --fan-control-height: 44px;
-      --fan-control-gap: 10px;
+      --fan-radius-pill: 999px;
+      --fan-gutter: 16px;
+      --fan-block-gap: 12px;
       --fan-panel-padding: 16px;
-      --fan-header-padding: 18px 18px 0;
-      --fan-visual-size: 310px;
+      --fan-control-height: 48px;
+      --fan-control-gap: 10px;
+      --fan-visual-size: 300px;
+
+      /* Type scale */
+      --fan-font-micro: 11px;
+      --fan-font-small: 12px;
+      --fan-font-body: 14px;
+      --fan-font-title: 18px;
+      --fan-font-metric: 24px;
+      --fan-tracking-micro: 0.08em;
       --fan-display-font: inherit;
+      --fan-label-transform: none;
+
+      /* Motion */
+      --fan-transition: 160ms cubic-bezier(0.2, 0, 0.2, 1);
     }
 
+    [hidden] {
+      display: none !important;
+    }
+
+    /*
+     * Derived colors live on ha-card, not :host, so a theme class on the same
+     * element can override --fan-accent and every tint recomputes with it.
+     */
     ha-card {
+      --fan-accent-soft: color-mix(in srgb, var(--fan-accent) 16%, transparent);
+      --fan-accent-hover: color-mix(in srgb, var(--fan-accent) 26%, transparent);
+      --fan-surface: var(--fan-background);
+      --fan-panel: color-mix(in srgb, var(--fan-text) 5%, transparent);
+      --fan-panel-hover: color-mix(in srgb, var(--fan-text) 9%, transparent);
+      --fan-control-surface: color-mix(in srgb, var(--fan-text) 7%, transparent);
+      --fan-border: color-mix(in srgb, var(--fan-text) 14%, transparent);
+      --fan-border-strong: color-mix(in srgb, var(--fan-text) 26%, transparent);
+      --fan-shadow: var(--ha-card-box-shadow, 0 10px 28px rgb(0 0 0 / 12%));
+
+      display: flex;
+      flex-direction: column;
+      gap: var(--fan-card-gap, var(--fan-block-gap));
       overflow: hidden;
+      padding: var(--fan-card-padding, var(--fan-gutter));
       border: var(--fan-card-border, 1px solid var(--fan-border));
       border-radius: var(--fan-card-border-radius, var(--fan-radius-card));
       background: var(--fan-card-background, var(--fan-surface));
       color: var(--fan-card-color, var(--fan-text));
       font-size: var(--fan-card-font-size, inherit);
       box-shadow: var(--fan-card-shadow, var(--fan-shadow));
-      padding: var(--fan-card-padding, 0);
     }
 
     button,
     select,
     input {
       font: inherit;
+      color: inherit;
     }
 
     button {
       border: 0;
       cursor: pointer;
+      touch-action: manipulation;
     }
 
     button:focus-visible,
@@ -1088,13 +1221,14 @@ export class XiaomiFanCard extends LitElement {
       outline-offset: 2px;
     }
 
+    /* Header */
     .header {
       display: flex;
       align-items: flex-start;
       justify-content: space-between;
-      gap: var(--fan-header-gap, 16px);
+      gap: var(--fan-header-gap, 12px);
       min-width: 0;
-      padding: var(--fan-header-padding, 18px 18px 0);
+      padding: var(--fan-header-padding, 0);
       border: var(--fan-header-border, 0 solid transparent);
       border-radius: var(--fan-header-border-radius, 0);
       background: var(--fan-header-background, transparent);
@@ -1103,74 +1237,68 @@ export class XiaomiFanCard extends LitElement {
       box-shadow: var(--fan-header-shadow, none);
     }
 
-    .header-compact .header {
-      gap: 10px;
-      padding-bottom: 0;
-    }
-
     .header-full .header {
-      padding-bottom: 14px;
+      margin: 0 calc(-1 * var(--fan-gutter));
+      padding: var(--fan-header-padding, 0 var(--fan-gutter) 14px);
       border-bottom: 1px solid var(--fan-border);
     }
 
-    .header-full .title-button {
-      gap: 8px;
+    .header-full .title {
+      font-size: 20px;
     }
 
     .header-full .eyebrow {
       color: var(--fan-accent);
     }
 
-    .header-full .title {
-      font-size: 22px;
-    }
-
-    .header-full .subtitle {
-      font-size: 13px;
-    }
-
     .title-button {
-      min-width: 0;
       display: grid;
-      gap: 5px;
+      gap: 4px;
+      min-width: 0;
+      min-height: 44px;
+      align-content: center;
       padding: 0;
+      border-radius: var(--fan-radius-control);
       background: transparent;
       color: inherit;
       text-align: left;
+      transition: opacity var(--fan-transition);
     }
 
     .eyebrow {
       color: var(--fan-text-muted);
-      font-size: 10px;
-      font-weight: 800;
-      letter-spacing: 0.15em;
+      font-size: var(--fan-font-micro);
+      font-weight: 700;
+      letter-spacing: var(--fan-tracking-micro);
+      text-transform: uppercase;
     }
 
     .title {
       min-width: 0;
       overflow: hidden;
-      font-size: 18px;
-      font-weight: 750;
+      font-size: var(--fan-font-title);
+      font-weight: 700;
+      letter-spacing: -0.01em;
       text-overflow: ellipsis;
       white-space: nowrap;
-      letter-spacing: -0.02em;
     }
 
     .subtitle {
-      min-width: 0;
       display: flex;
       align-items: center;
       flex-wrap: wrap;
-      gap: 6px;
+      gap: 8px;
+      min-width: 0;
       color: var(--fan-text-muted);
-      font-size: 12px;
+      font-size: var(--fan-font-small);
     }
 
     .status-dot {
-      width: 7px;
-      height: 7px;
+      width: 8px;
+      height: 8px;
       border-radius: 50%;
       background: var(--fan-text-muted);
+      transition: background-color var(--fan-transition);
     }
 
     .status-dot.on {
@@ -1179,41 +1307,34 @@ export class XiaomiFanCard extends LitElement {
     }
 
     .model-badge {
-      padding: 7px 10px;
+      flex: 0 0 auto;
+      padding: 6px 10px;
       border: 1px solid var(--fan-border);
-      border-radius: 999px;
+      border-radius: var(--fan-radius-pill);
       color: var(--fan-text-muted);
-      font-size: 10px;
-      font-weight: 800;
-      letter-spacing: 0.12em;
+      font-size: var(--fan-font-micro);
+      font-weight: 700;
+      letter-spacing: var(--fan-tracking-micro);
     }
 
+    /* Visual status */
     .visual-section {
-      display: block;
-      gap: var(--fan-visual-gap, 12px);
-      padding: var(--fan-visual-padding, 8px 18px 10px);
+      display: grid;
+      gap: var(--fan-visual-gap, var(--fan-block-gap));
+      padding: var(--fan-visual-padding, 0);
       border: var(--fan-visual-border, 0 solid transparent);
       border-radius: var(--fan-visual-border-radius, 0);
       background: var(--fan-visual-background, transparent);
       color: var(--fan-visual-color, inherit);
-      font-size: var(--fan-visual-font-size, inherit);
       box-shadow: var(--fan-visual-shadow, none);
     }
 
     .details-side.details-with-graphic {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(110px, auto);
+      grid-template-columns: minmax(0, 1fr) minmax(112px, auto);
       align-items: center;
     }
 
-    .details-side.details-with-graphic .airflow-visual {
-      grid-column: 1;
-      grid-row: 1;
-    }
-
     .details-side.details-with-graphic .visual-meta {
-      grid-column: 2;
-      grid-row: 1;
       flex-direction: column;
       align-items: flex-start;
       justify-content: center;
@@ -1231,42 +1352,40 @@ export class XiaomiFanCard extends LitElement {
 
     .airflow-visual::before {
       position: absolute;
-      inset: 15%;
+      inset: 14%;
       border: 1px solid var(--fan-accent-soft);
       border-radius: 50%;
       content: "";
     }
 
-    .airflow-visual::after {
+    .speed-ring {
       position: absolute;
-      inset: 7%;
-      border: 1px dashed var(--fan-accent-soft);
+      inset: 6%;
       border-radius: 50%;
-      content: "";
-      opacity: 0.8;
-    }
-
-    .airflow-visual.no-motion *,
-    .airflow-visual.no-motion::before,
-    .airflow-visual.no-motion::after {
-      animation: none !important;
+      background:
+        conic-gradient(from -90deg, var(--fan-accent) calc(var(--speed, 0) * 1%), transparent 0),
+        color-mix(in srgb, var(--fan-text) 10%, transparent);
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px));
+      mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px));
+      opacity: 0.9;
+      transition: background var(--fan-transition);
     }
 
     .orbit {
       position: absolute;
-      border: 1px solid color-mix(in srgb, var(--fan-accent) 24%, transparent);
+      border: 1px solid color-mix(in srgb, var(--fan-accent) 22%, transparent);
       border-radius: 50%;
       transform: rotate(18deg);
     }
 
     .orbit-one {
-      width: 76%;
-      height: 32%;
+      width: 74%;
+      height: 30%;
     }
 
     .orbit-two {
-      width: 88%;
-      height: 46%;
+      width: 86%;
+      height: 44%;
       transform: rotate(-26deg);
     }
 
@@ -1282,19 +1401,17 @@ export class XiaomiFanCard extends LitElement {
 
     .wind {
       position: absolute;
-      width: 42%;
+      width: 40%;
       height: 4px;
-      border-radius: 999px;
+      border-radius: var(--fan-radius-pill);
       background: linear-gradient(90deg, transparent, var(--fan-accent), transparent);
       opacity: 0;
+      transition: opacity var(--fan-transition);
     }
 
-    .running .wind-horizontal {
-      opacity: 0.7;
-    }
-
+    .running .wind-horizontal,
     .running .wind-vertical {
-      opacity: 0.7;
+      opacity: 0.65;
     }
 
     .wind-horizontal {
@@ -1302,10 +1419,10 @@ export class XiaomiFanCard extends LitElement {
     }
 
     .wind-vertical {
-      transform: translateY(44px) rotate(12deg);
       width: 4px;
-      height: 42%;
+      height: 40%;
       background: linear-gradient(180deg, transparent, var(--fan-accent), transparent);
+      transform: translateY(44px) rotate(12deg);
     }
 
     .axis-horizontal.running .wind-horizontal,
@@ -1324,12 +1441,12 @@ export class XiaomiFanCard extends LitElement {
       z-index: 2;
       width: 46%;
       aspect-ratio: 1;
-      border: 12px solid color-mix(in srgb, var(--fan-accent) 18%, var(--fan-background));
+      border: 12px solid color-mix(in srgb, var(--fan-accent) 16%, var(--fan-background));
       border-radius: 50%;
       background: color-mix(in srgb, var(--fan-accent) 7%, var(--fan-background));
       box-shadow:
         inset 0 0 0 1px var(--fan-accent-soft),
-        0 18px 40px rgb(0 0 0 / 16%);
+        0 16px 36px rgb(0 0 0 / 16%);
     }
 
     .running .rotor {
@@ -1372,68 +1489,110 @@ export class XiaomiFanCard extends LitElement {
       box-shadow: 0 0 0 5px var(--fan-accent-soft);
     }
 
+    .airflow-visual.no-motion *,
+    .airflow-visual.no-motion::before {
+      animation: none !important;
+    }
+
     .power-button {
       position: absolute;
       z-index: 3;
       display: grid;
       place-items: center;
-      width: 58px;
-      height: 58px;
+      width: 60px;
+      height: 60px;
       border: 5px solid var(--fan-surface);
       border-radius: 50%;
       background: var(--fan-accent-soft);
       color: var(--fan-text-muted);
       box-shadow: 0 8px 24px rgb(0 0 0 / 18%);
+      transition:
+        background-color var(--fan-transition),
+        color var(--fan-transition),
+        transform var(--fan-transition);
     }
 
     .power-button.active {
       background: var(--fan-accent);
-      color: white;
+      color: var(--text-primary-color, #fff);
+    }
+
+    .power-button:active {
+      transform: scale(0.94);
     }
 
     .power-button ha-icon {
-      --mdc-icon-size: 24px;
+      --mdc-icon-size: 26px;
     }
 
     .speed-readout {
       position: absolute;
-      right: 3%;
-      bottom: 19%;
+      right: 2%;
+      bottom: 6%;
       z-index: 4;
       display: grid;
       justify-items: end;
+      gap: 2px;
+      padding: 6px 10px;
+      border: 1px solid var(--fan-border);
+      border-radius: var(--fan-radius-control);
+      background: color-mix(in srgb, var(--fan-background) 88%, var(--fan-text));
       color: var(--fan-text-muted);
     }
 
     .speed-readout strong {
       color: var(--fan-text);
+      font-family: var(--fan-display-font);
       font-size: 22px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
       line-height: 1;
     }
 
     .speed-readout small {
-      font-size: 9px;
-      font-weight: 800;
-      letter-spacing: 0.1em;
+      font-size: var(--fan-font-micro);
+      font-weight: 700;
+      letter-spacing: var(--fan-tracking-micro);
     }
 
+    /* Detail chips */
     .visual-meta {
       display: flex;
+      flex-wrap: wrap;
       justify-content: center;
-      gap: var(--fan-details-gap, 16px);
+      gap: var(--fan-details-gap, 8px);
       padding: var(--fan-details-padding, 0);
       border: var(--fan-details-border, 0 solid transparent);
       border-radius: var(--fan-details-border-radius, 0);
       background: var(--fan-details-background, transparent);
-      color: var(--fan-details-color, var(--fan-text-muted));
-      font-size: var(--fan-details-font-size, 10px);
-      font-weight: 700;
-      letter-spacing: 0.08em;
       box-shadow: var(--fan-details-shadow, none);
     }
 
+    .meta-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: var(--fan-radius-pill);
+      background: var(--fan-panel);
+      color: var(--fan-details-color, var(--fan-text-muted));
+      font-size: var(--fan-details-font-size, var(--fan-font-small));
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .meta-item ha-icon {
+      --mdc-icon-size: 15px;
+      flex: 0 0 auto;
+    }
+
+    .meta-item.active {
+      background: var(--fan-accent-soft);
+      color: var(--fan-accent);
+    }
+
+    /* Control panels */
     .controls {
-      margin: 0 14px 14px;
       padding: var(--fan-control-padding, var(--fan-panel-padding));
       border: var(--fan-control-border, 1px solid var(--fan-border));
       border-radius: var(--fan-control-border-radius, var(--fan-radius-panel));
@@ -1443,70 +1602,180 @@ export class XiaomiFanCard extends LitElement {
       box-shadow: var(--fan-control-shadow, none);
     }
 
+    .airflow-controls {
+      display: grid;
+      gap: 12px;
+    }
+
     .section-heading {
       display: flex;
       align-items: end;
       justify-content: space-between;
-      gap: 16px;
+      gap: 12px;
     }
 
     .section-heading div {
       display: grid;
       gap: 4px;
+      min-width: 0;
     }
 
     .section-heading strong {
-      font-size: 16px;
+      font-size: var(--fan-font-body);
+      font-weight: 700;
     }
 
     .value {
       color: var(--fan-accent);
-      font-size: 24px;
-      font-weight: 800;
+      font-family: var(--fan-display-font);
+      font-size: var(--fan-font-metric);
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
     }
 
+    /* Speed slider */
     .speed-slider {
+      -webkit-appearance: none;
+      appearance: none;
       width: 100%;
-      margin: 18px 0 10px;
-      accent-color: var(--fan-accent);
+      height: 44px;
+      margin: 0;
+      background: transparent;
       cursor: pointer;
     }
 
-    .mode-section {
-      display: grid;
-      gap: 8px;
-      margin: 16px 0;
+    .speed-slider::-webkit-slider-runnable-track {
+      height: 12px;
+      border-radius: var(--fan-radius-pill);
+      background: linear-gradient(
+        to right,
+        var(--fan-accent) 0 calc(var(--fan-speed-progress, 0) * 1%),
+        color-mix(in srgb, var(--fan-text) 12%, transparent) calc(var(--fan-speed-progress, 0) * 1%) 100%
+      );
     }
 
-    .control-label {
-      color: var(--fan-text-muted);
-      font-size: 12px;
-      font-weight: 700;
+    .speed-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 22px;
+      height: 22px;
+      margin-top: -5px;
+      border: 3px solid var(--fan-accent);
+      border-radius: 50%;
+      background: var(--fan-surface);
+      box-shadow: 0 2px 8px rgb(0 0 0 / 24%);
+      transition: box-shadow var(--fan-transition);
+    }
+
+    .speed-slider::-moz-range-track {
+      height: 12px;
+      border-radius: var(--fan-radius-pill);
+      background: color-mix(in srgb, var(--fan-text) 12%, transparent);
+    }
+
+    .speed-slider::-moz-range-progress {
+      height: 12px;
+      border-radius: var(--fan-radius-pill);
+      background: var(--fan-accent);
+    }
+
+    .speed-slider::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      border: 3px solid var(--fan-accent);
+      border-radius: 50%;
+      background: var(--fan-surface);
+    }
+
+    .speed-slider:focus-visible {
+      outline: none;
+    }
+
+    .speed-slider:focus-visible::-webkit-slider-thumb {
+      box-shadow: 0 0 0 4px var(--fan-accent-hover);
+    }
+
+    .speed-slider:focus-visible::-moz-range-thumb {
+      box-shadow: 0 0 0 4px var(--fan-accent-hover);
+    }
+
+    /* Segmented rows */
+    .level-row,
+    .chip-row,
+    .preset-row,
+    .mode-row {
+      display: grid;
+      gap: 8px;
+    }
+
+    .level-row {
+      grid-template-columns: repeat(auto-fit, minmax(40px, 1fr));
+    }
+
+    .chip-row {
+      grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+    }
+
+    .preset-row {
+      grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
     }
 
     .mode-row {
-      display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
+    }
+
+    .level-button,
+    .chip,
+    .preset-button,
+    .mode-button {
+      min-height: max(44px, var(--fan-control-height));
+      border: 1px solid var(--fan-border);
+      border-radius: var(--fan-radius-control);
+      background: transparent;
+      color: var(--fan-text-muted);
+      transition:
+        background-color var(--fan-transition),
+        border-color var(--fan-transition),
+        color var(--fan-transition),
+        transform var(--fan-transition);
+    }
+
+    .level-button {
+      font-size: var(--fan-font-body);
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .chip {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 0 10px;
+      font-size: var(--fan-font-small);
+      font-weight: 600;
+    }
+
+    .chip ha-icon {
+      --mdc-icon-size: 17px;
+      flex: 0 0 auto;
+    }
+
+    .preset-button {
+      padding: 0 10px;
+      font-size: var(--fan-font-small);
+      font-weight: 600;
     }
 
     .mode-button {
       display: grid;
       justify-items: center;
-      gap: 7px;
-      min-height: var(--fan-control-height);
-      padding: 10px 6px;
-      border: 1px solid var(--fan-border);
-      border-radius: 16px;
-      background: transparent;
-      color: var(--fan-text-muted);
-      font-size: 11px;
-    }
-
-    .mode-button.selected {
-      border-color: var(--fan-accent-soft);
-      background: var(--fan-accent-soft);
-      color: var(--fan-accent);
+      gap: 6px;
+      padding: 8px 6px;
+      border-radius: var(--fan-radius-panel);
+      font-size: var(--fan-font-small);
+      font-weight: 600;
     }
 
     .mode-icon {
@@ -1515,92 +1784,65 @@ export class XiaomiFanCard extends LitElement {
       width: 34px;
       height: 34px;
       border-radius: 50%;
-      background: color-mix(in srgb, var(--fan-text-muted) 20%, transparent);
-    }
-
-    .mode-button.selected .mode-icon {
-      background: var(--fan-accent);
-      color: white;
+      background: var(--fan-panel-hover);
+      transition:
+        background-color var(--fan-transition),
+        color var(--fan-transition);
     }
 
     .mode-icon ha-icon {
       --mdc-icon-size: 20px;
     }
 
-    .level-row,
-    .chip-row,
-    .preset-row {
-      display: flex;
-      gap: 8px;
-    }
-
-    .level-row {
-      margin-bottom: 14px;
-    }
-
-    .level-button,
-    .chip,
-    .preset-button {
-      min-height: var(--fan-control-height);
-      border: 1px solid var(--fan-border);
-      border-radius: var(--fan-radius-control);
-      background: transparent;
-      color: var(--fan-text-muted);
-    }
-
-    .level-button {
-      flex: 1;
-      font-size: 13px;
-      font-weight: 750;
-    }
-
     .level-button.selected,
-    .chip.selected {
-      border-color: transparent;
+    .chip.selected,
+    .preset-button.selected,
+    .mode-button.selected {
+      border-color: color-mix(in srgb, var(--fan-accent) 45%, transparent);
       background: var(--fan-accent-soft);
       color: var(--fan-accent);
     }
 
-    .chip {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      flex: 1;
-      padding: 0 8px;
-      font-size: 11px;
-      font-weight: 700;
+    .mode-button.selected .mode-icon {
+      background: var(--fan-accent);
+      color: var(--text-primary-color, #fff);
     }
 
-    .chip ha-icon {
-      --mdc-icon-size: 16px;
+    .mode-section,
+    .preset-section {
+      display: grid;
+      gap: 8px;
     }
 
+    .control-label {
+      color: var(--fan-text-muted);
+      font-size: var(--fan-font-small);
+      font-weight: 600;
+      letter-spacing: var(--fan-label-tracking, normal);
+      text-transform: var(--fan-label-transform);
+    }
+
+    /* Position and feature panels */
     .angle-layout {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: var(--fan-control-gap, 10px);
-      margin: 0 14px 14px;
     }
 
     .angle-layout.single-column {
       grid-template-columns: minmax(0, 1fr);
     }
 
-    .angle-layout > .controls {
-      margin: 0;
-    }
-
     .angle-controls,
     .feature-controls {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
       gap: var(--fan-control-gap, 10px);
+      align-content: start;
     }
 
     .angle-controls {
       grid-template-columns: minmax(0, 1fr);
-      align-content: start;
     }
 
     .nudge-controls {
@@ -1609,52 +1851,35 @@ export class XiaomiFanCard extends LitElement {
       justify-items: center;
     }
 
-    .nudge-controls .nudge-control {
+    .nudge-control {
+      display: grid;
+      gap: 8px;
       justify-items: center;
       width: 100%;
     }
 
     .feature-select,
-    .nudge-control,
-    .feature-button {
-      min-width: 0;
-      min-height: var(--fan-control-height);
-      color: var(--fan-text);
-    }
-
-    .feature-button {
-      padding: 11px;
-      border: 1px solid var(--fan-border);
-      border-radius: var(--fan-radius-control);
-      background: var(--fan-control-surface);
-    }
-
-    .feature-select,
     .nudge-control {
-      display: grid;
-      gap: 7px;
+      min-width: 0;
       color: var(--fan-text-muted);
-      font-size: 11px;
-      font-weight: 700;
+      font-size: var(--fan-font-small);
+      font-weight: 600;
     }
 
     .feature-select {
+      position: relative;
+      display: grid;
+      gap: 6px;
       align-self: start;
-    }
-
-    .feature-select,
-    .nudge-control {
-      padding: 0;
-      border: 0;
-      border-radius: 0;
-      background: transparent;
     }
 
     .feature-select > span,
     .nudge-control > span {
-      color: color-mix(in srgb, var(--fan-text) 72%, transparent);
-      font-size: 12px;
-      font-weight: 700;
+      color: var(--fan-text-muted);
+      font-size: var(--fan-font-small);
+      font-weight: 600;
+      letter-spacing: var(--fan-label-tracking, normal);
+      text-transform: var(--fan-label-transform);
     }
 
     .feature-select.selected > span {
@@ -1664,31 +1889,55 @@ export class XiaomiFanCard extends LitElement {
     .feature-select select,
     .feature-select input[type="number"] {
       box-sizing: border-box;
-      min-height: var(--fan-control-height);
       width: 100%;
+      min-height: max(44px, var(--fan-control-height));
       padding: 0 12px;
-      border: 1px solid color-mix(in srgb, var(--fan-text) 36%, transparent);
+      border: 1px solid var(--fan-border-strong);
       border-radius: var(--fan-radius-control);
       outline: none;
       background: var(--fan-control-surface);
-      color: var(--input-ink-color, var(--fan-text));
-      font-size: 14px;
-      font-weight: 750;
+      color: var(--fan-text);
+      font-size: var(--fan-font-body);
+      font-weight: 600;
+      transition:
+        border-color var(--fan-transition),
+        background-color var(--fan-transition),
+        color var(--fan-transition);
     }
 
-    .feature-select select:hover,
-    .feature-select input[type="number"]:hover {
-      border-color: color-mix(in srgb, var(--fan-accent) 64%, transparent);
+    .feature-select select {
+      -webkit-appearance: none;
+      appearance: none;
+      padding-right: 32px;
+    }
+
+    .feature-select:has(select)::after {
+      position: absolute;
+      right: 14px;
+      bottom: calc(max(44px, var(--fan-control-height)) / 2 - 5px);
+      width: 7px;
+      height: 7px;
+      border-right: 2px solid var(--fan-text-muted);
+      border-bottom: 2px solid var(--fan-text-muted);
+      content: "";
+      pointer-events: none;
+      transform: rotate(45deg);
+    }
+
+    .feature-select.selected:has(select)::after {
+      border-color: var(--fan-accent);
     }
 
     .feature-select select:focus-visible,
     .feature-select input[type="number"]:focus-visible {
       border-color: var(--fan-focus);
+      outline: 2px solid var(--fan-focus);
+      outline-offset: 1px;
     }
 
     .feature-select.selected select,
     .feature-select.selected input[type="number"] {
-      border-color: var(--fan-accent);
+      border-color: color-mix(in srgb, var(--fan-accent) 55%, transparent);
       background: var(--fan-accent-soft);
       color: var(--fan-accent);
     }
@@ -1697,13 +1946,25 @@ export class XiaomiFanCard extends LitElement {
       display: flex;
       align-items: center;
       gap: 10px;
+      min-width: 0;
+      min-height: max(44px, var(--fan-control-height));
+      padding: 10px 12px;
+      border: 1px solid var(--fan-border);
+      border-radius: var(--fan-radius-control);
+      background: var(--fan-control-surface);
+      color: var(--fan-text);
       text-align: left;
+      transition:
+        background-color var(--fan-transition),
+        border-color var(--fan-transition),
+        transform var(--fan-transition);
     }
 
     .feature-button ha-icon {
+      --mdc-icon-size: 20px;
       flex: 0 0 auto;
-      padding: 8px;
-      border-radius: 11px;
+      padding: 7px;
+      border-radius: 10px;
       background: var(--fan-accent-soft);
       color: var(--fan-accent);
     }
@@ -1711,19 +1972,27 @@ export class XiaomiFanCard extends LitElement {
     .feature-button span {
       display: grid;
       gap: 2px;
+      min-width: 0;
     }
 
     .feature-button small {
       color: var(--fan-text-muted);
-      font-size: 10px;
+      font-size: var(--fan-font-small);
+      font-weight: 600;
+      letter-spacing: var(--fan-label-tracking, normal);
+      text-transform: var(--fan-label-transform);
     }
 
     .feature-button strong {
-      font-size: 13px;
+      overflow: hidden;
+      font-size: var(--fan-font-body);
+      font-weight: 700;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .feature-button.selected {
-      border-color: var(--fan-accent-soft);
+      border-color: color-mix(in srgb, var(--fan-accent) 45%, transparent);
       background: var(--fan-accent-soft);
     }
 
@@ -1741,17 +2010,22 @@ export class XiaomiFanCard extends LitElement {
       margin: 0 auto;
       padding: 6px;
       border: 1px solid var(--fan-border);
-      border-radius: 16px;
-      background: color-mix(in srgb, var(--fan-panel) 72%, transparent);
+      border-radius: var(--fan-radius-panel);
+      background: var(--fan-panel);
     }
 
     .nudge-grid button {
+      display: grid;
+      place-items: center;
       width: 44px;
       min-height: 44px;
       padding: 0;
       border-radius: 50%;
       background: var(--fan-accent-soft);
       color: var(--fan-accent);
+      transition:
+        background-color var(--fan-transition),
+        transform var(--fan-transition);
     }
 
     .nudge-grid button:nth-child(1) {
@@ -1770,71 +2044,208 @@ export class XiaomiFanCard extends LitElement {
       grid-area: down;
     }
 
+    /* Hover and press feedback */
+    @media (hover: hover) {
+      .title-button:hover {
+        opacity: 0.75;
+      }
+
+      .level-button:hover,
+      .chip:hover,
+      .preset-button:hover,
+      .mode-button:hover,
+      .feature-button:hover {
+        border-color: var(--fan-border-strong);
+        background: var(--fan-panel-hover);
+        color: var(--fan-text);
+      }
+
+      .level-button.selected:hover,
+      .chip.selected:hover,
+      .preset-button.selected:hover,
+      .mode-button.selected:hover,
+      .feature-button.selected:hover {
+        background: var(--fan-accent-hover);
+        color: var(--fan-accent);
+      }
+
+      .power-button:hover,
+      .nudge-grid button:hover {
+        background: var(--fan-accent-hover);
+      }
+
+      .power-button.active:hover {
+        background: color-mix(in srgb, var(--fan-accent) 88%, black);
+      }
+
+      .feature-select select:hover,
+      .feature-select input[type="number"]:hover {
+        border-color: color-mix(in srgb, var(--fan-accent) 60%, transparent);
+      }
+    }
+
+    .level-button:active,
+    .chip:active,
+    .preset-button:active,
+    .mode-button:active,
+    .feature-button:active,
+    .nudge-grid button:active {
+      transform: scale(0.97);
+    }
+
+    /* Empty and error states */
     .empty {
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 8px;
-      min-height: 120px;
-      padding: 20px;
+      min-height: 96px;
       color: var(--fan-text-muted);
       text-align: center;
     }
 
     .action-error {
-      margin: 0 14px 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
       padding: 10px 12px;
-      border: 1px solid var(--error-color, #db4437);
-      border-radius: 12px;
-      color: var(--error-color, #db4437);
-      font-size: 12px;
+      border: 1px solid color-mix(in srgb, var(--fan-error) 55%, transparent);
+      border-radius: var(--fan-radius-control);
+      background: color-mix(in srgb, var(--fan-error) 12%, transparent);
+      color: var(--fan-error);
+      font-size: var(--fan-font-small);
+      font-weight: 600;
     }
 
+    .action-error ha-icon {
+      --mdc-icon-size: 18px;
+      flex: 0 0 auto;
+    }
+
+    /* Themes */
     .theme-minimal {
       --fan-surface: transparent;
       --fan-panel: transparent;
-      --fan-radius-card: 12px;
+      --fan-radius-card: 14px;
       --fan-radius-panel: 12px;
-      --fan-radius-control: 8px;
+      --fan-radius-control: 10px;
       --fan-visual-size: 250px;
       --fan-shadow: none;
-      box-shadow: none;
+      --fan-card-border: 0 solid transparent;
+      --fan-control-border: 0 solid transparent;
+      --fan-panel-padding: 0;
+      --fan-block-gap: 16px;
+    }
+
+    .theme-minimal .controls + .controls,
+    .theme-minimal .angle-layout > .controls {
+      border-top: 0;
     }
 
     .theme-mushroom {
-      --fan-panel: color-mix(in srgb, var(--fan-accent) 8%, var(--fan-background));
-      --fan-radius-card: 30px;
-      --fan-radius-panel: 24px;
+      --fan-surface: color-mix(in srgb, var(--fan-background) 92%, var(--fan-accent));
+      --fan-panel: color-mix(in srgb, var(--fan-accent) 10%, transparent);
+      --fan-radius-card: 26px;
+      --fan-radius-panel: 22px;
       --fan-radius-control: 14px;
       --fan-visual-size: 270px;
-      --fan-shadow: 0 14px 32px rgb(0 0 0 / 10%);
+      --fan-shadow: 0 12px 30px rgb(0 0 0 / 10%);
+      --fan-card-border: 0 solid transparent;
+      --fan-control-border: 0 solid transparent;
+    }
+
+    .theme-mushroom .chip,
+    .theme-mushroom .preset-button,
+    .theme-mushroom .level-button {
+      border-radius: var(--fan-radius-pill);
     }
 
     .theme-glass {
-      --fan-panel: color-mix(in srgb, var(--fan-background) 28%, transparent);
-      --fan-radius-card: 28px;
+      --fan-surface: color-mix(in srgb, var(--fan-background) 58%, transparent);
+      --fan-panel: color-mix(in srgb, var(--fan-text) 8%, transparent);
+      --fan-border: color-mix(in srgb, var(--fan-text) 22%, transparent);
+      --fan-radius-card: 26px;
       --fan-radius-panel: 20px;
       --fan-radius-control: 14px;
-      --fan-shadow: 0 20px 50px rgb(0 0 0 / 18%);
-      background: color-mix(in srgb, var(--fan-background) 54%, transparent);
-      backdrop-filter: blur(18px);
+      --fan-shadow: 0 18px 44px rgb(0 0 0 / 20%);
+      -webkit-backdrop-filter: blur(18px) saturate(140%);
+      backdrop-filter: blur(18px) saturate(140%);
     }
 
     .theme-industrial {
       --fan-accent: var(--state-fan-active-color, #e9a23b);
-      --fan-radius-card: 8px;
+      --fan-radius-card: 6px;
       --fan-radius-panel: 6px;
       --fan-radius-control: 4px;
-      --fan-panel: color-mix(in srgb, #e9a23b 5%, var(--fan-background));
+      --fan-radius-pill: 4px;
+      --fan-panel: color-mix(in srgb, var(--fan-accent) 6%, transparent);
       --fan-shadow: none;
       --fan-display-font: ui-monospace, SFMono-Regular, Menlo, monospace;
+      --fan-label-transform: uppercase;
+      --fan-label-tracking: 0.06em;
       --fan-visual-size: 270px;
     }
 
-    .theme-industrial .value,
-    .theme-industrial .speed-readout strong,
-    .theme-industrial .feature-button strong {
-      font-family: var(--fan-display-font);
+    /* Density */
+    .density-compact {
+      --fan-control-height: 44px;
+      --fan-control-gap: 8px;
+      --fan-panel-padding: 12px;
+      --fan-block-gap: 8px;
+      --fan-gutter: 12px;
+      --fan-visual-size: 240px;
+    }
+
+    /* Column overrides */
+    .columns-one .feature-controls,
+    .columns-one .angle-layout {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .columns-two .feature-controls {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .columns-two .angle-layout.two-column {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    /* Responsive behavior driven by the card width */
+    @container (max-width: 460px) {
+      .details-side.details-with-graphic {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .details-side.details-with-graphic .visual-meta {
+        flex-direction: row;
+        justify-content: center;
+      }
+
+      .feature-controls,
+      .columns-two .feature-controls,
+      .angle-layout,
+      .columns-two .angle-layout.two-column {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    @container (max-width: 360px) {
+      :host {
+        --fan-gutter: 12px;
+        --fan-panel-padding: 12px;
+      }
+
+      .chip-row {
+        grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
+      }
+
+      .value {
+        font-size: 20px;
+      }
+
+      .speed-readout strong {
+        font-size: 18px;
+      }
     }
 
     @keyframes rotor-spin {
@@ -1887,102 +2298,52 @@ export class XiaomiFanCard extends LitElement {
       }
     }
 
-    .density-compact {
-      --fan-control-height: 44px;
-      --fan-control-gap: 6px;
-      --fan-panel-padding: 12px;
-      --fan-header-padding: 12px 12px 0;
-    }
-
-    .density-comfortable {
-      --fan-control-height: 48px;
-    }
-
-    .columns-one .feature-controls {
-      grid-template-columns: minmax(0, 1fr);
-    }
-
-    .columns-one .angle-layout {
-      grid-template-columns: minmax(0, 1fr);
-    }
-
-    .columns-two .feature-controls {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .columns-two .angle-layout.two-column {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    @container (max-width: 419px) {
-      .details-side.details-with-graphic {
-        display: block;
-      }
-
-      .details-side.details-with-graphic .visual-meta {
-        margin-top: var(--fan-visual-gap, 12px);
-      }
-
-      .feature-controls {
-        grid-template-columns: minmax(0, 1fr);
-      }
-
-      .columns-two .feature-controls {
-        grid-template-columns: minmax(0, 1fr);
-      }
-
-      .angle-layout {
-        grid-template-columns: minmax(0, 1fr);
-      }
-    }
-
-    @media (max-width: 419px) {
-      .details-side.details-with-graphic {
-        display: block;
-      }
-
-      .details-side.details-with-graphic .visual-meta {
-        margin-top: var(--fan-visual-gap, 12px);
-      }
-
-      .feature-controls {
-      .columns-two .feature-controls {
-      }
-
-      .angle-layout {
-        grid-template-columns: minmax(0, 1fr);
-      }
-    }
-
-    @container (max-width: 360px) {
-      .header {
-        padding: 10px 12px 0;
-      }
-
-      .visual-meta {
-        gap: 8px;
-        font-size: 9px;
-        flex-wrap: wrap;
-      }
-
-      .chip,
-      .level-button,
-      .preset-button {
-        font-size: 10px;
-      }
-    }
-
     @media (prefers-reduced-motion: reduce) {
-      .running .rotor,
-      .axis-horizontal .orbit-one,
-      .axis-vertical .orbit-two,
-      .axis-dual .orbit-one,
-      .axis-dual .orbit-two,
-      .axis-horizontal .wind-horizontal,
-      .axis-vertical .wind-vertical,
-      .axis-dual .wind-horizontal,
-      .axis-dual .wind-vertical {
+      *,
+      *::before,
+      *::after {
         animation: none !important;
+        transition-duration: 1ms !important;
+      }
+
+      .level-button:active,
+      .chip:active,
+      .preset-button:active,
+      .mode-button:active,
+      .feature-button:active,
+      .nudge-grid button:active,
+      .power-button:active {
+        transform: none;
+      }
+    }
+
+    @media (forced-colors: active) {
+      ha-card,
+      .controls,
+      .level-button,
+      .chip,
+      .preset-button,
+      .mode-button,
+      .feature-button,
+      .nudge-grid,
+      .meta-item,
+      .feature-select select,
+      .feature-select input[type="number"] {
+        border: 1px solid CanvasText;
+      }
+
+      .level-button.selected,
+      .chip.selected,
+      .preset-button.selected,
+      .mode-button.selected,
+      .feature-button.selected,
+      .feature-select.selected select {
+        outline: 2px solid Highlight;
+        outline-offset: -2px;
+      }
+
+      .status-dot.on {
+        background: Highlight;
       }
     }
   `;
