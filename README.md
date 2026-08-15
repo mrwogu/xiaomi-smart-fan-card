@@ -44,10 +44,10 @@ Capability-aware. Five themes. Native visual editor. No telemetry.
 ## Five themes, one card
 
 One option, `layout.theme`, changes the entire surface. Same entity, same state,
-same controls, five looks. The hero above is `auto`; the loop below cycles all
+same controls, five looks. The hero above is `auto`; the strip below shows all
 five in dark mode.
 
-![The same card cycling through the auto, mushroom, minimal, glass, and industrial themes](https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/themes-cycle.webp)
+![The five themes shown side by side: auto, mushroom, minimal, glass, and industrial](https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/themes-gallery.webp)
 
 | Theme      | `layout.theme` | What changes                                                     |
 | ---------- | -------------- | ---------------------------------------------------------------- |
@@ -62,11 +62,14 @@ text, background, and accent unless a theme deliberately claims one.
 
 ## Layouts that fit your dashboard
 
-| One or two control columns                                                                                                                                                                                                                                                                                                                           | Comfortable or information dense                                                                                                                                                                                                                                                                                                                                     |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ![The same card switching between one stacked control column and two paired control columns](https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/layout-columns.webp)<br>**One or two control columns**<br>`layout.columns: one` stacks angles, position pad, and device toggles; `two` pairs them and shortens the card. | ![The same card switching between comfortable density with details below the graphic and compact density with details beside it](https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/layout-density.webp)<br>**Comfortable or information dense**<br>`layout.density: compact` with `details.position: side` trims a third of the height. |
-| ![Card with the airflow controls placed above the graphic](https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/layout-order.webp)<br>**Your order**<br>`layout.order` moves header, visual, airflow, position, features.                                                                                                  | ![Card rendered in a 320 px dashboard column with reflowed control rows](https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/layout-narrow.webp)<br>**Narrow columns**<br>Container queries reflow the rows down to 320 px.                                                                                                               |
-| ![Minimal tile with name, status, and speed slider](https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/layout-tile.webp)<br>**Status tile**<br>Name, status, speed. Nothing else.                                                                                                                                        | ![Angle selectors next to the position pad](https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/controls-position.webp)<br>**Position block**<br>Angle cycling next to the nudge pad with `controls.show_nudge_with_angles: true`.                                                                                                        |
+![Eight layout variations shown in a fixed grid: control columns, density, order, narrow columns, tile, and position](https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/layouts-gallery.webp)
+
+| Layout option      | What changes                                                                                                                                              |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `layout.columns`   | `one` stacks angles, the position pad, and device toggles; `two` pairs them and shortens the card.                                                        |
+| `layout.density`   | `compact` with `details.position: side` trims a third of the height.                                                                                      |
+| `layout.order`     | Moves header, visual, airflow, position, and feature blocks.                                                                                              |
+| Responsive layouts | Container queries reflow rows down to 320 px. Tile mode keeps only name, status, and speed. The position block puts angle selectors beside the nudge pad. |
 
 ## Configure it by clicking
 
