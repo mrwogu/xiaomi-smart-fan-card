@@ -82,6 +82,15 @@ Panels group what belongs together: header, visual, controls with sub panels for
 speed, modes, oscillation, angles and features, then details, layout, styles,
 and related entities.
 
+<div align="center">
+  <a href="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/visual-size-option.webp">
+    <img src="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/visual-size-option.webp" alt="The real Xiaomi Fan Card rendered at 120, 300, and 480 pixel visual sizes" height="360">
+  </a>
+</div>
+
+The same production card scales from compact columns to wide dashboards. Set
+the value in the Visual panel or with `visual.size` in YAML.
+
 ## See it move
 
 <div align="center">
