@@ -84,7 +84,11 @@ and related entities.
 
 ## See it move
 
-![Sweeping the speed slider while the ring, the percentage readout, and the speed level buttons follow](https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/controls-speed.webp)
+<div align="center">
+  <a href="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/controls-speed.webp">
+    <img src="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/controls-speed.webp" alt="Sweeping the speed slider while the ring, the percentage readout, and the speed level buttons follow" height="360">
+  </a>
+</div>
 
 Slider feedback is immediate: the ring, the readout, and the level buttons
 follow your finger and the service call fires when you let go. Decorative
@@ -97,7 +101,11 @@ of YAML instead of a theme fork. `styles.card.accent` repaints the ring, slider,
 active buttons, and every tint derived from them. Six starting points, all on
 the same entity:
 
-![The same card styled as neon night, paper, cockpit, frost, ink, and sunset](https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/styles-cycle.webp)
+<div align="center">
+  <a href="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/styles-cycle.webp">
+    <img src="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/styles-cycle.webp" alt="The same card styled as neon night, paper, cockpit, frost, ink, and sunset" height="360">
+  </a>
+</div>
 
 <details>
 <summary>YAML for the six looks above</summary>
@@ -223,7 +231,11 @@ styles:
 `auto` keeps the card on standard fan actions and only uses custom Xiaomi
 services when you select that integration explicitly.
 
-![The same card for a Xiaomi P76 with angles, timer, and device toggles, then for a plain Home Assistant fan entity with speed, presets, oscillation, and direction only](https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/integration-modes.webp)
+<div align="center">
+  <a href="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/integration-modes.webp">
+    <img src="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/integration-modes.webp" alt="The same card for a Xiaomi P76 with angles, timer, and device toggles, then for a plain Home Assistant fan entity with speed, presets, oscillation, and direction only" height="360">
+  </a>
+</div>
 
 _Same card, two entities. The plain `fan` drops what it cannot do and keeps
 what it can._
