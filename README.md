@@ -41,17 +41,16 @@ Capability-aware. Five themes. Native visual editor. No telemetry.
 - **Private by design.** No telemetry, no analytics, no remote scripts, no
   direct device connection. Every action goes through Home Assistant.
 
-## Five themes, one card
+## Four themes, one card
 
 One option, `layout.theme`, changes the entire surface. Same entity, same state,
-same controls, five looks. The hero above is `auto`; the strip below shows all
-five in dark mode.
+same controls, four named looks. The hero above is `auto`; the strip below shows
+the named themes in dark mode.
 
-![The five themes shown side by side: auto, mushroom, minimal, glass, and industrial](https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/themes-gallery.webp)
+![The four named themes shown side by side: mushroom, minimal, glass, and industrial](https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/themes-gallery.webp)
 
 | Theme      | `layout.theme` | What changes                                                     |
 | ---------- | -------------- | ---------------------------------------------------------------- |
-| Auto       | `auto`         | Inherits your Home Assistant colors, radius, and shadow          |
 | Mushroom   | `mushroom`     | Soft tinted panels and pill controls                             |
 | Minimal    | `minimal`      | No borders, no shadow, content first                             |
 | Glass      | `glass`        | Translucent surface with backdrop blur                           |
@@ -62,7 +61,7 @@ text, background, and accent unless a theme deliberately claims one.
 
 ## Layouts that fit your dashboard
 
-![Eight layout variations shown in a fixed grid: control columns, density, order, narrow columns, tile, and position](https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/layouts-gallery.webp)
+![Eight layout variations shown in a readable three-column grid: control columns, density, order, narrow columns, tile, and position](https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/layouts-gallery.webp)
 
 | Layout option      | What changes                                                                                                                                              |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
