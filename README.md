@@ -4,7 +4,7 @@
 
 **Every control your fan actually supports, on one calm Lovelace card.**
 
-Capability-aware. Five themes. Native visual editor. No telemetry.
+Capability-aware. Four themes. Native visual editor. No telemetry.
 
 [![CI](https://github.com/mrwogu/xiaomi-smart-fan-card/actions/workflows/ci.yml/badge.svg)](https://github.com/mrwogu/xiaomi-smart-fan-card/actions/workflows/ci.yml)
 [![HACS validation](https://github.com/mrwogu/xiaomi-smart-fan-card/actions/workflows/hacs.yml/badge.svg)](https://github.com/mrwogu/xiaomi-smart-fan-card/actions/workflows/hacs.yml)
@@ -17,7 +17,7 @@ Capability-aware. Five themes. Native visual editor. No telemetry.
 
 [![Open Xiaomi Fan Card in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?repository=mrwogu%2Fxiaomi-smart-fan-card)
 
-[Install](#install) · [Themes](#five-themes-one-card) · [Layouts](#layouts-that-fit-your-dashboard) ·
+[Install](#install) · [Themes](#four-themes-one-card) · [Layouts](#layouts-that-fit-your-dashboard) ·
 [Styling](#style-it-your-way) · [Recipes](#recipes) · [Configuration](docs/configuration.md)
 
 </div>
@@ -30,7 +30,7 @@ Capability-aware. Five themes. Native visual editor. No telemetry.
 - **A real interface, not a wall of toggles.** Airflow graphic with a live speed
   ring, one slider, speed levels, modes, oscillation, angles, timer, and device
   extras, grouped the way you use them.
-- **Five looks in one card.** Follow your Home Assistant theme, or switch to
+- **Four named themes in one card.** Follow your Home Assistant theme, or switch to
   Mushroom, Minimal, Glass, or Industrial with a single option.
 - **Fits every dashboard.** Sections and masonry sizing, comfortable or compact
   density, one or two control columns, configurable block order, and a layout
