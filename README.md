@@ -376,6 +376,10 @@ styles:
     height: 52px
 ```
 
+Set the graphic diameter directly with `visual.size` in pixels. The editor
+keeps it between 120 and 480 px; use `styles.visual.size` only when you need
+an advanced CSS value.
+
 ## Configuration
 
 Every option, default, and legacy alias is documented in
@@ -389,6 +393,7 @@ Every option, default, and legacy alias is documented in
 | `layout.columns`          | `auto`, `one`, `two`                                                | `auto`        |
 | `layout.order`            | any order of `header`, `visual`, `airflow`, `position`, `features`  | default order |
 | `header.variant`          | `full`, `compact`                                                   | `full`        |
+| `visual.size`             | `120`-`480` px                                                      | `300`         |
 | `details.position`        | `below`, `side`                                                     | `below`       |
 | `controls.selection_mode` | `auto`, `buttons`, `select`                                         | `auto`        |
 | `controls.timer_mode`     | `cycle`, `select`                                                   | `cycle`       |

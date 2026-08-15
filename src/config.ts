@@ -16,11 +16,16 @@ import type {
   FanStylesConfig,
   FanTheme,
   FanTimerMode,
-  FanVisualConfig,
+  ResolvedFanVisualConfig,
   ResolvedFanCardConfig,
 } from "./types";
 
 export const DEFAULT_BLOCK_ORDER: readonly FanBlock[] = ["header", "visual", "airflow", "position", "features"];
+
+export const DEFAULT_VISUAL_SIZE = 300;
+export const VISUAL_SIZE_MIN = 120;
+export const VISUAL_SIZE_MAX = 480;
+export const VISUAL_SIZE_STEP = 10;
 
 const SURFACE_STYLE_TOKENS = [
   "background",
@@ -139,6 +144,13 @@ const recordValue = (value: unknown): Record<string, unknown> => (isRecord(value
 
 const booleanValue = (value: unknown, fallback: boolean): boolean => (typeof value === "boolean" ? value : fallback);
 
+const boundedNumberValue = (value: unknown, fallback: number, min: number, max: number): number => {
+  const numeric =
+    typeof value === "number" ? value : typeof value === "string" && value.trim() !== "" ? Number(value) : Number.NaN;
+
+  return Number.isFinite(numeric) ? Math.min(max, Math.max(min, numeric)) : fallback;
+};
+
 const enumValue = <T extends string>(value: unknown, allowed: readonly T[], fallback: T): T =>
   typeof value === "string" && allowed.includes(value as T) ? (value as T) : fallback;
 
@@ -163,12 +175,16 @@ const normalizeHeader = (value: unknown): Required<FanHeaderConfig> => {
   };
 };
 
-const normalizeVisual = (value: unknown): Required<FanVisualConfig> => {
+const normalizeVisual = (value: unknown): ResolvedFanVisualConfig => {
   const input = recordValue(value);
 
   return {
     show: booleanValue(input.show, true),
     show_graphic: booleanValue(input.show_graphic, true),
+    size:
+      input.size === undefined
+        ? undefined
+        : boundedNumberValue(input.size, DEFAULT_VISUAL_SIZE, VISUAL_SIZE_MIN, VISUAL_SIZE_MAX),
     show_power: booleanValue(input.show_power, true),
     show_speed: booleanValue(input.show_speed, true),
     show_details: booleanValue(input.show_details, true),

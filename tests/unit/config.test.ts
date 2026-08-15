@@ -36,6 +36,36 @@ describe("normalizeCardConfig", () => {
     expect(config.header.show_model).toBe(false);
   });
 
+  it("normalizes the visual size within the supported range", () => {
+    expect(
+      normalizeCardConfig({
+        type: "custom:xiaomi-fan-card",
+        entity: "fan.example",
+      }).visual.size,
+    ).toBeUndefined();
+    expect(
+      normalizeCardConfig({
+        type: "custom:xiaomi-fan-card",
+        entity: "fan.example",
+        visual: { size: 240 },
+      }).visual.size,
+    ).toBe(240);
+    expect(
+      normalizeCardConfig({
+        type: "custom:xiaomi-fan-card",
+        entity: "fan.example",
+        visual: { size: 80 },
+      }).visual.size,
+    ).toBe(120);
+    expect(
+      normalizeCardConfig({
+        type: "custom:xiaomi-fan-card",
+        entity: "fan.example",
+        visual: { size: "invalid" as never },
+      }).visual.size,
+    ).toBe(300);
+  });
+
   it("gives nested visibility settings precedence over legacy fields", () => {
     const config = normalizeCardConfig({
       type: "custom:xiaomi-fan-card",

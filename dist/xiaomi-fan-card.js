@@ -1109,6 +1109,10 @@ const createFanAdapter = (hass, entityId, services, integration = "auto", relate
 };
 
 const DEFAULT_BLOCK_ORDER = ["header", "visual", "airflow", "position", "features"];
+const DEFAULT_VISUAL_SIZE = 300;
+const VISUAL_SIZE_MIN = 120;
+const VISUAL_SIZE_MAX = 480;
+const VISUAL_SIZE_STEP = 10;
 const SURFACE_STYLE_TOKENS = [
     "background",
     "border",
@@ -1205,6 +1209,10 @@ const DEFAULT_CONFIG = {
 const isRecord = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
 const recordValue = (value) => (isRecord(value) ? value : {});
 const booleanValue = (value, fallback) => (typeof value === "boolean" ? value : fallback);
+const boundedNumberValue = (value, fallback, min, max) => {
+    const numeric = typeof value === "number" ? value : typeof value === "string" && value.trim() !== "" ? Number(value) : Number.NaN;
+    return Number.isFinite(numeric) ? Math.min(max, Math.max(min, numeric)) : fallback;
+};
 const enumValue = (value, allowed, fallback) => typeof value === "string" && allowed.includes(value) ? value : fallback;
 const integrationValue = (value) => enumValue(value, ["auto", "standard", "xiaomi_miio", "xiaomi_miio_fan", "xiaomi_miot"], "auto");
 const themeValue = (value) => enumValue(value, ["auto", "mushroom", "minimal", "glass", "industrial"], "auto");
@@ -1226,6 +1234,9 @@ const normalizeVisual = (value) => {
     return {
         show: booleanValue(input.show, true),
         show_graphic: booleanValue(input.show_graphic, true),
+        size: input.size === undefined
+            ? undefined
+            : boundedNumberValue(input.size, DEFAULT_VISUAL_SIZE, VISUAL_SIZE_MIN, VISUAL_SIZE_MAX),
         show_power: booleanValue(input.show_power, true),
         show_speed: booleanValue(input.show_speed, true),
         show_details: booleanValue(input.show_details, true),
@@ -1453,6 +1464,18 @@ const getConfigForm = () => {
             ]),
             panel("visual", "mdi:fan", [
                 booleanField("show"),
+                withVisibility({
+                    name: "size",
+                    selector: {
+                        number: {
+                            min: VISUAL_SIZE_MIN,
+                            max: VISUAL_SIZE_MAX,
+                            step: VISUAL_SIZE_STEP,
+                            mode: "box",
+                            unit_of_measurement: "px",
+                        },
+                    },
+                }, ["show", "show_graphic"]),
                 selectField("animation", ["auto", "enabled", "disabled"], "show"),
                 grid([
                     booleanField("show_graphic", "show"),
@@ -2975,7 +2998,10 @@ class XiaomiFanCard extends i$2 {
       <section
         class="visual-section details-${this.config.details.position} ${this.config.visual.show_graphic ? "details-with-graphic" : "details-only"}"
         aria-label=${this.t("fanStatus")}
-        style=${o(styleMapFor(this.config.styles.visual, "fan-visual"))}
+        style=${o({
+            ...(this.config.visual.size === undefined ? {} : { "--fan-visual-size": `${this.config.visual.size}px` }),
+            ...styleMapFor(this.config.styles.visual, "fan-visual"),
+        })}
       >
         ${this.config.visual.show_graphic
             ? b `

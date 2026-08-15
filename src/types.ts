@@ -154,11 +154,16 @@ export interface FanHeaderConfig {
 export interface FanVisualConfig {
   show?: boolean;
   show_graphic?: boolean;
+  size?: number;
   show_power?: boolean;
   show_speed?: boolean;
   show_details?: boolean;
   animation?: FanAnimationMode;
 }
+
+export type ResolvedFanVisualConfig = Omit<Required<FanVisualConfig>, "size"> & {
+  size?: number;
+};
 
 export interface FanControlsConfig {
   show?: boolean;
@@ -285,7 +290,7 @@ export interface ResolvedFanCardConfig extends FanCardConfig {
   show_buzzer: boolean;
   show_ionizer: boolean;
   header: Required<FanHeaderConfig>;
-  visual: Required<FanVisualConfig>;
+  visual: ResolvedFanVisualConfig;
   controls: Required<FanControlsConfig>;
   details: Required<FanDetailsConfig>;
   layout: Required<FanLayoutConfig>;

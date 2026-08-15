@@ -452,7 +452,10 @@ export class XiaomiFanCard extends LitElement {
           this.config.visual.show_graphic ? "details-with-graphic" : "details-only"
         }"
         aria-label=${this.t("fanStatus")}
-        style=${styleMap(styleMapFor(this.config.styles.visual, "fan-visual"))}
+        style=${styleMap({
+          ...(this.config.visual.size === undefined ? {} : { "--fan-visual-size": `${this.config.visual.size}px` }),
+          ...styleMapFor(this.config.styles.visual, "fan-visual"),
+        })}
       >
         ${
           this.config.visual.show_graphic

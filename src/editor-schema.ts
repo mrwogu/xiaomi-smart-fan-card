@@ -1,4 +1,4 @@
-import { DEFAULT_BLOCK_ORDER, STYLE_TOKENS } from "./config";
+import { DEFAULT_BLOCK_ORDER, STYLE_TOKENS, VISUAL_SIZE_MAX, VISUAL_SIZE_MIN, VISUAL_SIZE_STEP } from "./config";
 import { RELATED_ENTITY_DOMAINS } from "./types";
 import type { FanRelatedEntitiesConfig } from "./types";
 
@@ -74,6 +74,21 @@ export const getConfigForm = () => {
       ]),
       panel("visual", "mdi:fan", [
         booleanField("show"),
+        withVisibility(
+          {
+            name: "size",
+            selector: {
+              number: {
+                min: VISUAL_SIZE_MIN,
+                max: VISUAL_SIZE_MAX,
+                step: VISUAL_SIZE_STEP,
+                mode: "box",
+                unit_of_measurement: "px",
+              },
+            },
+          },
+          ["show", "show_graphic"],
+        ),
         selectField("animation", ["auto", "enabled", "disabled"], "show"),
         grid(
           [

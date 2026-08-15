@@ -29,6 +29,7 @@ header:
 visual:
   show: true
   show_graphic: true
+  size: 300
   show_power: true
   show_speed: true
   show_details: true
@@ -119,14 +120,15 @@ These keys are still accepted for older YAML configurations. The nested
 
 ## `visual`
 
-| Parameter             | Default | Description                                    |
-| --------------------- | ------- | ---------------------------------------------- |
-| `visual.show`         | `true`  | Show the visual status section.                |
-| `visual.show_graphic` | `true`  | Show the animated fan graphic.                 |
-| `visual.show_power`   | `true`  | Show the central power button.                 |
-| `visual.show_speed`   | `true`  | Show the percentage readout.                   |
-| `visual.show_details` | `true`  | Show angles, timer, temperature, and humidity. |
-| `visual.animation`    | `auto`  | `auto`, `enabled`, or `disabled`.              |
+| Parameter             | Default | Description                                                        |
+| --------------------- | ------- | ------------------------------------------------------------------ |
+| `visual.show`         | `true`  | Show the visual status section.                                    |
+| `visual.show_graphic` | `true`  | Show the animated fan graphic.                                     |
+| `visual.size`         | `300`   | Fan graphic diameter in pixels. Values are clamped to `120`-`480`. |
+| `visual.show_power`   | `true`  | Show the central power button.                                     |
+| `visual.show_speed`   | `true`  | Show the percentage readout.                                       |
+| `visual.show_details` | `true`  | Show angles, timer, temperature, and humidity.                     |
+| `visual.animation`    | `auto`  | `auto`, `enabled`, or `disabled`.                                  |
 
 ## `controls`
 
@@ -184,8 +186,9 @@ These keys are still accepted for older YAML configurations. The nested
 `controls`, and `details`. Every group accepts `background`, `border`,
 `border_radius`, `color`, `font_size`, `gap`, `padding`, and `shadow`.
 Three tokens are group specific: `card` also accepts `accent`, `visual` also
-accepts `size` for the graphic diameter, and `controls` also accepts `height`
-for the minimum control height. `accent` replaces the color the card derives
+accepts `size` as an advanced CSS override for the graphic diameter, and
+`controls` also accepts `height` for the minimum control height. Use
+`visual.size` for the simple pixel-based setting. `accent` replaces the color the card derives
 from `--state-fan-active-color`, so the speed ring, slider, active buttons,
 status dot, and every mixed tint follow it, including inside a theme.
 Values are CSS values, for example `18px`, `0.8rem`, or

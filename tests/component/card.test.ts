@@ -331,6 +331,19 @@ describe("XiaomiFanCard", () => {
     expect(panelFields(schema, "header").find((field) => field.name === "show_name")?.visible).toEqual([
       { field: "show", value: true },
     ]);
+    expect(panelFields(schema, "visual").find((field) => field.name === "size")?.selector).toEqual({
+      number: {
+        min: 120,
+        max: 480,
+        step: 10,
+        mode: "box",
+        unit_of_measurement: "px",
+      },
+    });
+    expect(panelFields(schema, "visual").find((field) => field.name === "size")?.visible).toEqual([
+      { field: "show", value: true },
+      { field: "show_graphic", value: true },
+    ]);
   });
 
   it("groups control toggles into flattened sub panels that keep their conditions", () => {
@@ -472,6 +485,25 @@ describe("XiaomiFanCard", () => {
 
     expect(style).toContain("--fan-accent: #ff7a59");
     expect(style).toContain("--fan-card-border-radius: 26px");
+  });
+
+  it("applies the configured visual size while preserving CSS overrides", async () => {
+    const { card: sizedCard } = await renderCard({
+      ...baseConfig,
+      visual: { show: true, show_graphic: true, size: 240 },
+    });
+    const sizedStyle = sizedCard.shadowRoot?.querySelector(".visual-section")?.getAttribute("style") ?? "";
+
+    expect(sizedStyle).toContain("--fan-visual-size: 240px");
+
+    const { card: overriddenCard } = await renderCard({
+      ...baseConfig,
+      visual: { show: true, show_graphic: true, size: 240 },
+      styles: { visual: { size: "min(100%, 180px)" } },
+    });
+    const overriddenStyle = overriddenCard.shadowRoot?.querySelector(".visual-section")?.getAttribute("style") ?? "";
+
+    expect(overriddenStyle).toContain("--fan-visual-size: min(100%, 180px)");
   });
 
   it("shows the Xiaomi eyebrow only for a Xiaomi fan", async () => {
