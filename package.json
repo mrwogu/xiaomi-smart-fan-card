@@ -1,6 +1,6 @@
 {
   "name": "xiaomi-fan-card",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Modern capability-aware Lovelace card for Xiaomi and generic Home Assistant fans.",
   "type": "module",
   "private": true,
