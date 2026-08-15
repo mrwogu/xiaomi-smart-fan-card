@@ -44,8 +44,8 @@ Capability-aware. Five themes. Native visual editor. No telemetry.
 ## Four themes, one card
 
 One option, `layout.theme`, changes the entire surface. Same entity, same state,
-same controls, four named looks. The hero above is `auto`; the strip below shows
-the named themes in dark mode.
+same controls, four named looks. The strip below shows the named themes in dark
+mode.
 
 ![The four named themes shown side by side: mushroom, minimal, glass, and industrial](https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/themes-gallery.webp)
 
