@@ -6,8 +6,7 @@
       "package-name": "xiaomi-fan-card",
       "include-component-in-tag": false,
       "bump-minor-pre-major": true,
-      "bump-patch-for-minor-pre-major": true,
-      "release-as": "1.0.0"
+      "bump-patch-for-minor-pre-major": true
     }
   },
   "changelog-sections": [
@@ -17,7 +16,7 @@
     },
     {
       "type": "fix",
-      "section": "Features"
+      "section": "Bug Fixes"
     },
     {
       "type": "perf",
