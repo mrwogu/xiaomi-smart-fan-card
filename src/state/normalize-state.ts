@@ -30,6 +30,24 @@ const numberValue = (value: unknown): number | undefined => {
   return undefined;
 };
 
+/**
+ * Integrations expose numbers bare or wrapped in a unit label such as `90°`
+ * and `60 degrees`, which is how select options usually arrive.
+ */
+export const numericLabel = (value: unknown): number | undefined => {
+  const numeric = numberValue(value);
+  if (numeric !== undefined) {
+    return numeric;
+  }
+
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const match = value.trim().match(/^([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*(?:°|degrees?)?$/i);
+  return match ? Number(match[1]) : undefined;
+};
+
 const booleanValue = (value: unknown): boolean | undefined => {
   if (typeof value === "boolean") {
     return value;
@@ -84,6 +102,17 @@ const firstNumber = (attributes: Record<string, unknown>, keys: string[]): numbe
   return undefined;
 };
 
+const firstAngle = (attributes: Record<string, unknown>, keys: string[]): number | undefined => {
+  for (const key of keys) {
+    const value = numericLabel(attributes[key]);
+    if (value !== undefined) {
+      return value;
+    }
+  }
+
+  return undefined;
+};
+
 const firstBoolean = (attributes: Record<string, unknown>, keys: string[]): boolean | undefined => {
   for (const key of keys) {
     const value = booleanValue(attributes[key]);
@@ -106,13 +135,18 @@ const timerMinutes = (attributes: Record<string, unknown>): number | undefined =
 };
 
 const ledState = (attributes: Record<string, unknown>): boolean | undefined => {
+  const brightness = firstNumber(attributes, ["led_brightness"]);
+  if (brightness !== undefined) {
+    return brightness < 2;
+  }
+
   const direct = firstBoolean(attributes, ["led", "light", "light_enum"]);
   if (direct !== undefined) {
     return direct;
   }
 
-  const brightness = firstNumber(attributes, ["led_brightness", "light", "led"]);
-  return brightness === undefined ? undefined : brightness < 2;
+  const fallbackBrightness = firstNumber(attributes, ["light", "led"]);
+  return fallbackBrightness === undefined ? undefined : fallbackBrightness < 2;
 };
 
 const readPresetModes = (...values: unknown[]): string[] => {
@@ -161,14 +195,14 @@ export const normalizeFanState = (entityId: string, entity?: HassEntity): Normal
     sleepMode,
     direction: directionValue === "forward" || directionValue === "reverse" ? directionValue : undefined,
     horizontalSwing: firstBoolean(attributes, ["oscillating", "oscillate", "horizontal_swing", "swing_mode"]),
-    horizontalAngle: firstNumber(attributes, [
+    horizontalAngle: firstAngle(attributes, [
       "horizontal_swing_angle",
       "horizontal_angle",
       "swing_mode_angle",
       "angle",
     ]),
     verticalSwing: firstBoolean(attributes, ["vertical_swing", "vertical_oscillate", "vertical_oscillation"]),
-    verticalAngle: firstNumber(attributes, ["vertical_swing_angle", "vertical_oscillation_angle", "vertical_angle"]),
+    verticalAngle: firstAngle(attributes, ["vertical_swing_angle", "vertical_oscillation_angle", "vertical_angle"]),
     timerMinutes: timerMinutes(attributes),
     childLock: booleanValue(attributes["child_lock"]),
     led: ledState(attributes),

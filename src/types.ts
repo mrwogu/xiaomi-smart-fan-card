@@ -37,11 +37,14 @@ export interface ServiceAvailability {
 
 export type TimerUnit = "min" | "s";
 
-export interface TimerSpec {
-  unit: TimerUnit;
+export interface NumberSpec {
   min: number;
   max: number;
   step: number;
+}
+
+export interface TimerSpec extends NumberSpec {
+  unit: TimerUnit;
 }
 
 export interface FanModelProfile {
@@ -66,9 +69,11 @@ export interface FanCapabilities {
   horizontalSwing: boolean;
   horizontalAngle: boolean;
   horizontalAngles: number[];
+  horizontalAngleSpec?: NumberSpec;
   verticalSwing: boolean;
   verticalAngle: boolean;
   verticalAngles: number[];
+  verticalAngleSpec?: NumberSpec;
   directionNudge: boolean;
   naturalMode: boolean;
   timer: boolean;
@@ -225,9 +230,9 @@ export interface FanRelatedEntitiesConfig {
 }
 
 export const RELATED_ENTITY_DOMAINS = {
-  horizontal_angle_entity: ["number", "input_number"],
+  horizontal_angle_entity: ["number", "input_number", "select"],
   vertical_swing_entity: ["switch", "input_boolean", "select"],
-  vertical_angle_entity: ["number", "input_number"],
+  vertical_angle_entity: ["number", "input_number", "select"],
   favorite_level_entity: ["number", "input_number"],
   sleep_mode_entity: ["switch", "input_boolean", "select"],
   timer_entity: ["number", "input_number"],

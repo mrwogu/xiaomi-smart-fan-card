@@ -5,6 +5,8 @@ interface RegistryEntity {
   device_id?: string;
   name?: string;
   original_name?: string;
+  device_class?: string;
+  original_device_class?: string;
 }
 
 const suffixes: Record<keyof RelatedEntities, string[]> = {
@@ -44,6 +46,29 @@ const findBySuffix = (
 };
 
 /**
+ * A translated Home Assistant install names sensors in the user language, so a
+ * suffix table would need one entry per locale. The device class is the same
+ * in every language and only falls back to the suffix search when missing.
+ */
+const findSensorByDeviceClass = (
+  hass: HassLike,
+  entries: RegistryEntity[],
+  deviceClass: string,
+  fallbackSuffixes: string[],
+): string | undefined => {
+  const match = entries.find((entry) => {
+    if (!entry.entity_id.startsWith("sensor.")) {
+      return false;
+    }
+
+    const registered = entry.device_class ?? entry.original_device_class;
+    return registered === deviceClass || hass.states[entry.entity_id]?.attributes["device_class"] === deviceClass;
+  });
+
+  return match?.entity_id ?? findBySuffix(entries, ["sensor"], fallbackSuffixes);
+};
+
+/**
  * Resolves to undefined when the registry lookup itself failed, which is what
  * a reconnecting Home Assistant looks like. Callers keep their previous result
  * in that case instead of collapsing to an empty device.
@@ -67,21 +92,28 @@ export const resolveRelatedEntities = async (
 
     const related: RelatedEntities = {};
     const numeric = ["number", "input_number"];
+    const angle = [...numeric, "select"];
     const boolean = ["switch", "input_boolean"];
     const select = ["select"];
 
-    related.horizontalAngle = findBySuffix(entries, numeric, suffixes.horizontalAngle);
-    related.sleepMode = findBySuffix(entries, [...boolean, "select"], suffixes.sleepMode);
-    related.verticalSwing = findBySuffix(entries, [...boolean, "select"], suffixes.verticalSwing);
-    related.verticalAngle = findBySuffix(entries, numeric, suffixes.verticalAngle);
+    // The vertical angle resolves first and then drops out of the remaining
+    // searches: `_vertical_oscillation_angle` also ends with the horizontal
+    // `_oscillation_angle`, and both angle names contain the vertical swing
+    // hints once a `select` angle entity is allowed.
+    related.verticalAngle = findBySuffix(entries, angle, suffixes.verticalAngle);
+    const withoutVerticalAngle = entries.filter((entry) => entry.entity_id !== related.verticalAngle);
+    related.horizontalAngle = findBySuffix(withoutVerticalAngle, angle, suffixes.horizontalAngle);
+    const withoutAngles = withoutVerticalAngle.filter((entry) => entry.entity_id !== related.horizontalAngle);
+    related.sleepMode = findBySuffix(withoutAngles, [...boolean, "select"], suffixes.sleepMode);
+    related.verticalSwing = findBySuffix(withoutAngles, [...boolean, "select"], suffixes.verticalSwing);
     related.favoriteLevel = findBySuffix(entries, numeric, suffixes.favoriteLevel);
     related.timer = findBySuffix(entries, numeric, suffixes.timer);
     related.childLock = findBySuffix(entries, [...boolean, ...select], suffixes.childLock);
     related.led = findBySuffix(entries, [...boolean, ...select, ...numeric], suffixes.led);
     related.buzzer = findBySuffix(entries, [...boolean, ...select], suffixes.buzzer);
     related.ionizer = findBySuffix(entries, [...boolean, ...select], suffixes.ionizer);
-    related.temperature = findBySuffix(entries, ["sensor"], suffixes.temperature);
-    related.humidity = findBySuffix(entries, ["sensor"], suffixes.humidity);
+    related.temperature = findSensorByDeviceClass(hass, entries, "temperature", suffixes.temperature);
+    related.humidity = findSensorByDeviceClass(hass, entries, "humidity", suffixes.humidity);
 
     return related;
   } catch {

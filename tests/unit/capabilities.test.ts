@@ -40,4 +40,26 @@ describe("detectCapabilities", () => {
     expect(capabilities.timer).toBe(false);
     expect(capabilities.childLock).toBe(false);
   });
+
+  it("does not treat preset-only feature bit as swing support", () => {
+    const capabilities = detectCapabilities({
+      state: "on",
+      attributes: { supported_features: 8 },
+    });
+
+    expect(capabilities.horizontalSwing).toBe(false);
+    expect(capabilities.verticalSwing).toBe(false);
+    expect(capabilities.horizontalAngle).toBe(false);
+    expect(capabilities.verticalAngle).toBe(false);
+  });
+
+  it("honors the official oscillation and direction feature bits", () => {
+    const capabilities = detectCapabilities({
+      state: "on",
+      attributes: { supported_features: 6 },
+    });
+
+    expect(capabilities.horizontalSwing).toBe(true);
+    expect(capabilities.direction).toBe(true);
+  });
 });

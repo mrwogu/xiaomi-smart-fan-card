@@ -1,6 +1,12 @@
 import { detectCapabilities } from "../state/capabilities";
 import { getModelProfile } from "../state/model-profiles";
-import { minutesToTimerValue, normalizeFanState, parseTimerUnit, timerValueToMinutes } from "../state/normalize-state";
+import {
+  minutesToTimerValue,
+  normalizeFanState,
+  numericLabel,
+  parseTimerUnit,
+  timerValueToMinutes,
+} from "../state/normalize-state";
 import { ServiceDispatcher } from "../services/service-dispatcher";
 import type {
   FanAdapter,
@@ -10,15 +16,88 @@ import type {
   HassEntity,
   HassLike,
   NormalizedFanState,
+  NumberSpec,
   RelatedEntities,
   ServiceAvailability,
   TimerSpec,
 } from "../types";
 
+/**
+ * A dropdown turns unusable well before a fine-grained angle entity runs out of
+ * steps, so a wider range reports its raw spec instead of a preset list.
+ */
+const MAX_ANGLE_STEPS = 24;
+
+const MAX_TIMER_STEPS = 100;
+
 const entityParts = (entityId: string): [string, string] => {
   const [domain, objectId] = entityId.split(".");
   return [domain ?? "", objectId ?? ""];
 };
+
+const numericOptions = (options: unknown): number[] | undefined => {
+  if (!Array.isArray(options)) {
+    return undefined;
+  }
+
+  const angles = [...new Set(options.map(numericLabel).filter((value): value is number => value !== undefined))].sort(
+    (left, right) => left - right,
+  );
+  return angles.length > 0 ? angles : undefined;
+};
+
+const numericAngleOptions = (entity: HassEntity | undefined): number[] | undefined =>
+  numericOptions(entity?.attributes["options"]);
+
+const selectOptions = (entity: HassEntity | undefined): string[] => {
+  const options = entity?.attributes["options"];
+  return Array.isArray(options) ? options.map(String) : [];
+};
+
+/**
+ * Exact labels win over substring hints because a substring search returns the
+ * first matching option rather than the closest one: `Dim` would answer a
+ * request for `Off`, and `on` hides inside words such as `None`.
+ */
+const selectOptionFor = (options: string[], exact: readonly string[], hints: readonly string[]): string | undefined => {
+  const normalized = options.map((option) => ({ option, key: option.trim().toLowerCase() }));
+
+  for (const label of exact) {
+    const match = normalized.find((entry) => entry.key === label);
+    if (match) {
+      return match.option;
+    }
+  }
+
+  for (const hint of hints) {
+    const match = normalized.find((entry) => entry.key.includes(hint));
+    if (match) {
+      return match.option;
+    }
+  }
+
+  return undefined;
+};
+
+const rawSteps = (spec: NumberSpec): number[] =>
+  Array.from({ length: Math.floor((spec.max - spec.min) / spec.step) + 1 }, (_, index) => spec.min + index * spec.step);
+
+const roundStep = (value: number): number => Math.round(value * 100) / 100;
+
+const BOOLEAN_SELECT_LABELS = {
+  enabledExact: ["on", "true", "yes", "enable", "enabled"],
+  enabledHints: ["bright", "enable", "active", "sleep", "oscillate", "swing", "true"],
+  disabledExact: ["off", "false", "no", "disable", "disabled"],
+  disabledHints: ["off", "disable", "inactive", "false", "none", "normal", "fixed", "static", "dim"],
+} as const;
+
+const isDisabledLabel = (value: string): boolean =>
+  selectOptionFor([value], BOOLEAN_SELECT_LABELS.disabledExact, ["off", "disable", "inactive"]) !== undefined;
+
+const booleanSelectOption = (options: string[], enabled: boolean): string | undefined =>
+  enabled
+    ? selectOptionFor(options, BOOLEAN_SELECT_LABELS.enabledExact, BOOLEAN_SELECT_LABELS.enabledHints)
+    : selectOptionFor(options, BOOLEAN_SELECT_LABELS.disabledExact, BOOLEAN_SELECT_LABELS.disabledHints);
 
 export class StandardFanAdapter implements FanAdapter {
   public readonly state: NormalizedFanState;
@@ -41,13 +120,17 @@ export class StandardFanAdapter implements FanAdapter {
     this.capabilities = {
       ...detectedCapabilities,
       horizontalAngles:
-        detectedCapabilities.horizontalAngles.length > 0
+        this.readAngleOptions(actionableRelated.horizontalAngle) ??
+        (detectedCapabilities.horizontalAngles.length > 0
           ? detectedCapabilities.horizontalAngles
-          : (this.readNumberSteps(this.readTimerSpec(actionableRelated.horizontalAngle)) ?? []),
+          : (this.readAngleSteps(actionableRelated.horizontalAngle) ?? [])),
+      horizontalAngleSpec: this.readNumberSpec(actionableRelated.horizontalAngle),
       verticalAngles:
-        detectedCapabilities.verticalAngles.length > 0
+        this.readAngleOptions(actionableRelated.verticalAngle) ??
+        (detectedCapabilities.verticalAngles.length > 0
           ? detectedCapabilities.verticalAngles
-          : (this.readNumberSteps(this.readTimerSpec(actionableRelated.verticalAngle)) ?? []),
+          : (this.readAngleSteps(actionableRelated.verticalAngle) ?? [])),
+      verticalAngleSpec: this.readNumberSpec(actionableRelated.verticalAngle),
       timerSteps: this.readNumberSteps(actionableRelated.timer ? timerSpec : undefined),
       timerSpec: actionableRelated.timer ? timerSpec : undefined,
     };
@@ -60,7 +143,14 @@ export class StandardFanAdapter implements FanAdapter {
     for (const key of Object.keys(actionable) as Array<keyof RelatedEntities>) {
       const entityId = actionable[key];
       const state = entityId ? this.hass.states[entityId] : undefined;
-      if (!state || state.state === "unknown" || state.state === "unavailable") {
+      if (
+        !state ||
+        state.state === "unknown" ||
+        state.state === "unavailable" ||
+        ((key === "horizontalAngle" || key === "verticalAngle") &&
+          this.isSelectEntity(entityId) &&
+          numericAngleOptions(state) === undefined)
+      ) {
         delete actionable[key];
       }
     }
@@ -68,24 +158,54 @@ export class StandardFanAdapter implements FanAdapter {
     return actionable;
   }
 
-  private readTimerSpec(entityId: string | undefined): TimerSpec | undefined {
-    const timerEntity = entityId ? this.hass.states[entityId] : undefined;
-    const minimum = Number(timerEntity?.attributes["min"]);
-    const maximum = Number(timerEntity?.attributes["max"]);
-    const step = Number(timerEntity?.attributes["step"]);
+  private isSelectEntity(entityId: string | undefined): boolean {
+    return entityId !== undefined && entityParts(entityId)[0] === "select";
+  }
+
+  private readAngleOptions(entityId: string | undefined): number[] | undefined {
+    return numericAngleOptions(entityId ? this.hass.states[entityId] : undefined);
+  }
+
+  private readNumberSpec(entityId: string | undefined): NumberSpec | undefined {
+    const entity = entityId ? this.hass.states[entityId] : undefined;
+    const minimum = Number(entity?.attributes["min"]);
+    const maximum = Number(entity?.attributes["max"]);
+    const step = Number(entity?.attributes["step"]);
     if (
       !Number.isFinite(minimum) ||
       !Number.isFinite(maximum) ||
       !Number.isFinite(step) ||
       step <= 0 ||
-      maximum < minimum ||
-      (maximum - minimum) / step > 100
+      maximum < minimum
     ) {
       return undefined;
     }
 
-    const unit = parseTimerUnit(timerEntity?.attributes["unit_of_measurement"]);
-    return { unit, min: minimum, max: maximum, step };
+    return { min: minimum, max: maximum, step };
+  }
+
+  private readTimerSpec(entityId: string | undefined): TimerSpec | undefined {
+    const spec = this.readNumberSpec(entityId);
+    if (!spec || (spec.max - spec.min) / spec.step > MAX_TIMER_STEPS) {
+      return undefined;
+    }
+
+    const entity = entityId ? this.hass.states[entityId] : undefined;
+    return { ...spec, unit: parseTimerUnit(entity?.attributes["unit_of_measurement"]) };
+  }
+
+  /**
+   * Angles carry no timer unit, so they never go through the timer conversion.
+   * A range too wide for a dropdown reports no presets and leaves the card on
+   * the bounded numeric input built from the same spec.
+   */
+  private readAngleSteps(entityId: string | undefined): number[] | undefined {
+    const spec = this.readNumberSpec(entityId);
+    if (!spec || (spec.max - spec.min) / spec.step > MAX_ANGLE_STEPS) {
+      return undefined;
+    }
+
+    return rawSteps(spec).map(roundStep);
   }
 
   private readNumberSteps(spec: TimerSpec | undefined): number[] | undefined {
@@ -93,10 +213,7 @@ export class StandardFanAdapter implements FanAdapter {
       return undefined;
     }
 
-    return Array.from(
-      { length: Math.floor((spec.max - spec.min) / spec.step) + 1 },
-      (_, index) => Math.round(timerValueToMinutes(spec.min + index * spec.step, spec.unit) * 100) / 100,
-    );
+    return rawSteps(spec).map((value) => roundStep(timerValueToMinutes(value, spec.unit)));
   }
 
   private entityWithRelatedAttributes(
@@ -127,15 +244,27 @@ export class StandardFanAdapter implements FanAdapter {
     for (const [relatedKey, attributeKey] of relatedValues) {
       const relatedEntityId = related[relatedKey];
       const relatedState = relatedEntityId ? this.hass.states[relatedEntityId] : undefined;
-      if (relatedState && relatedState.state !== "unknown" && relatedState.state !== "unavailable") {
+      if (relatedEntityId && relatedState && relatedState.state !== "unknown" && relatedState.state !== "unavailable") {
+        if (relatedKey === "led") {
+          attributes[attributeKey] = this.readRelatedLedState(relatedEntityId, relatedState);
+          delete attributes["led_brightness"];
+          continue;
+        }
+
+        // A mode selector matched as an angle entity carries no angle, so the
+        // primary attribute stays authoritative instead of being overwritten.
+        if (
+          (relatedKey === "horizontalAngle" || relatedKey === "verticalAngle") &&
+          numericLabel(relatedState.state) === undefined
+        ) {
+          continue;
+        }
+
         const value = Number(relatedState.state);
         attributes[attributeKey] =
           relatedKey === "timer" && Number.isFinite(value) && timerSpec
             ? timerValueToMinutes(value, timerSpec.unit)
             : relatedState.state;
-        if (relatedKey === "led") {
-          attributes["led_brightness"] = relatedState.state;
-        }
       } else if (relatedState) {
         delete attributes[attributeKey];
         if (relatedKey === "led") {
@@ -147,6 +276,35 @@ export class StandardFanAdapter implements FanAdapter {
     }
 
     return { ...entity, attributes };
+  }
+
+  private readRelatedLedState(entityId: string, entity: HassEntity): string | boolean {
+    const [domain] = entityParts(entityId);
+    const current = numericLabel(entity.state);
+
+    if (domain === "number" || domain === "input_number") {
+      const minimum = Number(entity.attributes["min"]);
+      const maximum = Number(entity.attributes["max"]);
+      if (current !== undefined && Number.isFinite(minimum) && Number.isFinite(maximum) && maximum >= minimum) {
+        return this.isCustomLedBrightnessMapping(entityId, minimum, maximum) ? current < 2 : current > minimum;
+      }
+    }
+
+    if (domain === "select") {
+      const options = numericOptions(entity.attributes["options"]) ?? [];
+      if (current !== undefined && options.includes(0) && options.includes(2)) {
+        return current < 2;
+      }
+
+      // A dimmed LED is still lit, so only an explicit off label reads as off.
+      return !isDisabledLabel(entity.state);
+    }
+
+    return entity.state;
+  }
+
+  private isCustomLedBrightnessMapping(entityId: string, minimum: number, maximum: number): boolean {
+    return entityId.endsWith("_led_brightness") && minimum === 0 && maximum === 2;
   }
 
   public async togglePower(): Promise<void> {
@@ -228,7 +386,7 @@ export class StandardFanAdapter implements FanAdapter {
   public async setHorizontalAngle(angle: number): Promise<void> {
     await this.startSwing("horizontal");
 
-    if (await this.setRelatedValue(this.related.horizontalAngle, angle)) {
+    if (await this.setRelatedAngle(this.related.horizontalAngle, angle)) {
       return;
     }
 
@@ -246,7 +404,7 @@ export class StandardFanAdapter implements FanAdapter {
   public async setVerticalAngle(angle: number): Promise<void> {
     await this.startSwing("vertical");
 
-    if (await this.setRelatedValue(this.related.verticalAngle, angle)) {
+    if (await this.setRelatedAngle(this.related.verticalAngle, angle)) {
       return;
     }
 
@@ -310,11 +468,11 @@ export class StandardFanAdapter implements FanAdapter {
   }
 
   public async setLed(enabled: boolean): Promise<void> {
-    if (await this.setRelatedBoolean(this.related.led, enabled)) {
+    if (await this.setRelatedLedBrightness(this.related.led, enabled)) {
       return;
     }
 
-    if (await this.setRelatedLedBrightness(this.related.led, enabled)) {
+    if (await this.setRelatedBoolean(this.related.led, enabled)) {
       return;
     }
 
@@ -362,6 +520,37 @@ export class StandardFanAdapter implements FanAdapter {
     return true;
   }
 
+  private async setRelatedAngle(entityId: string | undefined, angle: number): Promise<boolean> {
+    if (!entityId) {
+      return false;
+    }
+
+    const state = this.hass.states[entityId];
+    if (!state || state.state === "unknown" || state.state === "unavailable") {
+      return false;
+    }
+
+    const [domain] = entityParts(entityId);
+    if (domain === "number" || domain === "input_number") {
+      return this.setRelatedValue(entityId, angle);
+    }
+
+    if (domain !== "select") {
+      return false;
+    }
+
+    const option = selectOptions(state).find((candidate) => numericLabel(candidate) === angle);
+    if (option === undefined) {
+      return false;
+    }
+
+    await this.hass.callService("select", "select_option", {
+      entity_id: entityId,
+      option,
+    });
+    return true;
+  }
+
   protected async setRelatedBoolean(entityId: string | undefined, enabled: boolean): Promise<boolean> {
     if (!entityId) {
       return false;
@@ -379,23 +568,16 @@ export class StandardFanAdapter implements FanAdapter {
     }
 
     if (domain === "select") {
-      const options = this.hass.states[entityId]?.attributes["options"];
-      const availableOptions = Array.isArray(options) ? options.map(String) : [];
-      const enabledOptions = ["on", "true", "enable", "sleep", "bright", "active", "oscillate", "swing"];
-      const disabledOptions = ["off", "false", "disable", "normal", "none", "dim", "fixed", "static"];
-      const option = enabled
-        ? (availableOptions.find((candidate) =>
-            enabledOptions.some((token) => candidate.toLowerCase().includes(token)),
-          ) ?? "on")
-        : (availableOptions.find((candidate) =>
-            disabledOptions.some((token) => candidate.toLowerCase().includes(token)),
-          ) ?? "off");
+      const availableOptions = selectOptions(state);
       if (availableOptions.length === 0) {
         throw new Error(`Related select ${entityId} has no valid options.`);
       }
-      if (!availableOptions.includes(option)) {
+
+      const option = booleanSelectOption(availableOptions, enabled);
+      if (option === undefined) {
         throw new Error(`Related select ${entityId} has no matching boolean option.`);
       }
+
       await this.hass.callService(domain, "select_option", {
         entity_id: entityId,
         option,
@@ -412,11 +594,32 @@ export class StandardFanAdapter implements FanAdapter {
     }
 
     const [domain] = entityParts(entityId);
+    const state = this.hass.states[entityId];
+    if (!state || state.state === "unknown" || state.state === "unavailable") {
+      return false;
+    }
+
+    if (domain === "select") {
+      const availableOptions = selectOptions(state);
+      const numericTarget = enabled ? 0 : 2;
+      const option =
+        availableOptions.find((candidate) => numericLabel(candidate) === numericTarget) ??
+        booleanSelectOption(availableOptions, enabled);
+      if (option === undefined) {
+        return false;
+      }
+
+      await this.hass.callService("select", "select_option", {
+        entity_id: entityId,
+        option,
+      });
+      return true;
+    }
+
     if (domain !== "number" && domain !== "input_number") {
       return false;
     }
 
-    const state = this.hass.states[entityId];
     const minimum = Number(state?.attributes["min"]);
     const maximum = Number(state?.attributes["max"]);
     if (
@@ -430,7 +633,7 @@ export class StandardFanAdapter implements FanAdapter {
       return false;
     }
 
-    const customBrightnessMapping = entityId.endsWith("_led_brightness") && minimum === 0 && maximum === 2;
+    const customBrightnessMapping = this.isCustomLedBrightnessMapping(entityId, minimum, maximum);
     await this.hass.callService(domain, "set_value", {
       entity_id: entityId,
       value: enabled ? (customBrightnessMapping ? minimum : maximum) : customBrightnessMapping ? maximum : minimum,

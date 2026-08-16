@@ -1,6 +1,9 @@
 import { getModelProfile, isXiaomiFanModel, resolveSpeedLevels } from "./model-profiles";
 import type { FanCapabilities, HassEntity, RelatedEntities, ServiceAvailability } from "../types";
 
+const FAN_FEATURE_OSCILLATE = 2;
+const FAN_FEATURE_DIRECTION = 4;
+
 const hasAttribute = (entity: HassEntity | undefined, keys: string[]): boolean =>
   entity !== undefined && keys.some((key) => Object.prototype.hasOwnProperty.call(entity.attributes, key));
 
@@ -61,13 +64,13 @@ export const detectCapabilities = (
     speedLevels: resolveSpeedLevels(entity?.attributes ?? {}, profile),
     direction:
       hasAttribute(entity, ["direction", "current_direction"]) ||
-      hasFanFeature(entity, 16) ||
+      hasFanFeature(entity, FAN_FEATURE_DIRECTION) ||
       hasService(services, "fan.set_direction"),
     sleepMode: Boolean(related.sleepMode) || hasSleepPreset,
     favoriteLevel: Boolean(related.favoriteLevel),
     horizontalSwing:
       hasAttribute(entity, ["oscillating", "oscillate", "horizontal_swing", "swing_mode"]) ||
-      hasFanFeature(entity, 8) ||
+      hasFanFeature(entity, FAN_FEATURE_OSCILLATE) ||
       (profile.known && profile.isXiaomi && profile.model !== "xiaomi.fan.2lite"),
     horizontalAngle:
       Boolean(related.horizontalAngle) ||

@@ -200,6 +200,55 @@ describe("XiaomiFanCard", () => {
     expect(upButton).toBeTruthy();
   });
 
+  it("uses visibility flags to hide swing chips and angle controls", async () => {
+    const { card } = await renderCard({
+      ...baseConfig,
+      controls: {
+        ...baseConfig.controls,
+        show_horizontal_swing: false,
+        show_vertical_swing: false,
+        show_horizontal_angle: false,
+        show_vertical_angle: false,
+        show_nudge: false,
+        show_timer: false,
+      },
+    });
+
+    expect(card.shadowRoot?.querySelector(".chip-row")).toBeNull();
+    expect(card.shadowRoot?.querySelector(".angle-controls")).toBeNull();
+  });
+
+  it("bounds the numeric angle input by the related entity range", async () => {
+    const { hass } = createHass();
+    hass.states["fan.p76"] = {
+      state: "on",
+      attributes: { friendly_name: "Test fan", percentage: 50 },
+    };
+    hass.states["number.fan_horizontal"] = {
+      state: "60",
+      attributes: { min: 0, max: 120, step: 1 },
+    };
+    const card = new XiaomiFanCard();
+    card.hass = hass as unknown as HomeAssistant;
+    card.setConfig({
+      ...baseConfig,
+      controls: {
+        ...baseConfig.controls,
+        show_vertical_angle: false,
+        show_nudge: false,
+        show_timer: false,
+      },
+    });
+    document.body.append(card);
+    await settle(card);
+    const input = card.shadowRoot?.querySelector(".angle-controls input") as HTMLInputElement | null;
+
+    expect(card.shadowRoot?.querySelector(".angle-controls select")).toBeNull();
+    expect(input?.getAttribute("min")).toBe("0");
+    expect(input?.getAttribute("max")).toBe("120");
+    expect(input?.getAttribute("step")).toBe("1");
+  });
+
   it("allows nudge controls with angles when explicitly enabled", async () => {
     const { card, callService } = await renderCard({
       ...baseConfig,

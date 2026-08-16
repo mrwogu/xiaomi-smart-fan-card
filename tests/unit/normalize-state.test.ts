@@ -63,4 +63,29 @@ describe("normalizeFanState", () => {
     expect(state.timerMinutes).toBe(53);
     expect(state.led).toBe(false);
   });
+
+  it("prefers LED brightness over a stale LED flag", () => {
+    const state = normalizeFanState("fan.led", {
+      state: "on",
+      attributes: {
+        led: true,
+        led_brightness: 2,
+      },
+    });
+
+    expect(state.led).toBe(false);
+  });
+
+  it("reads angles written as decorated select labels", () => {
+    const state = normalizeFanState("fan.angles", {
+      state: "on",
+      attributes: {
+        horizontal_swing_angle: "90°",
+        vertical_swing_angle: "60 degrees",
+      },
+    });
+
+    expect(state.horizontalAngle).toBe(90);
+    expect(state.verticalAngle).toBe(60);
+  });
 });
