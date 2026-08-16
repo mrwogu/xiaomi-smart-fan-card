@@ -12,6 +12,7 @@ import { DEFAULT_CONFIG, normalizeCardConfig } from "./config";
 import "./editor";
 import { getConfigForm } from "./editor-schema";
 import { loadServiceAvailability } from "./services/service-dispatcher";
+import { numericLabel } from "./state/normalize-state";
 import { resolveRelatedEntities } from "./state/related-entities";
 import { getAirflowAxis } from "./state/visual-state";
 import { createTranslator, type TranslationKey, type TranslationValues, type Translator } from "./translations";
@@ -20,6 +21,7 @@ import type {
   FanCardConfig,
   FanBlock,
   HassLike,
+  NumberSpec,
   RelatedEntities,
   ResolvedFanCardConfig,
   ServiceAvailability,
@@ -346,12 +348,7 @@ export class XiaomiFanCard extends LitElement {
         ? (this.config.horizontal_angle_entity ?? this.related.horizontalAngle)
         : (this.config.vertical_angle_entity ?? this.related.verticalAngle);
     const raw = entityId ? this.hass?.states[entityId]?.state : undefined;
-    if (typeof raw !== "string" || raw.trim() === "") {
-      return fallback;
-    }
-
-    const value = Number(raw);
-    return Number.isFinite(value) ? value : fallback;
+    return numericLabel(raw) ?? fallback;
   }
 
   private withConfiguredRelatedEntities(discovered: RelatedEntities): RelatedEntities {
@@ -889,8 +886,12 @@ export class XiaomiFanCard extends LitElement {
               (angle) => this.execute(() => adapter.setHorizontalAngle(angle)),
               "mdi:arrow-left-right",
             )
-          : this.renderAngleControl(this.t("horizontalAngle"), horizontalAngle, angles, (angle) =>
-              this.execute(() => adapter.setHorizontalAngle(angle)),
+          : this.renderAngleControl(
+              this.t("horizontalAngle"),
+              horizontalAngle,
+              angles,
+              (angle) => this.execute(() => adapter.setHorizontalAngle(angle)),
+              adapter.capabilities.horizontalAngleSpec,
             ),
       );
     }
@@ -906,8 +907,12 @@ export class XiaomiFanCard extends LitElement {
               (angle) => this.execute(() => adapter.setVerticalAngle(angle)),
               "mdi:swap-vertical",
             )
-          : this.renderAngleControl(this.t("verticalAngle"), verticalAngle, angles, (angle) =>
-              this.execute(() => adapter.setVerticalAngle(angle)),
+          : this.renderAngleControl(
+              this.t("verticalAngle"),
+              verticalAngle,
+              angles,
+              (angle) => this.execute(() => adapter.setVerticalAngle(angle)),
+              adapter.capabilities.verticalAngleSpec,
             ),
       );
     }
@@ -1136,8 +1141,9 @@ export class XiaomiFanCard extends LitElement {
     value: number | undefined,
     angles: number[],
     onChange: (angle: number) => void,
+    spec?: NumberSpec,
   ) {
-    const current = value ?? angles[0] ?? 0;
+    const current = value ?? angles[0] ?? spec?.min ?? 0;
     const options = angles.includes(current) ? angles : [...angles, current].sort((left, right) => left - right);
     return html`
       <label class="feature-select">
@@ -1158,9 +1164,9 @@ export class XiaomiFanCard extends LitElement {
             : html`
                 <input
                   type="number"
-                  min="0"
-                  max="360"
-                  step="1"
+                  min=${spec?.min ?? 0}
+                  max=${spec?.max ?? 360}
+                  step=${spec?.step ?? 1}
                   .value=${String(current)}
                   @change=${(event: Event) => onChange(Number((event.currentTarget as HTMLInputElement).value))}
                   aria-label=${label}

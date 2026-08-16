@@ -30,7 +30,11 @@ const numberValue = (value: unknown): number | undefined => {
   return undefined;
 };
 
-const angleValue = (value: unknown): number | undefined => {
+/**
+ * Integrations expose numbers bare or wrapped in a unit label such as `90°`
+ * and `60 degrees`, which is how select options usually arrive.
+ */
+export const numericLabel = (value: unknown): number | undefined => {
   const numeric = numberValue(value);
   if (numeric !== undefined) {
     return numeric;
@@ -100,7 +104,7 @@ const firstNumber = (attributes: Record<string, unknown>, keys: string[]): numbe
 
 const firstAngle = (attributes: Record<string, unknown>, keys: string[]): number | undefined => {
   for (const key of keys) {
-    const value = angleValue(attributes[key]);
+    const value = numericLabel(attributes[key]);
     if (value !== undefined) {
       return value;
     }

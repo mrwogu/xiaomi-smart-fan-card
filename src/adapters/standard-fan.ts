@@ -1,6 +1,12 @@
 import { detectCapabilities } from "../state/capabilities";
 import { getModelProfile } from "../state/model-profiles";
-import { minutesToTimerValue, normalizeFanState, parseTimerUnit, timerValueToMinutes } from "../state/normalize-state";
+import {
+  minutesToTimerValue,
+  normalizeFanState,
+  numericLabel,
+  parseTimerUnit,
+  timerValueToMinutes,
+} from "../state/normalize-state";
 import { ServiceDispatcher } from "../services/service-dispatcher";
 import type {
   FanAdapter,
@@ -10,20 +16,23 @@ import type {
   HassEntity,
   HassLike,
   NormalizedFanState,
+  NumberSpec,
   RelatedEntities,
   ServiceAvailability,
   TimerSpec,
 } from "../types";
 
+/**
+ * A dropdown turns unusable well before a fine-grained angle entity runs out of
+ * steps, so a wider range reports its raw spec instead of a preset list.
+ */
+const MAX_ANGLE_STEPS = 24;
+
+const MAX_TIMER_STEPS = 100;
+
 const entityParts = (entityId: string): [string, string] => {
   const [domain, objectId] = entityId.split(".");
   return [domain ?? "", objectId ?? ""];
-};
-
-const numericOptionValue = (value: unknown): number | undefined => {
-  const text = typeof value === "string" || typeof value === "number" ? String(value).trim() : "";
-  const match = text.match(/^([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*(?:°|degrees?)?$/i);
-  return match ? Number(match[1]) : undefined;
 };
 
 const numericOptions = (options: unknown): number[] | undefined => {
@@ -31,14 +40,64 @@ const numericOptions = (options: unknown): number[] | undefined => {
     return undefined;
   }
 
-  const angles = [
-    ...new Set(options.map(numericOptionValue).filter((value): value is number => value !== undefined)),
-  ].sort((left, right) => left - right);
+  const angles = [...new Set(options.map(numericLabel).filter((value): value is number => value !== undefined))].sort(
+    (left, right) => left - right,
+  );
   return angles.length > 0 ? angles : undefined;
 };
 
 const numericAngleOptions = (entity: HassEntity | undefined): number[] | undefined =>
   numericOptions(entity?.attributes["options"]);
+
+const selectOptions = (entity: HassEntity | undefined): string[] => {
+  const options = entity?.attributes["options"];
+  return Array.isArray(options) ? options.map(String) : [];
+};
+
+/**
+ * Exact labels win over substring hints because a substring search returns the
+ * first matching option rather than the closest one: `Dim` would answer a
+ * request for `Off`, and `on` hides inside words such as `None`.
+ */
+const selectOptionFor = (options: string[], exact: readonly string[], hints: readonly string[]): string | undefined => {
+  const normalized = options.map((option) => ({ option, key: option.trim().toLowerCase() }));
+
+  for (const label of exact) {
+    const match = normalized.find((entry) => entry.key === label);
+    if (match) {
+      return match.option;
+    }
+  }
+
+  for (const hint of hints) {
+    const match = normalized.find((entry) => entry.key.includes(hint));
+    if (match) {
+      return match.option;
+    }
+  }
+
+  return undefined;
+};
+
+const rawSteps = (spec: NumberSpec): number[] =>
+  Array.from({ length: Math.floor((spec.max - spec.min) / spec.step) + 1 }, (_, index) => spec.min + index * spec.step);
+
+const roundStep = (value: number): number => Math.round(value * 100) / 100;
+
+const BOOLEAN_SELECT_LABELS = {
+  enabledExact: ["on", "true", "yes", "enable", "enabled"],
+  enabledHints: ["bright", "enable", "active", "sleep", "oscillate", "swing", "true"],
+  disabledExact: ["off", "false", "no", "disable", "disabled"],
+  disabledHints: ["off", "disable", "inactive", "false", "none", "normal", "fixed", "static", "dim"],
+} as const;
+
+const isDisabledLabel = (value: string): boolean =>
+  selectOptionFor([value], BOOLEAN_SELECT_LABELS.disabledExact, ["off", "disable", "inactive"]) !== undefined;
+
+const booleanSelectOption = (options: string[], enabled: boolean): string | undefined =>
+  enabled
+    ? selectOptionFor(options, BOOLEAN_SELECT_LABELS.enabledExact, BOOLEAN_SELECT_LABELS.enabledHints)
+    : selectOptionFor(options, BOOLEAN_SELECT_LABELS.disabledExact, BOOLEAN_SELECT_LABELS.disabledHints);
 
 export class StandardFanAdapter implements FanAdapter {
   public readonly state: NormalizedFanState;
@@ -64,12 +123,14 @@ export class StandardFanAdapter implements FanAdapter {
         this.readAngleOptions(actionableRelated.horizontalAngle) ??
         (detectedCapabilities.horizontalAngles.length > 0
           ? detectedCapabilities.horizontalAngles
-          : (this.readNumberSteps(this.readTimerSpec(actionableRelated.horizontalAngle)) ?? [])),
+          : (this.readAngleSteps(actionableRelated.horizontalAngle) ?? [])),
+      horizontalAngleSpec: this.readNumberSpec(actionableRelated.horizontalAngle),
       verticalAngles:
         this.readAngleOptions(actionableRelated.verticalAngle) ??
         (detectedCapabilities.verticalAngles.length > 0
           ? detectedCapabilities.verticalAngles
-          : (this.readNumberSteps(this.readTimerSpec(actionableRelated.verticalAngle)) ?? [])),
+          : (this.readAngleSteps(actionableRelated.verticalAngle) ?? [])),
+      verticalAngleSpec: this.readNumberSpec(actionableRelated.verticalAngle),
       timerSteps: this.readNumberSteps(actionableRelated.timer ? timerSpec : undefined),
       timerSpec: actionableRelated.timer ? timerSpec : undefined,
     };
@@ -105,24 +166,46 @@ export class StandardFanAdapter implements FanAdapter {
     return numericAngleOptions(entityId ? this.hass.states[entityId] : undefined);
   }
 
-  private readTimerSpec(entityId: string | undefined): TimerSpec | undefined {
-    const timerEntity = entityId ? this.hass.states[entityId] : undefined;
-    const minimum = Number(timerEntity?.attributes["min"]);
-    const maximum = Number(timerEntity?.attributes["max"]);
-    const step = Number(timerEntity?.attributes["step"]);
+  private readNumberSpec(entityId: string | undefined): NumberSpec | undefined {
+    const entity = entityId ? this.hass.states[entityId] : undefined;
+    const minimum = Number(entity?.attributes["min"]);
+    const maximum = Number(entity?.attributes["max"]);
+    const step = Number(entity?.attributes["step"]);
     if (
       !Number.isFinite(minimum) ||
       !Number.isFinite(maximum) ||
       !Number.isFinite(step) ||
       step <= 0 ||
-      maximum < minimum ||
-      (maximum - minimum) / step > 100
+      maximum < minimum
     ) {
       return undefined;
     }
 
-    const unit = parseTimerUnit(timerEntity?.attributes["unit_of_measurement"]);
-    return { unit, min: minimum, max: maximum, step };
+    return { min: minimum, max: maximum, step };
+  }
+
+  private readTimerSpec(entityId: string | undefined): TimerSpec | undefined {
+    const spec = this.readNumberSpec(entityId);
+    if (!spec || (spec.max - spec.min) / spec.step > MAX_TIMER_STEPS) {
+      return undefined;
+    }
+
+    const entity = entityId ? this.hass.states[entityId] : undefined;
+    return { ...spec, unit: parseTimerUnit(entity?.attributes["unit_of_measurement"]) };
+  }
+
+  /**
+   * Angles carry no timer unit, so they never go through the timer conversion.
+   * A range too wide for a dropdown reports no presets and leaves the card on
+   * the bounded numeric input built from the same spec.
+   */
+  private readAngleSteps(entityId: string | undefined): number[] | undefined {
+    const spec = this.readNumberSpec(entityId);
+    if (!spec || (spec.max - spec.min) / spec.step > MAX_ANGLE_STEPS) {
+      return undefined;
+    }
+
+    return rawSteps(spec).map(roundStep);
   }
 
   private readNumberSteps(spec: TimerSpec | undefined): number[] | undefined {
@@ -130,10 +213,7 @@ export class StandardFanAdapter implements FanAdapter {
       return undefined;
     }
 
-    return Array.from(
-      { length: Math.floor((spec.max - spec.min) / spec.step) + 1 },
-      (_, index) => Math.round(timerValueToMinutes(spec.min + index * spec.step, spec.unit) * 100) / 100,
-    );
+    return rawSteps(spec).map((value) => roundStep(timerValueToMinutes(value, spec.unit)));
   }
 
   private entityWithRelatedAttributes(
@@ -171,6 +251,15 @@ export class StandardFanAdapter implements FanAdapter {
           continue;
         }
 
+        // A mode selector matched as an angle entity carries no angle, so the
+        // primary attribute stays authoritative instead of being overwritten.
+        if (
+          (relatedKey === "horizontalAngle" || relatedKey === "verticalAngle") &&
+          numericLabel(relatedState.state) === undefined
+        ) {
+          continue;
+        }
+
         const value = Number(relatedState.state);
         attributes[attributeKey] =
           relatedKey === "timer" && Number.isFinite(value) && timerSpec
@@ -191,7 +280,7 @@ export class StandardFanAdapter implements FanAdapter {
 
   private readRelatedLedState(entityId: string, entity: HassEntity): string | boolean {
     const [domain] = entityParts(entityId);
-    const current = numericOptionValue(entity.state);
+    const current = numericLabel(entity.state);
 
     if (domain === "number" || domain === "input_number") {
       const minimum = Number(entity.attributes["min"]);
@@ -206,6 +295,9 @@ export class StandardFanAdapter implements FanAdapter {
       if (current !== undefined && options.includes(0) && options.includes(2)) {
         return current < 2;
       }
+
+      // A dimmed LED is still lit, so only an explicit off label reads as off.
+      return !isDisabledLabel(entity.state);
     }
 
     return entity.state;
@@ -447,19 +539,14 @@ export class StandardFanAdapter implements FanAdapter {
       return false;
     }
 
-    const options = state.attributes["options"];
-    if (!Array.isArray(options)) {
-      return false;
-    }
-
-    const option = options.find((candidate) => numericOptionValue(candidate) === angle);
+    const option = selectOptions(state).find((candidate) => numericLabel(candidate) === angle);
     if (option === undefined) {
       return false;
     }
 
     await this.hass.callService("select", "select_option", {
       entity_id: entityId,
-      option: typeof option === "string" || typeof option === "number" ? String(option) : option,
+      option,
     });
     return true;
   }
@@ -481,23 +568,16 @@ export class StandardFanAdapter implements FanAdapter {
     }
 
     if (domain === "select") {
-      const options = this.hass.states[entityId]?.attributes["options"];
-      const availableOptions = Array.isArray(options) ? options.map(String) : [];
-      const enabledOptions = ["on", "true", "enable", "sleep", "bright", "active", "oscillate", "swing"];
-      const disabledOptions = ["off", "false", "disable", "normal", "none", "dim", "fixed", "static"];
-      const option = enabled
-        ? (availableOptions.find((candidate) =>
-            enabledOptions.some((token) => candidate.toLowerCase().includes(token)),
-          ) ?? "on")
-        : (availableOptions.find((candidate) =>
-            disabledOptions.some((token) => candidate.toLowerCase().includes(token)),
-          ) ?? "off");
+      const availableOptions = selectOptions(state);
       if (availableOptions.length === 0) {
         throw new Error(`Related select ${entityId} has no valid options.`);
       }
-      if (!availableOptions.includes(option)) {
+
+      const option = booleanSelectOption(availableOptions, enabled);
+      if (option === undefined) {
         throw new Error(`Related select ${entityId} has no matching boolean option.`);
       }
+
       await this.hass.callService(domain, "select_option", {
         entity_id: entityId,
         option,
@@ -520,17 +600,11 @@ export class StandardFanAdapter implements FanAdapter {
     }
 
     if (domain === "select") {
-      const options = state.attributes["options"];
-      const availableOptions = Array.isArray(options) ? options.map(String) : [];
+      const availableOptions = selectOptions(state);
       const numericTarget = enabled ? 0 : 2;
       const option =
-        availableOptions.find((candidate) => numericOptionValue(candidate) === numericTarget) ??
-        availableOptions.find((candidate) =>
-          (enabled
-            ? ["on", "true", "enable", "bright", "active"]
-            : ["off", "false", "disable", "dim", "inactive"]
-          ).some((token) => candidate.toLowerCase().includes(token)),
-        );
+        availableOptions.find((candidate) => numericLabel(candidate) === numericTarget) ??
+        booleanSelectOption(availableOptions, enabled);
       if (option === undefined) {
         return false;
       }

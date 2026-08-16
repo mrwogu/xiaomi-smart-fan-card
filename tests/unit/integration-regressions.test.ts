@@ -54,8 +54,8 @@ describe("integration regression fixtures", () => {
 
     expect(calls).toEqual([
       ["fan", "oscillate", { entity_id: "fan.xiaomi_p76", oscillating: true }],
-      ["select", "select_option", { entity_id: "select.xiaomi_p76_horizontal_swing_angle", option: "90°" }],
-      ["select", "select_option", { entity_id: "select.xiaomi_p76_vertical_swing_angle", option: "60 degrees" }],
+      ["select", "select_option", { entity_id: "select.xiaomi_p76_horizontal_swing_angle", option: "90" }],
+      ["select", "select_option", { entity_id: "select.xiaomi_p76_vertical_swing_angle", option: "60" }],
       ["select", "select_option", { entity_id: "select.xiaomi_p76_vertical_swing", option: "off" }],
       ["fan", "set_percentage", { entity_id: "fan.xiaomi_p76", percentage: 75 }],
       ["fan", "set_preset_mode", { entity_id: "fan.xiaomi_p76", preset_mode: "Natural 2" }],

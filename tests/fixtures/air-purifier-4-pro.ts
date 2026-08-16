@@ -8,11 +8,23 @@ const registry = [
   { entity_id: "sensor.air_purifier_4_pro_filter_life_remaining", device_id: "device-air-purifier-4-pro" },
   { entity_id: "sensor.air_purifier_4_pro_filter_lifetime_remaining", device_id: "device-air-purifier-4-pro" },
   { entity_id: "sensor.air_purifier_4_pro_filter_use", device_id: "device-air-purifier-4-pro" },
-  { entity_id: "sensor.air_purifier_4_pro_luchtvochtigheid", device_id: "device-air-purifier-4-pro" },
+  {
+    entity_id: "sensor.air_purifier_4_pro_luchtvochtigheid",
+    device_id: "device-air-purifier-4-pro",
+    original_device_class: "humidity",
+  },
   { entity_id: "sensor.air_purifier_4_pro_motor_speed", device_id: "device-air-purifier-4-pro" },
   { entity_id: "sensor.air_purifier_4_pro_pm10", device_id: "device-air-purifier-4-pro" },
-  { entity_id: "sensor.air_purifier_4_pro_pm2_5", device_id: "device-air-purifier-4-pro" },
-  { entity_id: "sensor.air_purifier_4_pro_temperatuur", device_id: "device-air-purifier-4-pro" },
+  {
+    entity_id: "sensor.air_purifier_4_pro_pm2_5",
+    device_id: "device-air-purifier-4-pro",
+    original_device_class: "pm25",
+  },
+  {
+    entity_id: "sensor.air_purifier_4_pro_temperatuur",
+    device_id: "device-air-purifier-4-pro",
+    original_device_class: "temperature",
+  },
   { entity_id: "switch.air_purifier_4_pro_buzzer", device_id: "device-air-purifier-4-pro" },
   { entity_id: "switch.air_purifier_4_pro_child_lock", device_id: "device-air-purifier-4-pro" },
   { entity_id: "switch.air_purifier_4_pro_ionizer", device_id: "device-air-purifier-4-pro" },
@@ -95,6 +107,7 @@ export const airPurifier4ProHass = (): HassLike => ({
     "sensor.air_purifier_4_pro_luchtvochtigheid": {
       state: "46",
       attributes: {
+        device_class: "humidity",
         unit_of_measurement: "%",
       },
     },
@@ -119,6 +132,7 @@ export const airPurifier4ProHass = (): HassLike => ({
     "sensor.air_purifier_4_pro_temperatuur": {
       state: "23.5",
       attributes: {
+        device_class: "temperature",
         unit_of_measurement: "°C",
       },
     },

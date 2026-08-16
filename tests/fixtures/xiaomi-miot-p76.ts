@@ -35,15 +35,15 @@ export const xiaomiMiotP76Hass = (): HassLike => ({
       },
     },
     "select.xiaomi_p76_horizontal_swing_angle": {
-      state: "60 degrees",
+      state: "60",
       attributes: {
-        options: ["30°", "60 degrees", "90°", "120 degrees"],
+        options: ["30", "60", "90", "120"],
       },
     },
     "select.xiaomi_p76_vertical_swing_angle": {
-      state: "30°",
+      state: "30",
       attributes: {
-        options: ["30°", "60 degrees", "90°", "100 degrees"],
+        options: ["30", "60", "90", "100"],
       },
     },
     "select.xiaomi_p76_vertical_swing": {

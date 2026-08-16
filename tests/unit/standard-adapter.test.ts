@@ -127,4 +127,100 @@ describe("StandardFanAdapter", () => {
 
     expect(calls).toEqual([["xiaomi_miio_fan", "fan_set_oscillation_angle", { entity_id: "fan.example", angle: 30 }]]);
   });
+
+  it("keeps the primary angle attribute when a mode select is matched as an angle entity", () => {
+    const { hass } = createHass(["Auto", "Manual"], ["Auto", "Manual"]);
+    hass.states["fan.example"] = {
+      state: "on",
+      attributes: { horizontal_swing_angle: 60, vertical_swing_angle: 30 },
+    };
+    hass.states["select.example_horizontal_angle"] = {
+      state: "Auto",
+      attributes: { options: ["Auto", "Manual"] },
+    };
+    hass.states["select.example_vertical_angle"] = {
+      state: "Manual",
+      attributes: { options: ["Auto", "Manual"] },
+    };
+    const adapter = new StandardFanAdapter(hass, "fan.example", services, {
+      horizontalAngle: "select.example_horizontal_angle",
+      verticalAngle: "select.example_vertical_angle",
+    });
+
+    expect(adapter.state.horizontalAngle).toBe(60);
+    expect(adapter.state.verticalAngle).toBe(30);
+  });
+
+  it("turns an LED brightness select off instead of dimming it", async () => {
+    const { hass, calls } = createHass([], []);
+    hass.states["select.example_led_brightness"] = {
+      state: "Bright",
+      attributes: { options: ["Bright", "Dim", "Off"] },
+    };
+    const adapter = new StandardFanAdapter(hass, "fan.example", services, {
+      led: "select.example_led_brightness",
+    });
+
+    expect(adapter.state.led).toBe(true);
+    await adapter.setLed(false);
+    await adapter.setLed(true);
+
+    expect(calls).toEqual([
+      ["select", "select_option", { entity_id: "select.example_led_brightness", option: "Off" }],
+      ["select", "select_option", { entity_id: "select.example_led_brightness", option: "Bright" }],
+    ]);
+  });
+
+  it("reads a dimmed LED select as lit", () => {
+    const { hass } = createHass([], []);
+    hass.states["select.example_led_brightness"] = {
+      state: "Dim",
+      attributes: { options: ["Bright", "Dim", "Off"] },
+    };
+    const adapter = new StandardFanAdapter(hass, "fan.example", services, {
+      led: "select.example_led_brightness",
+    });
+
+    expect(adapter.state.led).toBe(true);
+  });
+
+  it("does not pick an unrelated option that merely contains a boolean token", async () => {
+    const { hass } = createHass([], []);
+    hass.states["select.example_sleep_mode"] = {
+      state: "None",
+      attributes: { options: ["None", "Constant"] },
+    };
+    const adapter = new StandardFanAdapter(hass, "fan.example", services, {
+      sleepMode: "select.example_sleep_mode",
+    });
+
+    await expect(adapter.setSleepMode(true)).rejects.toThrow("has no matching boolean option");
+  });
+
+  it("reports an angle spec instead of an unusable preset list for a fine-grained number", () => {
+    const { hass } = createHass([], []);
+    hass.states["number.example_horizontal_angle"] = {
+      state: "60",
+      attributes: { min: 0, max: 120, step: 1, unit_of_measurement: "°" },
+    };
+    const adapter = new StandardFanAdapter(hass, "fan.example", services, {
+      horizontalAngle: "number.example_horizontal_angle",
+    });
+
+    expect(adapter.capabilities.horizontalAngles).toEqual([]);
+    expect(adapter.capabilities.horizontalAngleSpec).toEqual({ min: 0, max: 120, step: 1 });
+  });
+
+  it("keeps angle steps free of timer unit conversion", () => {
+    const { hass } = createHass([], []);
+    hass.states["number.example_vertical_angle"] = {
+      state: "60",
+      attributes: { min: 0, max: 120, step: 30, unit_of_measurement: "s" },
+    };
+    const adapter = new StandardFanAdapter(hass, "fan.example", services, {
+      verticalAngle: "number.example_vertical_angle",
+    });
+
+    expect(adapter.capabilities.verticalAngles).toEqual([0, 30, 60, 90, 120]);
+  });
 });

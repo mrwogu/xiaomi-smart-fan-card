@@ -43,14 +43,17 @@ describe("resolveRelatedEntities", () => {
     await expect(resolveRelatedEntities(hass, "fan.example")).resolves.toBeUndefined();
   });
 
-  it("discovers localized temperature and humidity suffixes", async () => {
+  it("discovers localized sensors through their device class", async () => {
     const hass: HassLike = {
-      states: { "fan.example": { state: "on", attributes: {} } },
+      states: {
+        "fan.example": { state: "on", attributes: {} },
+        "sensor.example_luchtvochtigheid": { state: "46", attributes: { device_class: "humidity" } },
+      },
       callService: () => undefined,
       callWS: async <T>() =>
         [
           { entity_id: "fan.example", device_id: "device-1" },
-          { entity_id: "sensor.example_temperatuur", device_id: "device-1" },
+          { entity_id: "sensor.example_temperatuur", device_id: "device-1", original_device_class: "temperature" },
           { entity_id: "sensor.example_luchtvochtigheid", device_id: "device-1" },
         ] as T,
     };
@@ -58,6 +61,24 @@ describe("resolveRelatedEntities", () => {
     await expect(resolveRelatedEntities(hass, "fan.example")).resolves.toEqual({
       humidity: "sensor.example_luchtvochtigheid",
       temperature: "sensor.example_temperatuur",
+    });
+  });
+
+  it("falls back to the English suffix when no sensor declares a device class", async () => {
+    const hass: HassLike = {
+      states: { "fan.example": { state: "on", attributes: {} } },
+      callService: () => undefined,
+      callWS: async <T>() =>
+        [
+          { entity_id: "fan.example", device_id: "device-1" },
+          { entity_id: "sensor.example_temperature", device_id: "device-1" },
+          { entity_id: "sensor.example_humidity", device_id: "device-1" },
+        ] as T,
+    };
+
+    await expect(resolveRelatedEntities(hass, "fan.example")).resolves.toEqual({
+      humidity: "sensor.example_humidity",
+      temperature: "sensor.example_temperature",
     });
   });
 

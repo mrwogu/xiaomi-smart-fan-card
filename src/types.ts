@@ -37,11 +37,14 @@ export interface ServiceAvailability {
 
 export type TimerUnit = "min" | "s";
 
-export interface TimerSpec {
-  unit: TimerUnit;
+export interface NumberSpec {
   min: number;
   max: number;
   step: number;
+}
+
+export interface TimerSpec extends NumberSpec {
+  unit: TimerUnit;
 }
 
 export interface FanModelProfile {
@@ -66,9 +69,11 @@ export interface FanCapabilities {
   horizontalSwing: boolean;
   horizontalAngle: boolean;
   horizontalAngles: number[];
+  horizontalAngleSpec?: NumberSpec;
   verticalSwing: boolean;
   verticalAngle: boolean;
   verticalAngles: number[];
+  verticalAngleSpec?: NumberSpec;
   directionNudge: boolean;
   naturalMode: boolean;
   timer: boolean;

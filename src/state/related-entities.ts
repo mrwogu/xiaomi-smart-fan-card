@@ -5,6 +5,8 @@ interface RegistryEntity {
   device_id?: string;
   name?: string;
   original_name?: string;
+  device_class?: string;
+  original_device_class?: string;
 }
 
 const suffixes: Record<keyof RelatedEntities, string[]> = {
@@ -18,8 +20,8 @@ const suffixes: Record<keyof RelatedEntities, string[]> = {
   led: ["_led", "_led_brightness", "_light"],
   buzzer: ["_buzzer", "_notification_sound"],
   ionizer: ["_anion", "_ionizer"],
-  temperature: ["_temperature", "_temperatuur"],
-  humidity: ["_humidity", "_luchtvochtigheid"],
+  temperature: ["_temperature"],
+  humidity: ["_humidity"],
 };
 
 const findBySuffix = (
@@ -41,6 +43,29 @@ const findBySuffix = (
     const searchable = `${entry.entity_id} ${entry.name ?? ""} ${entry.original_name ?? ""}`.toLowerCase();
     return hintGroups.some((hints) => hints.every((hint) => searchable.includes(hint.toLowerCase())));
   })?.entity_id;
+};
+
+/**
+ * A translated Home Assistant install names sensors in the user language, so a
+ * suffix table would need one entry per locale. The device class is the same
+ * in every language and only falls back to the suffix search when missing.
+ */
+const findSensorByDeviceClass = (
+  hass: HassLike,
+  entries: RegistryEntity[],
+  deviceClass: string,
+  fallbackSuffixes: string[],
+): string | undefined => {
+  const match = entries.find((entry) => {
+    if (!entry.entity_id.startsWith("sensor.")) {
+      return false;
+    }
+
+    const registered = entry.device_class ?? entry.original_device_class;
+    return registered === deviceClass || hass.states[entry.entity_id]?.attributes["device_class"] === deviceClass;
+  });
+
+  return match?.entity_id ?? findBySuffix(entries, ["sensor"], fallbackSuffixes);
 };
 
 /**
@@ -71,11 +96,15 @@ export const resolveRelatedEntities = async (
     const boolean = ["switch", "input_boolean"];
     const select = ["select"];
 
+    // The vertical angle resolves first and then drops out of the remaining
+    // searches: `_vertical_oscillation_angle` also ends with the horizontal
+    // `_oscillation_angle`, and both angle names contain the vertical swing
+    // hints once a `select` angle entity is allowed.
     related.verticalAngle = findBySuffix(entries, angle, suffixes.verticalAngle);
     const withoutVerticalAngle = entries.filter((entry) => entry.entity_id !== related.verticalAngle);
     related.horizontalAngle = findBySuffix(withoutVerticalAngle, angle, suffixes.horizontalAngle);
     const withoutAngles = withoutVerticalAngle.filter((entry) => entry.entity_id !== related.horizontalAngle);
-    related.sleepMode = findBySuffix(entries, [...boolean, "select"], suffixes.sleepMode);
+    related.sleepMode = findBySuffix(withoutAngles, [...boolean, "select"], suffixes.sleepMode);
     related.verticalSwing = findBySuffix(withoutAngles, [...boolean, "select"], suffixes.verticalSwing);
     related.favoriteLevel = findBySuffix(entries, numeric, suffixes.favoriteLevel);
     related.timer = findBySuffix(entries, numeric, suffixes.timer);
@@ -83,8 +112,8 @@ export const resolveRelatedEntities = async (
     related.led = findBySuffix(entries, [...boolean, ...select, ...numeric], suffixes.led);
     related.buzzer = findBySuffix(entries, [...boolean, ...select], suffixes.buzzer);
     related.ionizer = findBySuffix(entries, [...boolean, ...select], suffixes.ionizer);
-    related.temperature = findBySuffix(entries, ["sensor"], suffixes.temperature);
-    related.humidity = findBySuffix(entries, ["sensor"], suffixes.humidity);
+    related.temperature = findSensorByDeviceClass(hass, entries, "temperature", suffixes.temperature);
+    related.humidity = findSensorByDeviceClass(hass, entries, "humidity", suffixes.humidity);
 
     return related;
   } catch {
