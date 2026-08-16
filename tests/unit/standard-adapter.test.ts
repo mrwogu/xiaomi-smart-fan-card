@@ -100,6 +100,22 @@ describe("StandardFanAdapter", () => {
     ]);
   });
 
+  it("dispatches semantic LED select options", async () => {
+    const { hass, calls } = createHass([], []);
+    hass.states["select.example_led"] = {
+      state: "off",
+      attributes: { options: ["off", "on"] },
+    };
+    const adapter = new StandardFanAdapter(hass, "fan.example", services, {
+      led: "select.example_led",
+    });
+
+    expect(adapter.state.led).toBe(false);
+    await adapter.setLed(true);
+
+    expect(calls).toEqual([["select", "select_option", { entity_id: "select.example_led", option: "on" }]]);
+  });
+
   it("falls back to the existing custom angle service when select options do not match", async () => {
     const { hass, calls } = createHass(["0", "15 degrees"], ["30", "60 degrees"]);
     const adapter = new StandardFanAdapter(hass, "fan.example", services, {
