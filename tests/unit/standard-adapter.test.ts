@@ -60,6 +60,46 @@ describe("StandardFanAdapter", () => {
     ]);
   });
 
+  it("sorts numeric angle options for cycle controls", () => {
+    const { hass } = createHass(["90", "30°", "60"], ["90", "30", "60"]);
+    const adapter = new StandardFanAdapter(hass, "fan.example", services, {
+      horizontalAngle: "select.example_horizontal_angle",
+      verticalAngle: "select.example_vertical_angle",
+    });
+
+    expect(adapter.capabilities.horizontalAngles).toEqual([30, 60, 90]);
+    expect(adapter.capabilities.verticalAngles).toEqual([30, 60, 90]);
+  });
+
+  it("keeps generic numeric LED state and actions aligned", async () => {
+    const { hass, calls } = createHass([], []);
+    hass.states["number.example_led"] = {
+      state: "0",
+      attributes: { min: 0, max: 100, step: 1 },
+    };
+
+    const offAdapter = new StandardFanAdapter(hass, "fan.example", services, {
+      led: "number.example_led",
+    });
+    expect(offAdapter.state.led).toBe(false);
+    await offAdapter.setLed(true);
+
+    hass.states["number.example_led"] = {
+      state: "100",
+      attributes: { min: 0, max: 100, step: 1 },
+    };
+    const onAdapter = new StandardFanAdapter(hass, "fan.example", services, {
+      led: "number.example_led",
+    });
+    expect(onAdapter.state.led).toBe(true);
+    await onAdapter.setLed(false);
+
+    expect(calls).toEqual([
+      ["number", "set_value", { entity_id: "number.example_led", value: 100 }],
+      ["number", "set_value", { entity_id: "number.example_led", value: 0 }],
+    ]);
+  });
+
   it("falls back to the existing custom angle service when select options do not match", async () => {
     const { hass, calls } = createHass(["0", "15 degrees"], ["30", "60 degrees"]);
     const adapter = new StandardFanAdapter(hass, "fan.example", services, {

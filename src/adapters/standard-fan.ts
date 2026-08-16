@@ -26,15 +26,19 @@ const numericOptionValue = (value: unknown): number | undefined => {
   return match ? Number(match[1]) : undefined;
 };
 
-const numericAngleOptions = (entity: HassEntity | undefined): number[] | undefined => {
-  const options = entity?.attributes["options"];
+const numericOptions = (options: unknown): number[] | undefined => {
   if (!Array.isArray(options)) {
     return undefined;
   }
 
-  const angles = [...new Set(options.map(numericOptionValue).filter((value): value is number => value !== undefined))];
+  const angles = [
+    ...new Set(options.map(numericOptionValue).filter((value): value is number => value !== undefined)),
+  ].sort((left, right) => left - right);
   return angles.length > 0 ? angles : undefined;
 };
+
+const numericAngleOptions = (entity: HassEntity | undefined): number[] | undefined =>
+  numericOptions(entity?.attributes["options"]);
 
 export class StandardFanAdapter implements FanAdapter {
   public readonly state: NormalizedFanState;
@@ -160,15 +164,18 @@ export class StandardFanAdapter implements FanAdapter {
     for (const [relatedKey, attributeKey] of relatedValues) {
       const relatedEntityId = related[relatedKey];
       const relatedState = relatedEntityId ? this.hass.states[relatedEntityId] : undefined;
-      if (relatedState && relatedState.state !== "unknown" && relatedState.state !== "unavailable") {
+      if (relatedEntityId && relatedState && relatedState.state !== "unknown" && relatedState.state !== "unavailable") {
+        if (relatedKey === "led") {
+          attributes[attributeKey] = this.readRelatedLedState(relatedEntityId, relatedState);
+          delete attributes["led_brightness"];
+          continue;
+        }
+
         const value = Number(relatedState.state);
         attributes[attributeKey] =
           relatedKey === "timer" && Number.isFinite(value) && timerSpec
             ? timerValueToMinutes(value, timerSpec.unit)
             : relatedState.state;
-        if (relatedKey === "led") {
-          attributes["led_brightness"] = relatedState.state;
-        }
       } else if (relatedState) {
         delete attributes[attributeKey];
         if (relatedKey === "led") {
@@ -180,6 +187,32 @@ export class StandardFanAdapter implements FanAdapter {
     }
 
     return { ...entity, attributes };
+  }
+
+  private readRelatedLedState(entityId: string, entity: HassEntity): string | boolean {
+    const [domain] = entityParts(entityId);
+    const current = numericOptionValue(entity.state);
+
+    if (domain === "number" || domain === "input_number") {
+      const minimum = Number(entity.attributes["min"]);
+      const maximum = Number(entity.attributes["max"]);
+      if (current !== undefined && Number.isFinite(minimum) && Number.isFinite(maximum) && maximum >= minimum) {
+        return this.isCustomLedBrightnessMapping(entityId, minimum, maximum) ? current < 2 : current > minimum;
+      }
+    }
+
+    if (domain === "select") {
+      const options = numericOptions(entity.attributes["options"]) ?? [];
+      if (current !== undefined && options.includes(0) && options.includes(2)) {
+        return current < 2;
+      }
+    }
+
+    return entity.state;
+  }
+
+  private isCustomLedBrightnessMapping(entityId: string, minimum: number, maximum: number): boolean {
+    return entityId.endsWith("_led_brightness") && minimum === 0 && maximum === 2;
   }
 
   public async togglePower(): Promise<void> {
@@ -526,7 +559,7 @@ export class StandardFanAdapter implements FanAdapter {
       return false;
     }
 
-    const customBrightnessMapping = entityId.endsWith("_led_brightness") && minimum === 0 && maximum === 2;
+    const customBrightnessMapping = this.isCustomLedBrightnessMapping(entityId, minimum, maximum);
     await this.hass.callService(domain, "set_value", {
       entity_id: entityId,
       value: enabled ? (customBrightnessMapping ? minimum : maximum) : customBrightnessMapping ? maximum : minimum,

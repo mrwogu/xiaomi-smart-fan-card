@@ -248,8 +248,8 @@ ignored for angle capabilities, so a generic mode selector cannot create a
 dead angle control.
 
 For Xiaomi MIOT, angle and vertical controls require an actionable related
-entity. A primary fan attribute can be displayed as state, but it does not
-authorize an angle action by itself. Vertical swing accepts `switch`,
+entity. A primary fan angle attribute alone is not displayed as a detail and
+does not authorize an angle action. Vertical swing accepts `switch`,
 `input_boolean`, or `select`; angle controls accept `number`, `input_number`,
 or numeric-option `select`.
 

@@ -61,6 +61,24 @@ describe("resolveRelatedEntities", () => {
     });
   });
 
+  it("keeps vertical angle selects out of horizontal angle and swing roles", async () => {
+    const hass: HassLike = {
+      states: { "fan.example": { state: "on", attributes: {} } },
+      callService: () => undefined,
+      callWS: async <T>() =>
+        [
+          { entity_id: "fan.example", device_id: "device-1" },
+          { entity_id: "select.example_vertical_oscillation_angle", device_id: "device-1" },
+        ] as T,
+    };
+
+    await expect(resolveRelatedEntities(hass, "fan.example")).resolves.toMatchObject({
+      horizontalAngle: undefined,
+      verticalSwing: undefined,
+      verticalAngle: "select.example_vertical_oscillation_angle",
+    });
+  });
+
   it("reports an empty device when the fan has no registry siblings", async () => {
     const hass: HassLike = {
       states: { "fan.example": { state: "on", attributes: {} } },

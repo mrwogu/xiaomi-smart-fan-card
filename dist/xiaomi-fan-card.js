@@ -775,14 +775,16 @@ const numericOptionValue = (value) => {
     const match = text.match(/^([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*(?:°|degrees?)?$/i);
     return match ? Number(match[1]) : undefined;
 };
-const numericAngleOptions = (entity) => {
-    const options = entity?.attributes["options"];
+const numericOptions = (options) => {
     if (!Array.isArray(options)) {
         return undefined;
     }
-    const angles = [...new Set(options.map(numericOptionValue).filter((value) => value !== undefined))];
+    const angles = [
+        ...new Set(options.map(numericOptionValue).filter((value) => value !== undefined)),
+    ].sort((left, right) => left - right);
     return angles.length > 0 ? angles : undefined;
 };
+const numericAngleOptions = (entity) => numericOptions(entity?.attributes["options"]);
 class StandardFanAdapter {
     constructor(hass, entityId, services, related = {}) {
         this.hass = hass;
@@ -876,15 +878,17 @@ class StandardFanAdapter {
         for (const [relatedKey, attributeKey] of relatedValues) {
             const relatedEntityId = related[relatedKey];
             const relatedState = relatedEntityId ? this.hass.states[relatedEntityId] : undefined;
-            if (relatedState && relatedState.state !== "unknown" && relatedState.state !== "unavailable") {
+            if (relatedEntityId && relatedState && relatedState.state !== "unknown" && relatedState.state !== "unavailable") {
+                if (relatedKey === "led") {
+                    attributes[attributeKey] = this.readRelatedLedState(relatedEntityId, relatedState);
+                    delete attributes["led_brightness"];
+                    continue;
+                }
                 const value = Number(relatedState.state);
                 attributes[attributeKey] =
                     relatedKey === "timer" && Number.isFinite(value) && timerSpec
                         ? timerValueToMinutes(value, timerSpec.unit)
                         : relatedState.state;
-                if (relatedKey === "led") {
-                    attributes["led_brightness"] = relatedState.state;
-                }
             }
             else if (relatedState) {
                 delete attributes[attributeKey];
@@ -897,6 +901,27 @@ class StandardFanAdapter {
             }
         }
         return { ...entity, attributes };
+    }
+    readRelatedLedState(entityId, entity) {
+        const [domain] = entityParts(entityId);
+        const current = numericOptionValue(entity.state);
+        if (domain === "number" || domain === "input_number") {
+            const minimum = Number(entity.attributes["min"]);
+            const maximum = Number(entity.attributes["max"]);
+            if (current !== undefined && Number.isFinite(minimum) && Number.isFinite(maximum) && maximum >= minimum) {
+                return this.isCustomLedBrightnessMapping(entityId, minimum, maximum) ? current < 2 : current > minimum;
+            }
+        }
+        if (domain === "select") {
+            const options = numericOptions(entity.attributes["options"]) ?? [];
+            if (current !== undefined && options.includes(0) && options.includes(2)) {
+                return current < 2;
+            }
+        }
+        return entity.state;
+    }
+    isCustomLedBrightnessMapping(entityId, minimum, maximum) {
+        return entityId.endsWith("_led_brightness") && minimum === 0 && maximum === 2;
     }
     async togglePower() {
         await this.dispatcher.standard("toggle");
@@ -1164,7 +1189,7 @@ class StandardFanAdapter {
             maximum < minimum) {
             return false;
         }
-        const customBrightnessMapping = entityId.endsWith("_led_brightness") && minimum === 0 && maximum === 2;
+        const customBrightnessMapping = this.isCustomLedBrightnessMapping(entityId, minimum, maximum);
         await this.hass.callService(domain, "set_value", {
             entity_id: entityId,
             value: enabled ? (customBrightnessMapping ? minimum : maximum) : customBrightnessMapping ? maximum : minimum,
@@ -2715,10 +2740,12 @@ const resolveRelatedEntities = async (hass, entityId) => {
         const angle = [...numeric, "select"];
         const boolean = ["switch", "input_boolean"];
         const select = ["select"];
-        related.horizontalAngle = findBySuffix(entries, angle, suffixes.horizontalAngle);
-        related.sleepMode = findBySuffix(entries, [...boolean, "select"], suffixes.sleepMode);
-        related.verticalSwing = findBySuffix(entries, [...boolean, "select"], suffixes.verticalSwing);
         related.verticalAngle = findBySuffix(entries, angle, suffixes.verticalAngle);
+        const withoutVerticalAngle = entries.filter((entry) => entry.entity_id !== related.verticalAngle);
+        related.horizontalAngle = findBySuffix(withoutVerticalAngle, angle, suffixes.horizontalAngle);
+        const withoutAngles = withoutVerticalAngle.filter((entry) => entry.entity_id !== related.horizontalAngle);
+        related.sleepMode = findBySuffix(entries, [...boolean, "select"], suffixes.sleepMode);
+        related.verticalSwing = findBySuffix(withoutAngles, [...boolean, "select"], suffixes.verticalSwing);
         related.favoriteLevel = findBySuffix(entries, numeric, suffixes.favoriteLevel);
         related.timer = findBySuffix(entries, numeric, suffixes.timer);
         related.childLock = findBySuffix(entries, [...boolean, ...select], suffixes.childLock);

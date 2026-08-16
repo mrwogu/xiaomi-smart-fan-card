@@ -254,8 +254,8 @@ integration:
   exposes actionable same-device related entities. Angle `select` entities
   must provide numeric options such as `30`, `60°`, or `90 degrees`.
 - `auto` and `standard`: the card uses standard fan actions and related
-  entities. Primary attributes that have no matching action are displayed
-  only as state and do not create a dead control.
+  entities. Primary angle attributes without a matching action remain hidden
+  and do not create dead controls or details.
 
 The card does not connect directly to Xiaomi devices and does not invent
 MIoT property or service names. If the MIoT integration exposes only primary
