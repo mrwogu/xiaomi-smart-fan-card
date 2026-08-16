@@ -5,6 +5,13 @@ All notable changes to Xiaomi Fan Card will be documented in this file.
 This project follows [Semantic Versioning](https://semver.org/) and uses
 [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [1.1.1](https://github.com/mrwogu/xiaomi-smart-fan-card/compare/v1.1.0...v1.1.1) (2026-08-16)
+
+
+### Bug Fixes
+
+* make fan controls capability aware ([#27](https://github.com/mrwogu/xiaomi-smart-fan-card/issues/27)) ([bcdc5cd](https://github.com/mrwogu/xiaomi-smart-fan-card/commit/bcdc5cda608e334651dc531aca2285e13eb0dcdc))
+
 ## [1.1.0](https://github.com/mrwogu/xiaomi-smart-fan-card/compare/v1.0.0...v1.1.0) (2026-08-15)
 
 
