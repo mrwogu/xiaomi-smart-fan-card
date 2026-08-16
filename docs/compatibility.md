@@ -54,15 +54,9 @@ optional angle controls require a discovered or configured related `select`,
 attributes alone are not treated as angle actions.
 
 The `controls.show_horizontal_*` and `controls.show_vertical_*` options are
-visibility switches, not capability overrides. For the issue #26 purifier
-case, disable the unsupported horizontal or vertical controls explicitly.
-
-Automatic discovery requires the related entity to share the primary fan
-`device_id` and use a recognized suffix. Manual related entity configuration
-handles integrations with different names or incomplete registries. Known
-localized sensor suffixes include `_temperatuur` and `_luchtvochtigheid`.
-Numeric angle select options can be written as `30`, `30°`, or `30 degrees`;
-other select options do not advertise angle support.
+visibility switches, not capability overrides. See
+[docs/configuration.md](configuration.md) for the discovery rules and the
+control visibility contract.
 
 ### P76 integration matrix
 
@@ -78,10 +72,9 @@ button from claiming support that Home Assistant cannot execute.
 
 ### Xiaomi Smart Air Purifier 4 Pro
 
-The issue #26 entity set exposes presets and optional device entities but no
-horizontal or vertical swing or angle entity. Preset-only
-`supported_features` values do not imply oscillation. The expected
-configuration is:
+This purifier exposes presets and optional device entities but no horizontal
+or vertical swing or angle entity. Preset-only `supported_features` values do
+not imply oscillation. The expected configuration is:
 
 ```yaml
 type: custom:xiaomi-fan-card

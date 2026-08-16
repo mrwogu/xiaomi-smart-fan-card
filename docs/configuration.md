@@ -235,17 +235,20 @@ Tokens compose with `layout.theme`: the theme sets the base design tokens and
 | `related_entities.humidity_entity`         | automatic | `sensor` for humidity.                                                               |
 
 Automatic related entity discovery uses the Home Assistant entity registry and
-matches entities sharing the primary fan `device_id`. It also matches known
-English and localized suffixes, including `_temperatuur` for temperature and
-`_luchtvochtigheid` for humidity. Use explicit related entity fields when an
-integration uses a different name or does not assign the entities to the same
-device.
+matches entities sharing the primary fan `device_id` by entity name. Temperature
+and humidity resolve from the sensor `device_class` first, so a translated Home
+Assistant install works without an English entity name. Use explicit related
+entity fields when an integration uses a different name or does not assign the
+entities to the same device.
 
 Angle `select` entities are supported when their options contain numeric
-values. Accepted examples include `0`, `30°`, `60 degrees`, `-10.5`, and `.5`.
-The optional degree suffix is case-insensitive. Non-numeric select options are
-ignored for angle capabilities, so a generic mode selector cannot create a
-dead angle control.
+values, written as `30`, `30°`, or `30 degrees`. Non-numeric select options are
+ignored for angle capabilities, so a generic mode selector cannot create a dead
+angle control or overwrite an angle reported by the fan entity.
+
+Angle `number` and `input_number` entities use their own `min`, `max`, and
+`step`. A range short enough for a dropdown becomes a preset list, and a wider
+range keeps a numeric input bounded by the same values.
 
 For Xiaomi MIOT, angle and vertical controls require an actionable related
 entity. A primary fan angle attribute alone is not displayed as a detail and
@@ -295,17 +298,15 @@ preserves a live timer value that is not one of the configured steps.
 
 MIoT optional angle controls require discovered or configured related `select`,
 `number`, or `input_number` entities. Primary MIoT fan attributes alone are
-not treated as angle actions. The `controls.show_horizontal_*` and
-`controls.show_vertical_*` options are visibility switches, not capability
-overrides. For the issue #26 purifier case, disable unsupported horizontal or
-vertical controls explicitly.
+not treated as angle actions.
 
 For Xiaomi LED brightness controls, the custom Xiaomi service contract is
 `0` for bright, `1` for dim, and `2` for off. A related
-`*_led_brightness` number with a `0..2` range uses the same mapping. Other
-switch, semantic select, and number entities use their exposed Home Assistant
-contract. Numeric LED brightness select options use the same `0`/`1`/`2`
-mapping.
+`*_led_brightness` number with a `0..2` range uses the same mapping, and
+numeric LED brightness select options use it as well. A named LED select is
+matched on its labels: turning the LED off picks an explicit off option rather
+than a dim option, and a dimmed LED still reads as on. Switch and plain number
+entities use their exposed Home Assistant contract.
 
 ## Configuration compatibility
 
