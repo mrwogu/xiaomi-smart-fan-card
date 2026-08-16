@@ -13,6 +13,8 @@ describe("resolveRelatedEntities", () => {
         [
           { entity_id: "fan.example", device_id: "device-1" },
           { entity_id: "number.example_timer", device_id: "device-1" },
+          { entity_id: "select.example_horizontal_angle", device_id: "device-1" },
+          { entity_id: "select.example_vertical_angle", device_id: "device-1" },
           { entity_id: "select.example_led", device_id: "device-1" },
           { entity_id: "input_boolean.example_child_lock", device_id: "device-1" },
           { entity_id: "sensor.example_temperature", device_id: "device-1" },
@@ -20,10 +22,12 @@ describe("resolveRelatedEntities", () => {
     };
 
     await expect(resolveRelatedEntities(hass, "fan.example")).resolves.toEqual({
+      horizontalAngle: "select.example_horizontal_angle",
       timer: "number.example_timer",
       led: "select.example_led",
       childLock: "input_boolean.example_child_lock",
       temperature: "sensor.example_temperature",
+      verticalAngle: "select.example_vertical_angle",
     });
   });
 
@@ -37,6 +41,24 @@ describe("resolveRelatedEntities", () => {
     };
 
     await expect(resolveRelatedEntities(hass, "fan.example")).resolves.toBeUndefined();
+  });
+
+  it("discovers localized temperature and humidity suffixes", async () => {
+    const hass: HassLike = {
+      states: { "fan.example": { state: "on", attributes: {} } },
+      callService: () => undefined,
+      callWS: async <T>() =>
+        [
+          { entity_id: "fan.example", device_id: "device-1" },
+          { entity_id: "sensor.example_temperatuur", device_id: "device-1" },
+          { entity_id: "sensor.example_luchtvochtigheid", device_id: "device-1" },
+        ] as T,
+    };
+
+    await expect(resolveRelatedEntities(hass, "fan.example")).resolves.toEqual({
+      humidity: "sensor.example_luchtvochtigheid",
+      temperature: "sensor.example_temperatuur",
+    });
   });
 
   it("reports an empty device when the fan has no registry siblings", async () => {

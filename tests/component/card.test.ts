@@ -200,6 +200,24 @@ describe("XiaomiFanCard", () => {
     expect(upButton).toBeTruthy();
   });
 
+  it("uses visibility flags to hide swing chips and angle controls", async () => {
+    const { card } = await renderCard({
+      ...baseConfig,
+      controls: {
+        ...baseConfig.controls,
+        show_horizontal_swing: false,
+        show_vertical_swing: false,
+        show_horizontal_angle: false,
+        show_vertical_angle: false,
+        show_nudge: false,
+        show_timer: false,
+      },
+    });
+
+    expect(card.shadowRoot?.querySelector(".chip-row")).toBeNull();
+    expect(card.shadowRoot?.querySelector(".angle-controls")).toBeNull();
+  });
+
   it("allows nudge controls with angles when explicitly enabled", async () => {
     const { card, callService } = await renderCard({
       ...baseConfig,

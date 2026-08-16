@@ -20,6 +20,22 @@ const entityParts = (entityId: string): [string, string] => {
   return [domain ?? "", objectId ?? ""];
 };
 
+const numericOptionValue = (value: unknown): number | undefined => {
+  const text = typeof value === "string" || typeof value === "number" ? String(value).trim() : "";
+  const match = text.match(/^([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*(?:°|degrees?)?$/i);
+  return match ? Number(match[1]) : undefined;
+};
+
+const numericAngleOptions = (entity: HassEntity | undefined): number[] | undefined => {
+  const options = entity?.attributes["options"];
+  if (!Array.isArray(options)) {
+    return undefined;
+  }
+
+  const angles = [...new Set(options.map(numericOptionValue).filter((value): value is number => value !== undefined))];
+  return angles.length > 0 ? angles : undefined;
+};
+
 export class StandardFanAdapter implements FanAdapter {
   public readonly state: NormalizedFanState;
   public readonly profile: FanModelProfile;
@@ -41,13 +57,15 @@ export class StandardFanAdapter implements FanAdapter {
     this.capabilities = {
       ...detectedCapabilities,
       horizontalAngles:
-        detectedCapabilities.horizontalAngles.length > 0
+        this.readAngleOptions(actionableRelated.horizontalAngle) ??
+        (detectedCapabilities.horizontalAngles.length > 0
           ? detectedCapabilities.horizontalAngles
-          : (this.readNumberSteps(this.readTimerSpec(actionableRelated.horizontalAngle)) ?? []),
+          : (this.readNumberSteps(this.readTimerSpec(actionableRelated.horizontalAngle)) ?? [])),
       verticalAngles:
-        detectedCapabilities.verticalAngles.length > 0
+        this.readAngleOptions(actionableRelated.verticalAngle) ??
+        (detectedCapabilities.verticalAngles.length > 0
           ? detectedCapabilities.verticalAngles
-          : (this.readNumberSteps(this.readTimerSpec(actionableRelated.verticalAngle)) ?? []),
+          : (this.readNumberSteps(this.readTimerSpec(actionableRelated.verticalAngle)) ?? [])),
       timerSteps: this.readNumberSteps(actionableRelated.timer ? timerSpec : undefined),
       timerSpec: actionableRelated.timer ? timerSpec : undefined,
     };
@@ -60,12 +78,27 @@ export class StandardFanAdapter implements FanAdapter {
     for (const key of Object.keys(actionable) as Array<keyof RelatedEntities>) {
       const entityId = actionable[key];
       const state = entityId ? this.hass.states[entityId] : undefined;
-      if (!state || state.state === "unknown" || state.state === "unavailable") {
+      if (
+        !state ||
+        state.state === "unknown" ||
+        state.state === "unavailable" ||
+        ((key === "horizontalAngle" || key === "verticalAngle") &&
+          this.isSelectEntity(entityId) &&
+          numericAngleOptions(state) === undefined)
+      ) {
         delete actionable[key];
       }
     }
 
     return actionable;
+  }
+
+  private isSelectEntity(entityId: string | undefined): boolean {
+    return entityId !== undefined && entityParts(entityId)[0] === "select";
+  }
+
+  private readAngleOptions(entityId: string | undefined): number[] | undefined {
+    return numericAngleOptions(entityId ? this.hass.states[entityId] : undefined);
   }
 
   private readTimerSpec(entityId: string | undefined): TimerSpec | undefined {
@@ -228,7 +261,7 @@ export class StandardFanAdapter implements FanAdapter {
   public async setHorizontalAngle(angle: number): Promise<void> {
     await this.startSwing("horizontal");
 
-    if (await this.setRelatedValue(this.related.horizontalAngle, angle)) {
+    if (await this.setRelatedAngle(this.related.horizontalAngle, angle)) {
       return;
     }
 
@@ -246,7 +279,7 @@ export class StandardFanAdapter implements FanAdapter {
   public async setVerticalAngle(angle: number): Promise<void> {
     await this.startSwing("vertical");
 
-    if (await this.setRelatedValue(this.related.verticalAngle, angle)) {
+    if (await this.setRelatedAngle(this.related.verticalAngle, angle)) {
       return;
     }
 
@@ -310,11 +343,11 @@ export class StandardFanAdapter implements FanAdapter {
   }
 
   public async setLed(enabled: boolean): Promise<void> {
-    if (await this.setRelatedBoolean(this.related.led, enabled)) {
+    if (await this.setRelatedLedBrightness(this.related.led, enabled)) {
       return;
     }
 
-    if (await this.setRelatedLedBrightness(this.related.led, enabled)) {
+    if (await this.setRelatedBoolean(this.related.led, enabled)) {
       return;
     }
 
@@ -359,6 +392,42 @@ export class StandardFanAdapter implements FanAdapter {
     }
 
     await this.hass.callService(domain, "set_value", { entity_id: entityId, value });
+    return true;
+  }
+
+  private async setRelatedAngle(entityId: string | undefined, angle: number): Promise<boolean> {
+    if (!entityId) {
+      return false;
+    }
+
+    const state = this.hass.states[entityId];
+    if (!state || state.state === "unknown" || state.state === "unavailable") {
+      return false;
+    }
+
+    const [domain] = entityParts(entityId);
+    if (domain === "number" || domain === "input_number") {
+      return this.setRelatedValue(entityId, angle);
+    }
+
+    if (domain !== "select") {
+      return false;
+    }
+
+    const options = state.attributes["options"];
+    if (!Array.isArray(options)) {
+      return false;
+    }
+
+    const option = options.find((candidate) => numericOptionValue(candidate) === angle);
+    if (option === undefined) {
+      return false;
+    }
+
+    await this.hass.callService("select", "select_option", {
+      entity_id: entityId,
+      option: typeof option === "string" || typeof option === "number" ? String(option) : option,
+    });
     return true;
   }
 
@@ -412,11 +481,38 @@ export class StandardFanAdapter implements FanAdapter {
     }
 
     const [domain] = entityParts(entityId);
+    const state = this.hass.states[entityId];
+    if (!state || state.state === "unknown" || state.state === "unavailable") {
+      return false;
+    }
+
+    if (domain === "select") {
+      const options = state.attributes["options"];
+      const availableOptions = Array.isArray(options) ? options.map(String) : [];
+      const numericTarget = enabled ? 0 : 2;
+      const option =
+        availableOptions.find((candidate) => numericOptionValue(candidate) === numericTarget) ??
+        availableOptions.find((candidate) =>
+          (enabled
+            ? ["on", "true", "enable", "bright", "active"]
+            : ["off", "false", "disable", "dim", "inactive"]
+          ).some((token) => candidate.toLowerCase().includes(token)),
+        );
+      if (option === undefined) {
+        return false;
+      }
+
+      await this.hass.callService("select", "select_option", {
+        entity_id: entityId,
+        option,
+      });
+      return true;
+    }
+
     if (domain !== "number" && domain !== "input_number") {
       return false;
     }
 
-    const state = this.hass.states[entityId];
     const minimum = Number(state?.attributes["min"]);
     const maximum = Number(state?.attributes["max"]);
     if (

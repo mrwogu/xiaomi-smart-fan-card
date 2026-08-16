@@ -469,6 +469,8 @@ const resolveSpeedLevels = (attributes, profile = getModelProfile()) => {
     return profile.speedLevels;
 };
 
+const FAN_FEATURE_OSCILLATE = 2;
+const FAN_FEATURE_DIRECTION = 4;
 const hasAttribute = (entity, keys) => entity !== undefined && keys.some((key) => Object.prototype.hasOwnProperty.call(entity.attributes, key));
 const hasService = (services, name) => services.loaded && services.names.has(name);
 const customService = (services, name) => hasService(services, `xiaomi_miio_fan.${name}`);
@@ -506,12 +508,12 @@ const detectCapabilities = (entity, services = { loaded: false, names: new Set()
         modelLabel: profile.label,
         speedLevels: resolveSpeedLevels(entity?.attributes ?? {}, profile),
         direction: hasAttribute(entity, ["direction", "current_direction"]) ||
-            hasFanFeature(entity, 16) ||
+            hasFanFeature(entity, FAN_FEATURE_DIRECTION) ||
             hasService(services, "fan.set_direction"),
         sleepMode: Boolean(related.sleepMode) || hasSleepPreset,
         favoriteLevel: Boolean(related.favoriteLevel),
         horizontalSwing: hasAttribute(entity, ["oscillating", "oscillate", "horizontal_swing", "swing_mode"]) ||
-            hasFanFeature(entity, 8) ||
+            hasFanFeature(entity, FAN_FEATURE_OSCILLATE) ||
             (profile.known && profile.isXiaomi && profile.model !== "xiaomi.fan.2lite"),
         horizontalAngle: Boolean(related.horizontalAngle) ||
             (hasHorizontalAngle && customService(services, "fan_set_oscillation_angle")) ||
@@ -573,6 +575,17 @@ const numberValue = (value) => {
     }
     return undefined;
 };
+const angleValue = (value) => {
+    const numeric = numberValue(value);
+    if (numeric !== undefined) {
+        return numeric;
+    }
+    if (typeof value !== "string") {
+        return undefined;
+    }
+    const match = value.trim().match(/^([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*(?:°|degrees?)?$/i);
+    return match ? Number(match[1]) : undefined;
+};
 const booleanValue$1 = (value) => {
     if (typeof value === "boolean") {
         return value;
@@ -612,6 +625,15 @@ const firstNumber = (attributes, keys) => {
     }
     return undefined;
 };
+const firstAngle = (attributes, keys) => {
+    for (const key of keys) {
+        const value = angleValue(attributes[key]);
+        if (value !== undefined) {
+            return value;
+        }
+    }
+    return undefined;
+};
 const firstBoolean = (attributes, keys) => {
     for (const key of keys) {
         const value = booleanValue$1(attributes[key]);
@@ -630,12 +652,16 @@ const timerMinutes = (attributes) => {
     return timerValueToMinutes(value, unit);
 };
 const ledState = (attributes) => {
+    const brightness = firstNumber(attributes, ["led_brightness"]);
+    if (brightness !== undefined) {
+        return brightness < 2;
+    }
     const direct = firstBoolean(attributes, ["led", "light", "light_enum"]);
     if (direct !== undefined) {
         return direct;
     }
-    const brightness = firstNumber(attributes, ["led_brightness", "light", "led"]);
-    return brightness === undefined ? undefined : brightness < 2;
+    const fallbackBrightness = firstNumber(attributes, ["light", "led"]);
+    return fallbackBrightness === undefined ? undefined : fallbackBrightness < 2;
 };
 const readPresetModes = (...values) => {
     for (const value of values) {
@@ -679,14 +705,14 @@ const normalizeFanState = (entityId, entity) => {
         sleepMode,
         direction: directionValue === "forward" || directionValue === "reverse" ? directionValue : undefined,
         horizontalSwing: firstBoolean(attributes, ["oscillating", "oscillate", "horizontal_swing", "swing_mode"]),
-        horizontalAngle: firstNumber(attributes, [
+        horizontalAngle: firstAngle(attributes, [
             "horizontal_swing_angle",
             "horizontal_angle",
             "swing_mode_angle",
             "angle",
         ]),
         verticalSwing: firstBoolean(attributes, ["vertical_swing", "vertical_oscillate", "vertical_oscillation"]),
-        verticalAngle: firstNumber(attributes, ["vertical_swing_angle", "vertical_oscillation_angle", "vertical_angle"]),
+        verticalAngle: firstAngle(attributes, ["vertical_swing_angle", "vertical_oscillation_angle", "vertical_angle"]),
         timerMinutes: timerMinutes(attributes),
         childLock: booleanValue$1(attributes["child_lock"]),
         led: ledState(attributes),
@@ -744,6 +770,19 @@ const entityParts = (entityId) => {
     const [domain, objectId] = entityId.split(".");
     return [domain ?? "", objectId ?? ""];
 };
+const numericOptionValue = (value) => {
+    const text = typeof value === "string" || typeof value === "number" ? String(value).trim() : "";
+    const match = text.match(/^([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*(?:°|degrees?)?$/i);
+    return match ? Number(match[1]) : undefined;
+};
+const numericAngleOptions = (entity) => {
+    const options = entity?.attributes["options"];
+    if (!Array.isArray(options)) {
+        return undefined;
+    }
+    const angles = [...new Set(options.map(numericOptionValue).filter((value) => value !== undefined))];
+    return angles.length > 0 ? angles : undefined;
+};
 class StandardFanAdapter {
     constructor(hass, entityId, services, related = {}) {
         this.hass = hass;
@@ -757,12 +796,14 @@ class StandardFanAdapter {
         const detectedCapabilities = detectCapabilities(hass.states[entityId], services, actionableRelated);
         this.capabilities = {
             ...detectedCapabilities,
-            horizontalAngles: detectedCapabilities.horizontalAngles.length > 0
-                ? detectedCapabilities.horizontalAngles
-                : (this.readNumberSteps(this.readTimerSpec(actionableRelated.horizontalAngle)) ?? []),
-            verticalAngles: detectedCapabilities.verticalAngles.length > 0
-                ? detectedCapabilities.verticalAngles
-                : (this.readNumberSteps(this.readTimerSpec(actionableRelated.verticalAngle)) ?? []),
+            horizontalAngles: this.readAngleOptions(actionableRelated.horizontalAngle) ??
+                (detectedCapabilities.horizontalAngles.length > 0
+                    ? detectedCapabilities.horizontalAngles
+                    : (this.readNumberSteps(this.readTimerSpec(actionableRelated.horizontalAngle)) ?? [])),
+            verticalAngles: this.readAngleOptions(actionableRelated.verticalAngle) ??
+                (detectedCapabilities.verticalAngles.length > 0
+                    ? detectedCapabilities.verticalAngles
+                    : (this.readNumberSteps(this.readTimerSpec(actionableRelated.verticalAngle)) ?? [])),
             timerSteps: this.readNumberSteps(actionableRelated.timer ? timerSpec : undefined),
             timerSpec: actionableRelated.timer ? timerSpec : undefined,
         };
@@ -773,11 +814,22 @@ class StandardFanAdapter {
         for (const key of Object.keys(actionable)) {
             const entityId = actionable[key];
             const state = entityId ? this.hass.states[entityId] : undefined;
-            if (!state || state.state === "unknown" || state.state === "unavailable") {
+            if (!state ||
+                state.state === "unknown" ||
+                state.state === "unavailable" ||
+                ((key === "horizontalAngle" || key === "verticalAngle") &&
+                    this.isSelectEntity(entityId) &&
+                    numericAngleOptions(state) === undefined)) {
                 delete actionable[key];
             }
         }
         return actionable;
+    }
+    isSelectEntity(entityId) {
+        return entityId !== undefined && entityParts(entityId)[0] === "select";
+    }
+    readAngleOptions(entityId) {
+        return numericAngleOptions(entityId ? this.hass.states[entityId] : undefined);
     }
     readTimerSpec(entityId) {
         const timerEntity = entityId ? this.hass.states[entityId] : undefined;
@@ -904,7 +956,7 @@ class StandardFanAdapter {
     }
     async setHorizontalAngle(angle) {
         await this.startSwing("horizontal");
-        if (await this.setRelatedValue(this.related.horizontalAngle, angle)) {
+        if (await this.setRelatedAngle(this.related.horizontalAngle, angle)) {
             return;
         }
         await this.callCustom("fan_set_oscillation_angle", { angle });
@@ -917,7 +969,7 @@ class StandardFanAdapter {
     }
     async setVerticalAngle(angle) {
         await this.startSwing("vertical");
-        if (await this.setRelatedValue(this.related.verticalAngle, angle)) {
+        if (await this.setRelatedAngle(this.related.verticalAngle, angle)) {
             return;
         }
         await this.callCustom("fan_set_vertical_oscillation_angle", {
@@ -969,10 +1021,10 @@ class StandardFanAdapter {
         await this.callCustom(enabled ? "fan_set_child_lock_on" : "fan_set_child_lock_off");
     }
     async setLed(enabled) {
-        if (await this.setRelatedBoolean(this.related.led, enabled)) {
+        if (await this.setRelatedLedBrightness(this.related.led, enabled)) {
             return;
         }
-        if (await this.setRelatedLedBrightness(this.related.led, enabled)) {
+        if (await this.setRelatedBoolean(this.related.led, enabled)) {
             return;
         }
         await this.callCustom("fan_set_led_brightness", { brightness: enabled ? 0 : 2 });
@@ -1007,6 +1059,35 @@ class StandardFanAdapter {
             return false;
         }
         await this.hass.callService(domain, "set_value", { entity_id: entityId, value });
+        return true;
+    }
+    async setRelatedAngle(entityId, angle) {
+        if (!entityId) {
+            return false;
+        }
+        const state = this.hass.states[entityId];
+        if (!state || state.state === "unknown" || state.state === "unavailable") {
+            return false;
+        }
+        const [domain] = entityParts(entityId);
+        if (domain === "number" || domain === "input_number") {
+            return this.setRelatedValue(entityId, angle);
+        }
+        if (domain !== "select") {
+            return false;
+        }
+        const options = state.attributes["options"];
+        if (!Array.isArray(options)) {
+            return false;
+        }
+        const option = options.find((candidate) => numericOptionValue(candidate) === angle);
+        if (option === undefined) {
+            return false;
+        }
+        await this.hass.callService("select", "select_option", {
+            entity_id: entityId,
+            option: typeof option === "string" || typeof option === "number" ? String(option) : option,
+        });
         return true;
     }
     async setRelatedBoolean(entityId, enabled) {
@@ -1049,10 +1130,30 @@ class StandardFanAdapter {
             return false;
         }
         const [domain] = entityParts(entityId);
+        const state = this.hass.states[entityId];
+        if (!state || state.state === "unknown" || state.state === "unavailable") {
+            return false;
+        }
+        if (domain === "select") {
+            const options = state.attributes["options"];
+            const availableOptions = Array.isArray(options) ? options.map(String) : [];
+            const numericTarget = enabled ? 0 : 2;
+            const option = availableOptions.find((candidate) => numericOptionValue(candidate) === numericTarget) ??
+                availableOptions.find((candidate) => (enabled
+                    ? ["on", "true", "enable", "bright", "active"]
+                    : ["off", "false", "disable", "dim", "inactive"]).some((token) => candidate.toLowerCase().includes(token)));
+            if (option === undefined) {
+                return false;
+            }
+            await this.hass.callService("select", "select_option", {
+                entity_id: entityId,
+                option,
+            });
+            return true;
+        }
         if (domain !== "number" && domain !== "input_number") {
             return false;
         }
-        const state = this.hass.states[entityId];
         const minimum = Number(state?.attributes["min"]);
         const maximum = Number(state?.attributes["max"]);
         if (!state ||
@@ -1391,9 +1492,9 @@ const normalizeCardConfig = (raw) => {
 };
 
 const RELATED_ENTITY_DOMAINS = {
-    horizontal_angle_entity: ["number", "input_number"],
+    horizontal_angle_entity: ["number", "input_number", "select"],
     vertical_swing_entity: ["switch", "input_boolean", "select"],
-    vertical_angle_entity: ["number", "input_number"],
+    vertical_angle_entity: ["number", "input_number", "select"],
     favorite_level_entity: ["number", "input_number"],
     sleep_mode_entity: ["switch", "input_boolean", "select"],
     timer_entity: ["number", "input_number"],
@@ -2575,8 +2676,8 @@ const suffixes = {
     led: ["_led", "_led_brightness", "_light"],
     buzzer: ["_buzzer", "_notification_sound"],
     ionizer: ["_anion", "_ionizer"],
-    temperature: ["_temperature"],
-    humidity: ["_humidity"],
+    temperature: ["_temperature", "_temperatuur"],
+    humidity: ["_humidity", "_luchtvochtigheid"],
 };
 const findBySuffix = (entries, allowedDomains, wantedSuffixes) => {
     const candidates = entries.filter((entry) => {
@@ -2611,12 +2712,13 @@ const resolveRelatedEntities = async (hass, entityId) => {
         const entries = registry.filter((entry) => entry.device_id === primary.device_id);
         const related = {};
         const numeric = ["number", "input_number"];
+        const angle = [...numeric, "select"];
         const boolean = ["switch", "input_boolean"];
         const select = ["select"];
-        related.horizontalAngle = findBySuffix(entries, numeric, suffixes.horizontalAngle);
+        related.horizontalAngle = findBySuffix(entries, angle, suffixes.horizontalAngle);
         related.sleepMode = findBySuffix(entries, [...boolean, "select"], suffixes.sleepMode);
         related.verticalSwing = findBySuffix(entries, [...boolean, "select"], suffixes.verticalSwing);
-        related.verticalAngle = findBySuffix(entries, numeric, suffixes.verticalAngle);
+        related.verticalAngle = findBySuffix(entries, angle, suffixes.verticalAngle);
         related.favoriteLevel = findBySuffix(entries, numeric, suffixes.favoriteLevel);
         related.timer = findBySuffix(entries, numeric, suffixes.timer);
         related.childLock = findBySuffix(entries, [...boolean, ...select], suffixes.childLock);

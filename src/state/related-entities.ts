@@ -18,8 +18,8 @@ const suffixes: Record<keyof RelatedEntities, string[]> = {
   led: ["_led", "_led_brightness", "_light"],
   buzzer: ["_buzzer", "_notification_sound"],
   ionizer: ["_anion", "_ionizer"],
-  temperature: ["_temperature"],
-  humidity: ["_humidity"],
+  temperature: ["_temperature", "_temperatuur"],
+  humidity: ["_humidity", "_luchtvochtigheid"],
 };
 
 const findBySuffix = (
@@ -67,13 +67,14 @@ export const resolveRelatedEntities = async (
 
     const related: RelatedEntities = {};
     const numeric = ["number", "input_number"];
+    const angle = [...numeric, "select"];
     const boolean = ["switch", "input_boolean"];
     const select = ["select"];
 
-    related.horizontalAngle = findBySuffix(entries, numeric, suffixes.horizontalAngle);
+    related.horizontalAngle = findBySuffix(entries, angle, suffixes.horizontalAngle);
     related.sleepMode = findBySuffix(entries, [...boolean, "select"], suffixes.sleepMode);
     related.verticalSwing = findBySuffix(entries, [...boolean, "select"], suffixes.verticalSwing);
-    related.verticalAngle = findBySuffix(entries, numeric, suffixes.verticalAngle);
+    related.verticalAngle = findBySuffix(entries, angle, suffixes.verticalAngle);
     related.favoriteLevel = findBySuffix(entries, numeric, suffixes.favoriteLevel);
     related.timer = findBySuffix(entries, numeric, suffixes.timer);
     related.childLock = findBySuffix(entries, [...boolean, ...select], suffixes.childLock);

@@ -225,9 +225,9 @@ export interface FanRelatedEntitiesConfig {
 }
 
 export const RELATED_ENTITY_DOMAINS = {
-  horizontal_angle_entity: ["number", "input_number"],
+  horizontal_angle_entity: ["number", "input_number", "select"],
   vertical_swing_entity: ["switch", "input_boolean", "select"],
-  vertical_angle_entity: ["number", "input_number"],
+  vertical_angle_entity: ["number", "input_number", "select"],
   favorite_level_entity: ["number", "input_number"],
   sleep_mode_entity: ["switch", "input_boolean", "select"],
   timer_entity: ["number", "input_number"],
