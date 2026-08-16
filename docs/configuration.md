@@ -86,25 +86,39 @@ related_entities:
 | `force_sleep_mode_support` | none                 | Legacy alias for `show_sleep`.                                                             |
 | `hide_led_button`          | `false`              | Legacy option. Set to `true` to force `controls.show_led: false`.                          |
 
+## Integration action paths
+
+| `integration`     | Action path                                                                                    |
+| ----------------- | ---------------------------------------------------------------------------------------------- |
+| `auto`            | Standard Home Assistant fan actions and related entity discovery.                              |
+| `standard`        | Standard Home Assistant fan actions and related entity discovery.                              |
+| `xiaomi_miio`     | Standard fan actions plus related Xiaomi Home entities.                                        |
+| `xiaomi_miio_fan` | Standard fan actions plus registered `xiaomi_miio_fan.*` services for model-specific controls. |
+| `xiaomi_miot`     | Standard fan actions plus actionable related entities exposed by Xiaomi MIoT.                  |
+
+The card never calls a Xiaomi device directly. `auto` does not guess a vendor
+adapter. Select `xiaomi_miio_fan` only when the service registry contains the
+custom services required by the configured controls.
+
 ## Legacy top-level related-entity aliases
 
 These keys are still accepted for older YAML configurations. The nested
 `related_entities` values take precedence when both forms are present.
 
-| Parameter                 | Default   | Description                                                    |
-| ------------------------- | --------- | -------------------------------------------------------------- |
-| `horizontal_angle_entity` | automatic | Related horizontal angle `number` or `input_number` entity.    |
-| `vertical_swing_entity`   | automatic | Related vertical swing `switch`, `input_boolean`, or `select`. |
-| `vertical_angle_entity`   | automatic | Related vertical angle `number` or `input_number` entity.      |
-| `favorite_level_entity`   | automatic | Related favorite level `number` or `input_number` entity.      |
-| `sleep_mode_entity`       | automatic | Related sleep mode `switch`, `input_boolean`, or `select`.     |
-| `timer_entity`            | automatic | Related timer `number` or `input_number` entity.               |
-| `child_lock_entity`       | automatic | Related child lock `switch`, `input_boolean`, or `select`.     |
-| `led_entity`              | automatic | Related LED switch, select, or numeric entity.                 |
-| `buzzer_entity`           | automatic | Related buzzer `switch`, `input_boolean`, or `select`.         |
-| `ionizer_entity`          | automatic | Related ionizer `switch`, `input_boolean`, or `select`.        |
-| `temperature_entity`      | automatic | Related temperature `sensor` entity.                           |
-| `humidity_entity`         | automatic | Related humidity `sensor` entity.                              |
+| Parameter                 | Default   | Description                                                            |
+| ------------------------- | --------- | ---------------------------------------------------------------------- |
+| `horizontal_angle_entity` | automatic | Related horizontal angle `number`, `input_number`, or `select` entity. |
+| `vertical_swing_entity`   | automatic | Related vertical swing `switch`, `input_boolean`, or `select`.         |
+| `vertical_angle_entity`   | automatic | Related vertical angle `number`, `input_number`, or `select` entity.   |
+| `favorite_level_entity`   | automatic | Related favorite level `number` or `input_number` entity.              |
+| `sleep_mode_entity`       | automatic | Related sleep mode `switch`, `input_boolean`, or `select`.             |
+| `timer_entity`            | automatic | Related timer `number` or `input_number` entity.                       |
+| `child_lock_entity`       | automatic | Related child lock `switch`, `input_boolean`, or `select`.             |
+| `led_entity`              | automatic | Related LED switch, select, or numeric entity.                         |
+| `buzzer_entity`           | automatic | Related buzzer `switch`, `input_boolean`, or `select`.                 |
+| `ionizer_entity`          | automatic | Related ionizer `switch`, `input_boolean`, or `select`.                |
+| `temperature_entity`      | automatic | Related temperature `sensor` entity.                                   |
+| `humidity_entity`         | automatic | Related humidity `sensor` entity.                                      |
 
 ## `header`
 
@@ -205,20 +219,39 @@ Tokens compose with `layout.theme`: the theme sets the base design tokens and
 
 ## `related_entities`
 
-| Parameter                                  | Default   | Description                                                      |
-| ------------------------------------------ | --------- | ---------------------------------------------------------------- |
-| `related_entities.horizontal_angle_entity` | automatic | `number` or `input_number` for the horizontal angle.             |
-| `related_entities.vertical_swing_entity`   | automatic | `switch`, `input_boolean`, or `select` for vertical oscillation. |
-| `related_entities.vertical_angle_entity`   | automatic | `number` or `input_number` for the vertical angle.               |
-| `related_entities.favorite_level_entity`   | automatic | `number` or `input_number` for the favorite level.               |
-| `related_entities.sleep_mode_entity`       | automatic | `switch`, `input_boolean`, or `select` for sleep mode.           |
-| `related_entities.timer_entity`            | automatic | `number` or `input_number` for the timer.                        |
-| `related_entities.child_lock_entity`       | automatic | `switch`, `input_boolean`, or `select` for child lock.           |
-| `related_entities.led_entity`              | automatic | LED `switch`, `input_boolean`, `select`, or numeric entity.      |
-| `related_entities.buzzer_entity`           | automatic | `switch`, `input_boolean`, or `select` for the buzzer.           |
-| `related_entities.ionizer_entity`          | automatic | `switch`, `input_boolean`, or `select` for the ionizer.          |
-| `related_entities.temperature_entity`      | automatic | `sensor` for temperature.                                        |
-| `related_entities.humidity_entity`         | automatic | `sensor` for humidity.                                           |
+| Parameter                                  | Default   | Description                                                                          |
+| ------------------------------------------ | --------- | ------------------------------------------------------------------------------------ |
+| `related_entities.horizontal_angle_entity` | automatic | `number`, `input_number`, or `select` with numeric options for the horizontal angle. |
+| `related_entities.vertical_swing_entity`   | automatic | `switch`, `input_boolean`, or `select` for vertical oscillation.                     |
+| `related_entities.vertical_angle_entity`   | automatic | `number`, `input_number`, or `select` with numeric options for the vertical angle.   |
+| `related_entities.favorite_level_entity`   | automatic | `number` or `input_number` for the favorite level.                                   |
+| `related_entities.sleep_mode_entity`       | automatic | `switch`, `input_boolean`, or `select` for sleep mode.                               |
+| `related_entities.timer_entity`            | automatic | `number` or `input_number` for the timer.                                            |
+| `related_entities.child_lock_entity`       | automatic | `switch`, `input_boolean`, or `select` for child lock.                               |
+| `related_entities.led_entity`              | automatic | LED `switch`, `input_boolean`, `select`, or numeric entity.                          |
+| `related_entities.buzzer_entity`           | automatic | `switch`, `input_boolean`, or `select` for the buzzer.                               |
+| `related_entities.ionizer_entity`          | automatic | `switch`, `input_boolean`, or `select` for the ionizer.                              |
+| `related_entities.temperature_entity`      | automatic | `sensor` for temperature.                                                            |
+| `related_entities.humidity_entity`         | automatic | `sensor` for humidity.                                                               |
+
+Automatic related entity discovery uses the Home Assistant entity registry and
+matches entities sharing the primary fan `device_id`. It also matches known
+English and localized suffixes, including `_temperatuur` for temperature and
+`_luchtvochtigheid` for humidity. Use explicit related entity fields when an
+integration uses a different name or does not assign the entities to the same
+device.
+
+Angle `select` entities are supported when their options contain numeric
+values. Accepted examples include `0`, `30°`, `60 degrees`, `-10.5`, and `.5`.
+The optional degree suffix is case-insensitive. Non-numeric select options are
+ignored for angle capabilities, so a generic mode selector cannot create a
+dead angle control.
+
+For Xiaomi MIOT, angle and vertical controls require an actionable related
+entity. A primary fan attribute can be displayed as state, but it does not
+authorize an angle action by itself. Vertical swing accepts `switch`,
+`input_boolean`, or `select`; angle controls accept `number`, `input_number`,
+or numeric-option `select`.
 
 ## Behavior notes
 
@@ -237,6 +270,12 @@ cards and falls back below the graphic on narrow cards. Temperature and
 humidity details use the `unit_of_measurement` of the resolved sensor, so a
 Fahrenheit sensor renders `°F` without extra configuration.
 
+The `controls.show_horizontal_*` and `controls.show_vertical_*` options are
+visibility switches, not capability overrides. Unsupported controls remain
+hidden even when a visibility switch is `true`. Set the switches to `false`
+for devices such as the Xiaomi Smart Air Purifier 4 Pro that expose presets
+but no actionable oscillation or angle entities.
+
 The card reports its own size to Home Assistant. Masonry dashboards use
 `getCardSize`, and sections dashboards use `getGridOptions` with a
 twelve-column default whose row count follows the enabled header variant,
@@ -254,11 +293,19 @@ Timer controls use minutes. Related numeric timer entities with
 to and from minutes. Other or missing units are treated as minutes. The card
 preserves a live timer value that is not one of the configured steps.
 
+MIoT optional angle controls require discovered or configured related `select`,
+`number`, or `input_number` entities. Primary MIoT fan attributes alone are
+not treated as angle actions. The `controls.show_horizontal_*` and
+`controls.show_vertical_*` options are visibility switches, not capability
+overrides. For the issue #26 purifier case, disable unsupported horizontal or
+vertical controls explicitly.
+
 For Xiaomi LED brightness controls, the custom Xiaomi service contract is
 `0` for bright, `1` for dim, and `2` for off. A related
 `*_led_brightness` number with a `0..2` range uses the same mapping. Other
-switch, select, and number entities use their exposed Home Assistant
-contract.
+switch, semantic select, and number entities use their exposed Home Assistant
+contract. Numeric LED brightness select options use the same `0`/`1`/`2`
+mapping.
 
 ## Configuration compatibility
 

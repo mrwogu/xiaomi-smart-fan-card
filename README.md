@@ -15,7 +15,7 @@ Capability-aware. Four themes. Native visual editor. No telemetry.
 
 <sub>Default configuration, light and dark, nothing but the entity set.</sub>
 
-[![Open Xiaomi Fan Card in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?repository=mrwogu%2Fxiaomi-smart-fan-card)
+[![Open Xiaomi Fan Card in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=mrwogu&repository=xiaomi-smart-fan-card&category=plugin)
 
 [Install](#install) · [Themes](#four-themes-one-card) · [Layouts](#layouts-that-fit-your-dashboard) ·
 [Styling](#style-it-your-way) · [Recipes](#recipes) · [Configuration](docs/configuration.md)
@@ -230,15 +230,45 @@ styles:
 
 ## Works with what you already have
 
-| Integration      | Set `integration:` | What you get                                                                         |
-| ---------------- | ------------------ | ------------------------------------------------------------------------------------ |
-| Xiaomi Home      | `xiaomi_miio`      | Standard fan actions plus related switch, number, select, and sensor entities.       |
-| syssi/xiaomi_fan | `xiaomi_miio_fan`  | Xiaomi services for angle, vertical oscillation, nudge, timer, LED, buzzer, ionizer. |
-| Xiaomi MIOT      | `xiaomi_miot`      | Standard fan actions with related entity discovery.                                  |
-| Any HA `fan`     | `standard`         | Percentage, presets, oscillation, direction, and whatever related entities exist.    |
+| Integration      | Set `integration:` | What you get                                                                                         |
+| ---------------- | ------------------ | ---------------------------------------------------------------------------------------------------- |
+| Auto detection   | `auto`             | Standard fan actions and related entity discovery. Vendor services are never guessed.                |
+| Xiaomi Home      | `xiaomi_miio`      | Standard fan actions plus related switch, number, select, and sensor entities.                       |
+| syssi/xiaomi_fan | `xiaomi_miio_fan`  | Xiaomi services for angle, vertical oscillation, nudge, timer, LED, buzzer, child lock, and ionizer. |
+| Xiaomi MIOT      | `xiaomi_miot`      | Standard fan actions plus actionable related entities exposed by Xiaomi MIoT.                        |
+| Any HA `fan`     | `standard`         | Percentage, presets, oscillation, direction, and whatever related entities exist.                    |
 
-`auto` keeps the card on standard fan actions and only uses custom Xiaomi
-services when you select that integration explicitly.
+`auto` and `standard` use public Home Assistant fan actions. Select
+`xiaomi_miio_fan` only when its custom services are registered in Home
+Assistant. `xiaomi_miio` and `xiaomi_miot` use standard fan actions and
+related entities instead of assuming `xiaomi_miio_fan` services.
+
+### P76 through different integrations
+
+The same physical fan can expose different capabilities depending on the
+integration:
+
+- `xiaomi_miio_fan`: P76 angle, vertical oscillation, nudge, timer, LED,
+  buzzer, and child lock actions use registered `xiaomi_miio_fan.*` services.
+- `xiaomi_miot`: P76 angle and vertical controls appear only when Xiaomi MIoT
+  exposes actionable same-device related entities. Angle `select` entities
+  must provide numeric options such as `30`, `60°`, or `90 degrees`.
+- `auto` and `standard`: the card uses standard fan actions and related
+  entities. Primary attributes that have no matching action are displayed
+  only as state and do not create a dead control.
+
+The card does not connect directly to Xiaomi devices and does not invent
+MIoT property or service names. If the MIoT integration exposes only primary
+fan attributes, use `xiaomi_miio_fan` for its vendor-specific P76 controls or
+keep those controls hidden.
+
+### Capability safety
+
+Presets and generic fan features do not imply oscillation or angle support. A
+device such as the Xiaomi Smart Air Purifier 4 Pro can expose presets,
+favorite level, LED brightness, sensors, buzzer, child lock, and ionizer while
+having no horizontal or vertical controls. The card keeps those unsupported
+controls hidden.
 
 <div align="center">
   <a href="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/integration-modes.webp">
@@ -359,6 +389,26 @@ controls:
   show_timer: false
 ```
 
+**Unsupported optional controls.** Use this for an air purifier or any fan
+whose integration reports presets but does not expose actionable oscillation
+or angle entities.
+
+```yaml
+type: custom:xiaomi-fan-card
+entity: fan.air_purifier_4_pro
+integration: xiaomi_miot
+controls:
+  show_horizontal_swing: false
+  show_vertical_swing: false
+  show_horizontal_angle: false
+  show_vertical_angle: false
+  show_cycle: false
+  show_nudge: false
+details:
+  show_horizontal_angle: false
+  show_vertical_angle: false
+```
+
 **One control column.** Every group stacked, for narrow dashboard columns.
 
 ```yaml
@@ -446,6 +496,14 @@ primary fan entity attributes, related device entities, and registered Home
 Assistant services. If the integration does not expose the capability, the card
 intentionally hides that control. See
 [docs/compatibility.md](docs/compatibility.md).
+
+For `xiaomi_miot`, verify that the related entity exists, belongs to the same
+device, is available, and exposes the expected domain and options. Include the
+integration name, Home Assistant and HACS versions, browser, redacted primary
+entity state and attributes, redacted related entity domains, states, and
+options, registered service names, card configuration, console error, and exact
+reproduction steps in a bug report. Never include tokens, cookies, hostnames,
+private dashboards, or full diagnostics exports.
 
 </details>
 
