@@ -13,7 +13,7 @@ See the [README recipes](../README.md#recipes) for ready to paste layouts and
 
 ```yaml
 type: custom:xiaomi-fan-card
-entity: fan.xiaomi_smart_fan
+entity: fan.living_room_fan
 integration: auto
 layout:
   theme: mushroom
@@ -276,8 +276,8 @@ Fahrenheit sensor renders `°F` without extra configuration.
 The `controls.show_horizontal_*` and `controls.show_vertical_*` options are
 visibility switches, not capability overrides. Unsupported controls remain
 hidden even when a visibility switch is `true`. Set the switches to `false`
-for devices such as the Xiaomi Smart Air Purifier 4 Pro that expose presets
-but no actionable oscillation or angle entities.
+for a fan that reports presets but exposes no actionable oscillation or angle
+entity.
 
 The card reports its own size to Home Assistant. Masonry dashboards use
 `getCardSize`, and sections dashboards use `getGridOptions` with a

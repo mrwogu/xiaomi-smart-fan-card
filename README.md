@@ -243,14 +243,14 @@ styles:
 Assistant. `xiaomi_miio` and `xiaomi_miot` use standard fan actions and
 related entities instead of assuming `xiaomi_miio_fan` services.
 
-### P76 through different integrations
+### One fan, different integrations
 
 The same physical fan can expose different capabilities depending on the
 integration:
 
-- `xiaomi_miio_fan`: P76 angle, vertical oscillation, nudge, timer, LED,
-  buzzer, and child lock actions use registered `xiaomi_miio_fan.*` services.
-- `xiaomi_miot`: P76 angle and vertical controls appear only when Xiaomi MIoT
+- `xiaomi_miio_fan`: angle, vertical oscillation, nudge, timer, LED, buzzer,
+  and child lock actions use registered `xiaomi_miio_fan.*` services.
+- `xiaomi_miot`: angle and vertical controls appear only when Xiaomi MIoT
   exposes actionable same-device related entities. Angle `select` entities
   must provide numeric options such as `30`, `60°`, or `90 degrees`.
 - `auto` and `standard`: the card uses standard fan actions and related
@@ -259,20 +259,20 @@ integration:
 
 The card does not connect directly to Xiaomi devices and does not invent
 MIoT property or service names. If the MIoT integration exposes only primary
-fan attributes, use `xiaomi_miio_fan` for its vendor-specific P76 controls or
-keep those controls hidden.
+fan attributes, use `xiaomi_miio_fan` for its vendor-specific controls or keep
+those controls hidden.
 
 ### Capability safety
 
-Presets and generic fan features do not imply oscillation or angle support. A
-device such as the Xiaomi Smart Air Purifier 4 Pro can expose presets,
-favorite level, LED brightness, sensors, buzzer, child lock, and ionizer while
-having no horizontal or vertical controls. The card keeps those unsupported
-controls hidden.
+Presets and generic fan features do not imply oscillation or angle support. An
+air purifier or air circulator can expose presets, favorite level, LED
+brightness, sensors, buzzer, child lock, and ionizer while having no
+horizontal or vertical controls. The card keeps those unsupported controls
+hidden.
 
 <div align="center">
   <a href="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/integration-modes.webp">
-    <img src="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/integration-modes.webp" alt="The same card for a Xiaomi P76 with angles, timer, and device toggles, then for a plain Home Assistant fan entity with speed, presets, oscillation, and direction only" height="360">
+    <img src="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/integration-modes.webp" alt="The same card for a fully featured fan with angles, timer, and device toggles, then for a plain Home Assistant fan entity with speed, presets, oscillation, and direction only" height="360">
   </a>
 </div>
 
@@ -330,7 +330,7 @@ resources:
 
 ```yaml
 type: custom:xiaomi-fan-card
-entity: fan.xiaomi_smart_standing_fan
+entity: fan.living_room_fan
 name: Living Room Fan
 ```
 
@@ -395,7 +395,7 @@ or angle entities.
 
 ```yaml
 type: custom:xiaomi-fan-card
-entity: fan.air_purifier_4_pro
+entity: fan.bedroom_purifier
 integration: xiaomi_miot
 controls:
   show_horizontal_swing: false

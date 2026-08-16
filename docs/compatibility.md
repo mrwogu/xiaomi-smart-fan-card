@@ -10,7 +10,7 @@ control only when it has a usable source.
 | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | Power, percentage, presets, horizontal oscillation | Standard `fan` entity actions and attributes                                                                                                  |
 | Horizontal angle                                   | Live fan attribute, model profile with registered Xiaomi service, or related `number`, `input_number`, or `select` with numeric angle options |
-| Vertical oscillation and angle                     | Live attributes, P70 or P76 model profile with registered Xiaomi services, or related `number`, `input_number`, or `select` entities          |
+| Vertical oscillation and angle                     | Live attributes, a model profile that declares them plus the registered Xiaomi services, or related `number`, `input_number`, or `select`     |
 | Sleep mode                                         | Sleep preset, related `switch`, `input_boolean`, or `select`                                                                                  |
 | Timer                                              | Live timer attribute with registered service, related `number` or `input_number`, or registered Xiaomi delay service                          |
 | Child lock, buzzer, ionizer                        | Related switch, input boolean, or select, or registered Xiaomi service                                                                        |
@@ -58,27 +58,32 @@ visibility switches, not capability overrides. See
 [docs/configuration.md](configuration.md) for the discovery rules and the
 control visibility contract.
 
-### P76 integration matrix
+### Fans with vertical oscillation or angle presets
 
-| P76 integration      | Vertical and angle behavior                                                              |
+The same device reaches these controls through a different path depending on
+the selected integration:
+
+| `integration`        | Vertical and angle behavior                                                              |
 | -------------------- | ---------------------------------------------------------------------------------------- |
-| `xiaomi_miio_fan`    | Uses registered `xiaomi_miio_fan.*` actions and the P76 model profile.                   |
+| `xiaomi_miio_fan`    | Uses registered `xiaomi_miio_fan.*` actions and the model profile ranges.                |
 | `xiaomi_miot`        | Uses standard fan actions plus same-device related switch/select/number entities.        |
 | `auto` or `standard` | Uses standard fan actions and related entities; does not invent vendor-specific actions. |
 
-If Xiaomi MIOT exposes only P76 attributes without related action entities,
-the card intentionally hides vertical and angle controls. This prevents a
-button from claiming support that Home Assistant cannot execute.
+When an integration exposes vertical or angle values as read-only attributes
+without a matching action entity or service, the card hides those controls.
+This prevents a button from claiming support that Home Assistant cannot
+execute.
 
-### Xiaomi Smart Air Purifier 4 Pro
+### Fans without oscillation or angle support
 
-This purifier exposes presets and optional device entities but no horizontal
-or vertical swing or angle entity. Preset-only `supported_features` values do
-not imply oscillation. The expected configuration is:
+An air purifier, air circulator, or exhaust fan often exposes presets and
+optional device entities while having no swing or angle entity at all. A
+preset-only `supported_features` value does not imply oscillation. Hide the
+unsupported controls explicitly:
 
 ```yaml
 type: custom:xiaomi-fan-card
-entity: fan.air_purifier_4_pro
+entity: fan.bedroom_purifier
 integration: xiaomi_miot
 controls:
   show_horizontal_swing: false
@@ -95,9 +100,10 @@ details:
 ## Model coverage
 
 Known profiles cover families including `zhimi.fan.*`, `dmaker.fan.*`,
-`xiaomi.fan.*`, and `leshow.fan.ss4`. P70 and P76 profiles include vertical
-oscillation and angle ranges. Unknown models use live attributes and
-registered services without inventing unsupported controls.
+`xiaomi.fan.*`, and `leshow.fan.ss4`. A profile only declares the speed levels,
+angle ranges, and vertical oscillation that its family supports. Unknown models
+use live attributes and registered services without inventing unsupported
+controls.
 
 Model profiles describe UI ranges, not device communication. The card never
 connects directly to a Xiaomi device.
