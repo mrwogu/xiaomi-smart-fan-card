@@ -9,6 +9,7 @@ coverage/
 .playwright-mcp/
 .code-review-graph/
 .factory/artifacts/
+.worktrees/
 .eslintcache
 *.tsbuildinfo
 
