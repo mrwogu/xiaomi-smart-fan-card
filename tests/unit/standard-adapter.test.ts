@@ -116,6 +116,137 @@ describe("StandardFanAdapter", () => {
     expect(calls).toEqual([["select", "select_option", { entity_id: "select.example_led", option: "on" }]]);
   });
 
+  it("uses a related horizontal oscillation entity when one is exposed", async () => {
+    const { hass, calls } = createHass([], []);
+    hass.states["switch.example_horizontal_swing"] = {
+      state: "off",
+      attributes: {},
+    };
+    const adapter = new StandardFanAdapter(hass, "fan.example", services, {
+      horizontalSwing: "switch.example_horizontal_swing",
+    });
+
+    expect(adapter.capabilities.horizontalSwing).toBe(true);
+    await adapter.setHorizontalSwing(true);
+
+    expect(calls).toEqual([["switch", "turn_on", { entity_id: "switch.example_horizontal_swing" }]]);
+  });
+
+  it("drops stale primary oscillation state when the related entity is unavailable", () => {
+    const { hass } = createHass([], []);
+    hass.states["fan.example"] = {
+      state: "on",
+      attributes: { friendly_name: "Example fan", oscillating: true },
+    };
+    hass.states["switch.example_horizontal_swing"] = {
+      state: "unavailable",
+      attributes: {},
+    };
+    const adapter = new StandardFanAdapter(hass, "fan.example", services, {
+      horizontalSwing: "switch.example_horizontal_swing",
+    });
+
+    expect(adapter.state.horizontalSwing).toBeUndefined();
+  });
+
+  it("drops stale primary values when related entities are unavailable", () => {
+    const { hass } = createHass([], []);
+    hass.states["fan.example"] = {
+      state: "on",
+      attributes: {
+        friendly_name: "Example fan",
+        anion: true,
+        child_lock: true,
+        favorite_speed: 7,
+        humidity: 45,
+        notification_sound: true,
+        temperature: 21.5,
+      },
+    };
+    hass.states["switch.example_buzzer"] = {
+      state: "unavailable",
+      attributes: {},
+    };
+    hass.states["switch.example_child_lock"] = {
+      state: "unavailable",
+      attributes: {},
+    };
+    hass.states["number.example_favorite_level"] = {
+      state: "unavailable",
+      attributes: { min: 1, max: 10, step: 1 },
+    };
+    hass.states["switch.example_ionizer"] = {
+      state: "unknown",
+      attributes: {},
+    };
+    hass.states["sensor.example_humidity"] = {
+      state: "unknown",
+      attributes: {},
+    };
+    hass.states["sensor.example_temperature"] = {
+      state: "unavailable",
+      attributes: {},
+    };
+    const adapter = new StandardFanAdapter(hass, "fan.example", services, {
+      buzzer: "switch.example_buzzer",
+      childLock: "switch.example_child_lock",
+      favoriteLevel: "number.example_favorite_level",
+      humidity: "sensor.example_humidity",
+      ionizer: "switch.example_ionizer",
+      temperature: "sensor.example_temperature",
+    });
+
+    expect(adapter.state.buzzer).toBeUndefined();
+    expect(adapter.state.childLock).toBeUndefined();
+    expect(adapter.state.favoriteLevel).toBeUndefined();
+    expect(adapter.state.humidity).toBeUndefined();
+    expect(adapter.state.ionizer).toBeUndefined();
+    expect(adapter.state.temperature).toBeUndefined();
+  });
+
+  it("supports numeric boolean select options used by MIoT entities", async () => {
+    const { hass, calls } = createHass([], []);
+    hass.states["select.example_vertical_swing"] = {
+      state: "0",
+      attributes: { options: ["0", "1"] },
+    };
+    const adapter = new StandardFanAdapter(hass, "fan.example", services, {
+      verticalSwing: "select.example_vertical_swing",
+    });
+
+    expect(adapter.capabilities.verticalSwing).toBe(true);
+    await adapter.setVerticalSwing(true);
+
+    expect(calls).toEqual([["select", "select_option", { entity_id: "select.example_vertical_swing", option: "1" }]]);
+  });
+
+  it("clamps favorite level values to the related number range", async () => {
+    const { hass, calls } = createHass([], []);
+    hass.states["number.example_favorite_level"] = {
+      state: "40",
+      attributes: { min: 10, max: 90, step: 5 },
+    };
+    const adapter = new StandardFanAdapter(hass, "fan.example", services, {
+      favoriteLevel: "number.example_favorite_level",
+    });
+
+    await adapter.setFavoriteLevel(97);
+
+    expect(calls).toEqual([["number", "set_value", { entity_id: "number.example_favorite_level", value: 90 }]]);
+  });
+
+  it("snaps percentage actions to the integration step", async () => {
+    const { hass, calls } = createHass([], []);
+    hass.states["fan.example"] = {
+      state: "on",
+      attributes: { friendly_name: "Example fan", percentage: 25, percentage_step: 25 },
+    };
+    const adapter = new StandardFanAdapter(hass, "fan.example", services);
+
+    await adapter.setPercentage(42);
+
+    expect(calls).toEqual([["fan", "set_percentage", { entity_id: "fan.example", percentage: 50 }]]);
+  });
   it("falls back to the existing custom angle service when select options do not match", async () => {
     const { hass, calls } = createHass(["0", "15 degrees"], ["30", "60 degrees"]);
     const adapter = new StandardFanAdapter(hass, "fan.example", services, {
@@ -194,7 +325,76 @@ describe("StandardFanAdapter", () => {
       sleepMode: "select.example_sleep_mode",
     });
 
-    await expect(adapter.setSleepMode(true)).rejects.toThrow("has no matching boolean option");
+    expect(adapter.capabilities.sleepMode).toBe(false);
+    await expect(adapter.setSleepMode(true)).rejects.toThrow("does not expose a sleep preset");
+  });
+
+  it("sets and clears a primary sleep preset", async () => {
+    const { hass, calls } = createHass([], []);
+    hass.states["fan.example"] = {
+      state: "on",
+      attributes: {
+        friendly_name: "Example fan",
+        preset_mode: "Normal",
+        preset_modes: ["Normal", "Sleep"],
+      },
+    };
+    const adapter = new StandardFanAdapter(hass, "fan.example", services);
+
+    await adapter.setSleepMode(true);
+    await adapter.setSleepMode(false);
+
+    expect(calls).toEqual([
+      ["fan", "set_preset_mode", { entity_id: "fan.example", preset_mode: "Sleep" }],
+      ["fan", "set_preset_mode", { entity_id: "fan.example", preset_mode: "Normal" }],
+    ]);
+  });
+
+  it("dispatches standard mode selections", async () => {
+    const { hass, calls } = createHass([], []);
+    hass.states["fan.example"] = {
+      state: "on",
+      attributes: {
+        friendly_name: "Example fan",
+        preset_mode: "Normal",
+        preset_modes: ["Normal", "Natural"],
+      },
+    };
+    const adapter = new StandardFanAdapter(hass, "fan.example", services);
+
+    await adapter.setMode("natural");
+    await adapter.setMode("normal");
+
+    expect(calls).toEqual([
+      ["fan", "set_preset_mode", { entity_id: "fan.example", preset_mode: "Natural" }],
+      ["fan", "set_preset_mode", { entity_id: "fan.example", preset_mode: "Normal" }],
+    ]);
+  });
+
+  it("dispatches a related sleep switch", async () => {
+    const { hass, calls } = createHass([], []);
+    hass.states["switch.example_sleep_mode"] = {
+      state: "off",
+      attributes: {},
+    };
+    const adapter = new StandardFanAdapter(hass, "fan.example", services, {
+      sleepMode: "switch.example_sleep_mode",
+    });
+
+    await adapter.setSleepMode(true);
+
+    expect(calls).toEqual([["switch", "turn_on", { entity_id: "switch.example_sleep_mode" }]]);
+  });
+
+  it("rejects sleep actions when no sleep preset exists", async () => {
+    const { hass } = createHass([], []);
+    hass.states["fan.example"] = {
+      state: "on",
+      attributes: { friendly_name: "Example fan", preset_modes: ["Normal"] },
+    };
+    const adapter = new StandardFanAdapter(hass, "fan.example", services);
+
+    await expect(adapter.setSleepMode(true)).rejects.toThrow("does not expose a sleep preset");
   });
 
   it("reports an angle spec instead of an unusable preset list for a fine-grained number", () => {

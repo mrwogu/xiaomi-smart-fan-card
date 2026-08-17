@@ -62,4 +62,61 @@ describe("detectCapabilities", () => {
     expect(capabilities.horizontalSwing).toBe(true);
     expect(capabilities.direction).toBe(true);
   });
+
+  it("treats an explicit feature mask as authoritative for standard controls", () => {
+    const capabilities = detectCapabilities({
+      state: "on",
+      attributes: {
+        percentage: 50,
+        preset_modes: ["Normal", "Natural", "Sleep"],
+        oscillating: false,
+        direction: "forward",
+        supported_features: 0,
+      },
+    });
+
+    expect(capabilities.speed).toBe(false);
+    expect(capabilities.presetMode).toBe(false);
+    expect(capabilities.sleepMode).toBe(false);
+    expect(capabilities.horizontalSwing).toBe(false);
+    expect(capabilities.direction).toBe(false);
+
+    const profiled = detectCapabilities(
+      {
+        state: "on",
+        attributes: { model: "xiaomi.fan.p76", supported_features: 0 },
+      },
+      readServiceAvailability({ fan: { oscillate: {} } }),
+    );
+    expect(profiled.horizontalSwing).toBe(false);
+  });
+
+  it("uses live percentage metadata when no feature mask is exposed", () => {
+    const capabilities = detectCapabilities({
+      state: "on",
+      attributes: { percentage: 25, percentage_step: 25 },
+    });
+
+    expect(capabilities.speed).toBe(true);
+    expect(capabilities.percentageStep).toBe(25);
+  });
+
+  it("keeps registered Xiaomi services available for unknown Xiaomi models", () => {
+    const services = readServiceAvailability({
+      xiaomi_miio_fan: {
+        fan_set_delay_off: {},
+        fan_set_led_brightness: {},
+      },
+    });
+    const capabilities = detectCapabilities(
+      {
+        state: "on",
+        attributes: { model: "xiaomi.fan.future" },
+      },
+      services,
+    );
+
+    expect(capabilities.timer).toBe(true);
+    expect(capabilities.led).toBe(true);
+  });
 });

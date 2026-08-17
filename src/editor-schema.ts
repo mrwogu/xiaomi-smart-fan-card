@@ -193,6 +193,7 @@ export const getConfigForm = () => {
         icon: "mdi:link-variant",
         flatten: true,
         schema: [
+          relatedEntityField("horizontal_swing_entity"),
           relatedEntityField("horizontal_angle_entity"),
           relatedEntityField("vertical_swing_entity"),
           relatedEntityField("vertical_angle_entity"),

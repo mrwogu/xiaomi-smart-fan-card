@@ -184,11 +184,13 @@ describe("normalizeCardConfig", () => {
       type: "custom:xiaomi-fan-card",
       entity: "fan.example",
       related_entities: {
+        horizontal_swing_entity: "switch.fan_oscillating",
         timer_entity: "number.fan_timer",
         led_entity: "select.fan_led",
       },
     });
 
+    expect(config.horizontal_swing_entity).toBe("switch.fan_oscillating");
     expect(config.timer_entity).toBe("number.fan_timer");
     expect(config.led_entity).toBe("select.fan_led");
   });

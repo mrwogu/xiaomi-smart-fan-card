@@ -141,6 +141,62 @@ describe("XiaomiMiioP76Adapter", () => {
     expect(calls).toEqual([["number", "set_value", { entity_id: "number.p76_timer", value: 3180 }]]);
   });
 
+  it("does not apply a model timer conversion twice to a related timer", async () => {
+    const hass = p76Hass();
+    hass.states["fan.xiaomi_p76"] = {
+      ...hass.states["fan.xiaomi_p76"]!,
+      attributes: {
+        ...hass.states["fan.xiaomi_p76"]!.attributes,
+        model: "zhimi.fan.za5",
+      },
+    };
+    hass.states["number.p76_timer"] = {
+      state: "120",
+      attributes: {
+        min: 0,
+        max: 3600,
+        step: 60,
+        unit_of_measurement: "s",
+      },
+    };
+    const calls: unknown[][] = [];
+    hass.callService = (...args) => {
+      calls.push(args);
+    };
+
+    const adapter = createFanAdapter(hass, "fan.xiaomi_p76", services, "xiaomi_miio_fan", {
+      timer: "number.p76_timer",
+    });
+
+    expect(adapter.state.timerMinutes).toBe(2);
+    await adapter.setTimer(2);
+
+    expect(calls).toEqual([["number", "set_value", { entity_id: "number.p76_timer", value: 120 }]]);
+  });
+
+  it("converts custom Smartmi Fan 3 timers to protocol seconds", async () => {
+    const hass = p76Hass();
+    hass.states["fan.xiaomi_p76"] = {
+      ...hass.states["fan.xiaomi_p76"]!,
+      attributes: {
+        ...hass.states["fan.xiaomi_p76"]!.attributes,
+        model: "zhimi.fan.za5",
+      },
+    };
+    const calls: unknown[][] = [];
+    hass.callService = (...args) => {
+      calls.push(args);
+    };
+
+    const adapter = createFanAdapter(hass, "fan.xiaomi_p76", services, "xiaomi_miio_fan");
+
+    await adapter.setTimer(2);
+
+    expect(calls).toEqual([
+      ["xiaomi_miio_fan", "fan_set_delay_off", { entity_id: "fan.xiaomi_p76", delay_off_countdown: 120 }],
+    ]);
+  });
+
   it("supports a related P76 LED brightness number", async () => {
     const hass = p76Hass();
     hass.states["number.p76_led_brightness"] = {

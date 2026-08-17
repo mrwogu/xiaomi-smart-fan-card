@@ -53,6 +53,7 @@ export const STYLE_TOKENS = {
 } as const satisfies Record<keyof Required<FanStylesConfig>, readonly (keyof FanStyleBlock)[]>;
 
 type RelatedEntitiesConfigKey =
+  | "horizontal_swing_entity"
   | "horizontal_angle_entity"
   | "vertical_swing_entity"
   | "vertical_angle_entity"
@@ -357,6 +358,7 @@ export const normalizeCardConfig = (raw: Partial<FanCardConfig> | undefined): Re
     details: normalizeDetails(source.details),
     layout: normalizeLayout(source.layout, source.theme),
     styles: normalizeStyles(source.styles),
+    horizontal_swing_entity: relatedEntity("horizontal_swing_entity"),
     horizontal_angle_entity: relatedEntity("horizontal_angle_entity"),
     vertical_swing_entity: relatedEntity("vertical_swing_entity"),
     vertical_angle_entity: relatedEntity("vertical_angle_entity"),

@@ -11,7 +11,8 @@ interface RegistryEntity {
 
 const suffixes: Record<keyof RelatedEntities, string[]> = {
   sleepMode: ["_sleep_mode"],
-  verticalSwing: ["_vertical_swing", "_vertical_oscillate", "_vertical_oscillation"],
+  horizontalSwing: ["_oscillating", "_oscillate", "_horizontal_swing", "_horizontal_oscillation", "_swing_mode"],
+  verticalSwing: ["_vertical_swing", "_vertical_oscillate", "_vertical_oscillating", "_vertical_oscillation"],
   horizontalAngle: ["_oscillation_angle", "_horizontal_swing_angle", "_swing_mode_angle", "_horizontal_angle"],
   verticalAngle: ["_vertical_oscillation_angle", "_vertical_swing_angle", "_vertical_angle"],
   favoriteLevel: ["_favorite_level", "_favorite_speed"],
@@ -104,8 +105,10 @@ export const resolveRelatedEntities = async (
     const withoutVerticalAngle = entries.filter((entry) => entry.entity_id !== related.verticalAngle);
     related.horizontalAngle = findBySuffix(withoutVerticalAngle, angle, suffixes.horizontalAngle);
     const withoutAngles = withoutVerticalAngle.filter((entry) => entry.entity_id !== related.horizontalAngle);
-    related.sleepMode = findBySuffix(withoutAngles, [...boolean, "select"], suffixes.sleepMode);
     related.verticalSwing = findBySuffix(withoutAngles, [...boolean, "select"], suffixes.verticalSwing);
+    const withoutVerticalSwing = withoutAngles.filter((entry) => entry.entity_id !== related.verticalSwing);
+    related.sleepMode = findBySuffix(withoutAngles, [...boolean, "select"], suffixes.sleepMode);
+    related.horizontalSwing = findBySuffix(withoutVerticalSwing, [...boolean, "select"], suffixes.horizontalSwing);
     related.favoriteLevel = findBySuffix(entries, numeric, suffixes.favoriteLevel);
     related.timer = findBySuffix(entries, numeric, suffixes.timer);
     related.childLock = findBySuffix(entries, [...boolean, ...select], suffixes.childLock);

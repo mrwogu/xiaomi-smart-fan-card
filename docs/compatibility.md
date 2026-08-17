@@ -6,19 +6,25 @@ control only when it has a usable source.
 
 ## Capability sources
 
-| Capability                                         | Accepted source                                                                                                                               |
-| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| Power, percentage, presets, horizontal oscillation | Standard `fan` entity actions and attributes                                                                                                  |
-| Horizontal angle                                   | Live fan attribute, model profile with registered Xiaomi service, or related `number`, `input_number`, or `select` with numeric angle options |
-| Vertical oscillation and angle                     | Live attributes, a model profile that declares them plus the registered Xiaomi services, or related `number`, `input_number`, or `select`     |
-| Sleep mode                                         | Sleep preset, related `switch`, `input_boolean`, or `select`                                                                                  |
-| Timer                                              | Live timer attribute with registered service, related `number` or `input_number`, or registered Xiaomi delay service                          |
-| Child lock, buzzer, ionizer                        | Related switch, input boolean, or select, or registered Xiaomi service                                                                        |
-| LED                                                | Related switch, input boolean, select, number, or input number, or registered Xiaomi LED service                                              |
-| Temperature and humidity                           | Fan attributes or related sensors                                                                                                             |
-| Nudge                                              | Known model profile plus the registered Xiaomi nudge service                                                                                  |
+| Capability                     | Accepted source                                                                                                                                                                |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Power                          | Standard `fan` entity actions                                                                                                                                                  |
+| Percentage and presets         | Standard `fan` feature bits, live attributes when no feature mask is exposed, or a known Xiaomi model profile                                                                  |
+| Horizontal oscillation         | Standard `fan` oscillation feature bit, live attributes when no feature mask is exposed, a related boolean/select entity, or a Xiaomi service                                  |
+| Horizontal angle               | Live fan attribute with a registered Xiaomi service, model profile with registered Xiaomi service, or related `number`, `input_number`, or `select` with numeric angle options |
+| Vertical oscillation and angle | Live attributes, a model profile that declares them plus the registered Xiaomi services, or related `number`, `input_number`, or `select`                                      |
+| Sleep mode                     | Sleep preset, related `switch`, `input_boolean`, or `select`                                                                                                                   |
+| Timer                          | Live timer attribute with registered service, related `number` or `input_number`, or registered Xiaomi delay service                                                           |
+| Child lock, buzzer, ionizer    | Related switch, input boolean, or select, or registered Xiaomi service                                                                                                         |
+| LED                            | Related switch, input boolean, select, number, or input number, or registered Xiaomi LED service                                                                               |
+| Temperature and humidity       | Fan attributes or related sensors                                                                                                                                              |
+| Nudge                          | Known model profile plus the registered Xiaomi nudge service                                                                                                                   |
 
-Missing, unknown, and unavailable related entities are ignored for actions.
+An explicit Home Assistant `supported_features` mask is authoritative for
+standard percentage, preset, oscillation, and direction controls. Missing,
+unknown, unavailable, or incorrectly typed related entities are ignored for
+actions. Related boolean selects must expose both an enabled and disabled
+option; semantic labels and numeric `1`/`0` labels are supported.
 Unavailable related values also remove stale copied values from the displayed
 state.
 
@@ -29,7 +35,9 @@ state.
 `auto` and `standard` use public Home Assistant fan actions and related entity
 discovery. They do not assume an integration-specific service. An optional
 control appears only when the primary fan, a related entity, a model profile,
-or a registered standard action makes it actionable.
+or the matching registered service makes it actionable. A fan with
+`supported_features: 0` therefore does not receive speed, preset, oscillation,
+or direction controls just because stale attributes remain on the entity.
 
 ### Native Xiaomi Home
 
@@ -74,6 +82,11 @@ without a matching action entity or service, the card hides those controls.
 This prevents a button from claiming support that Home Assistant cannot
 execute.
 
+Some Xiaomi MIoT configurations expose horizontal oscillation as a same-device
+switch, input boolean, or select rather than as a fan feature. Automatic
+discovery and `related_entities.horizontal_swing_entity` support those
+entities.
+
 ### Fans without oscillation or angle support
 
 An air purifier, air circulator, or exhaust fan often exposes presets and
@@ -103,7 +116,9 @@ Known profiles cover families including `zhimi.fan.*`, `dmaker.fan.*`,
 `xiaomi.fan.*`, and `leshow.fan.ss4`. A profile only declares the speed levels,
 angle ranges, and vertical oscillation that its family supports. Unknown models
 use live attributes and registered services without inventing unsupported
-controls.
+controls. The Smartmi Standing Fan 3 (`zhimi.fan.za5`) reports its custom
+delay-off value in seconds, so the card converts the user-facing minute value
+for that model when no related timer entity supplies an explicit unit.
 
 Model profiles describe UI ranges, not device communication. The card never
 connects directly to a Xiaomi device.

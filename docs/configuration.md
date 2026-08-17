@@ -60,6 +60,7 @@ styles:
   controls:
     border_radius: 18px
 related_entities:
+  horizontal_swing_entity: switch.xiaomi_fan_oscillating
   timer_entity: number.xiaomi_fan_timer
   led_entity: select.xiaomi_fan_led
 ```
@@ -107,6 +108,7 @@ These keys are still accepted for older YAML configurations. The nested
 
 | Parameter                 | Default   | Description                                                            |
 | ------------------------- | --------- | ---------------------------------------------------------------------- |
+| `horizontal_swing_entity` | automatic | Related horizontal oscillation `switch`, `input_boolean`, or `select`. |
 | `horizontal_angle_entity` | automatic | Related horizontal angle `number`, `input_number`, or `select` entity. |
 | `vertical_swing_entity`   | automatic | Related vertical swing `switch`, `input_boolean`, or `select`.         |
 | `vertical_angle_entity`   | automatic | Related vertical angle `number`, `input_number`, or `select` entity.   |
@@ -221,6 +223,7 @@ Tokens compose with `layout.theme`: the theme sets the base design tokens and
 
 | Parameter                                  | Default   | Description                                                                          |
 | ------------------------------------------ | --------- | ------------------------------------------------------------------------------------ |
+| `related_entities.horizontal_swing_entity` | automatic | `switch`, `input_boolean`, or `select` for horizontal oscillation.                   |
 | `related_entities.horizontal_angle_entity` | automatic | `number`, `input_number`, or `select` with numeric options for the horizontal angle. |
 | `related_entities.vertical_swing_entity`   | automatic | `switch`, `input_boolean`, or `select` for vertical oscillation.                     |
 | `related_entities.vertical_angle_entity`   | automatic | `number`, `input_number`, or `select` with numeric options for the vertical angle.   |
@@ -255,6 +258,11 @@ entity. A primary fan angle attribute alone is not displayed as a detail and
 does not authorize an angle action. Vertical swing accepts `switch`,
 `input_boolean`, or `select`; angle controls accept `number`, `input_number`,
 or numeric-option `select`.
+
+When a standard fan exposes `supported_features`, the feature mask is the
+source of truth for percentage, preset, oscillation, and direction support.
+Live attributes are used for those controls only when the integration does not
+provide a feature mask. This avoids rendering actions for stale attributes.
 
 ## Behavior notes
 
@@ -291,10 +299,23 @@ Options are grouped into collapsible panels with icons, related switches are
 paired side by side, the block order field supports drag and drop reordering,
 and ambiguous fields carry helper text below the control.
 
+Boolean related `select` entities may use semantic labels such as `on` and
+`off`, or numeric labels such as `1` and `0`. A select without both enabled
+and disabled options is ignored for capability detection.
+
+When the fan exposes `percentage_step`, the speed slider uses that step. Speed
+level buttons and selectors also snap to the same values, including a final
+100% level when the step does not divide 100 evenly.
+
 Timer controls use minutes. Related numeric timer entities with
 `unit_of_measurement` set to `s`, `sec`, `second`, or `seconds` are converted
 to and from minutes. Other or missing units are treated as minutes. The card
 preserves a live timer value that is not one of the configured steps.
+
+The custom `xiaomi_miio_fan` timer for `zhimi.fan.za5` uses seconds at the
+device protocol boundary. The card converts that model's custom service value
+to seconds while keeping the card UI in minutes. An exposed related timer
+entity takes precedence and uses its own declared unit.
 
 MIoT optional angle controls require discovered or configured related `select`,
 `number`, or `input_number` entities. Primary MIoT fan attributes alone are

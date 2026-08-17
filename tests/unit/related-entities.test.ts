@@ -100,6 +100,70 @@ describe("resolveRelatedEntities", () => {
     });
   });
 
+  it("discovers a same-device horizontal oscillation entity", async () => {
+    const hass: HassLike = {
+      states: {
+        "fan.example": { state: "on", attributes: {} },
+        "switch.example_oscillating": { state: "off", attributes: {} },
+      },
+      callService: () => undefined,
+      callWS: async <T>() =>
+        [
+          { entity_id: "fan.example", device_id: "device-1" },
+          { entity_id: "switch.example_oscillating", device_id: "device-1" },
+        ] as T,
+    };
+
+    await expect(resolveRelatedEntities(hass, "fan.example")).resolves.toMatchObject({
+      horizontalSwing: "switch.example_oscillating",
+    });
+  });
+
+  it("does not assign vertical oscillation to the horizontal role", async () => {
+    const hass: HassLike = {
+      states: {
+        "fan.example": { state: "on", attributes: {} },
+        "switch.example_oscillating": { state: "off", attributes: {} },
+        "switch.example_vertical_oscillating": { state: "off", attributes: {} },
+      },
+      callService: () => undefined,
+      callWS: async <T>() =>
+        [
+          { entity_id: "fan.example", device_id: "device-1" },
+          { entity_id: "switch.example_vertical_oscillating", device_id: "device-1" },
+          { entity_id: "switch.example_oscillating", device_id: "device-1" },
+        ] as T,
+    };
+
+    await expect(resolveRelatedEntities(hass, "fan.example")).resolves.toMatchObject({
+      horizontalSwing: "switch.example_oscillating",
+      verticalSwing: "switch.example_vertical_oscillating",
+    });
+  });
+
+  it("keeps hint-matched vertical swing modes out of the horizontal role", async () => {
+    const hass: HassLike = {
+      states: {
+        "fan.example": { state: "on", attributes: {} },
+        "select.example_vertical_swing_mode": {
+          state: "off",
+          attributes: { options: ["off", "on"] },
+        },
+      },
+      callService: () => undefined,
+      callWS: async <T>() =>
+        [
+          { entity_id: "fan.example", device_id: "device-1" },
+          { entity_id: "select.example_vertical_swing_mode", device_id: "device-1" },
+        ] as T,
+    };
+
+    await expect(resolveRelatedEntities(hass, "fan.example")).resolves.toMatchObject({
+      horizontalSwing: undefined,
+      verticalSwing: "select.example_vertical_swing_mode",
+    });
+  });
+
   it("reports an empty device when the fan has no registry siblings", async () => {
     const hass: HassLike = {
       states: { "fan.example": { state: "on", attributes: {} } },

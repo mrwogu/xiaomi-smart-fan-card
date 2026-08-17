@@ -12,6 +12,7 @@ import { DEFAULT_CONFIG, normalizeCardConfig } from "./config";
 import "./editor";
 import { getConfigForm } from "./editor-schema";
 import { loadServiceAvailability } from "./services/service-dispatcher";
+import { percentageForSpeedLevel, percentageStepDefinesLevels, speedLevelForPercentage } from "./state/model-profiles";
 import { numericLabel } from "./state/normalize-state";
 import { resolveRelatedEntities } from "./state/related-entities";
 import { getAirflowAxis } from "./state/visual-state";
@@ -354,6 +355,7 @@ export class XiaomiFanCard extends LitElement {
   private withConfiguredRelatedEntities(discovered: RelatedEntities): RelatedEntities {
     return {
       ...discovered,
+      horizontalSwing: this.config.horizontal_swing_entity ?? discovered.horizontalSwing,
       sleepMode: this.config.sleep_mode_entity ?? discovered.sleepMode,
       horizontalAngle: this.config.horizontal_angle_entity ?? discovered.horizontalAngle,
       verticalSwing: this.config.vertical_swing_entity ?? discovered.verticalSwing,
@@ -371,6 +373,7 @@ export class XiaomiFanCard extends LitElement {
 
   private relatedConfigKey(config: Partial<FanCardConfig>): string {
     return [
+      config.horizontal_swing_entity,
       config.horizontal_angle_entity,
       config.vertical_swing_entity,
       config.vertical_angle_entity,
@@ -554,7 +557,9 @@ export class XiaomiFanCard extends LitElement {
             : ""
         }
         ${
-          details.show_timer && (details.show_timer_when_off || Boolean(state.timerMinutes))
+          details.show_timer &&
+          adapter.capabilities.timer &&
+          (details.show_timer_when_off || Boolean(state.timerMinutes))
             ? this.renderMetaItem(
                 "mdi:timer-outline",
                 this.displayTimer(state.timerMinutes),
@@ -598,13 +603,18 @@ export class XiaomiFanCard extends LitElement {
     const state = adapter.state;
     const controls = this.config.controls;
     const levelLabels = Array.from({ length: adapter.capabilities.speedLevels }, (_, index) => index + 1);
+    const showSpeedSlider = controls.show_speed_slider && adapter.capabilities.speed;
+    const showSpeedLevels = controls.show_speed_levels && adapter.capabilities.speed;
     const useSpeedSelect =
-      controls.selection_mode === "select" || (controls.selection_mode === "auto" && levelLabels.length > 5);
-    const hasSpeedControls = controls.show_speed_slider || controls.show_speed_levels;
+      showSpeedLevels &&
+      (controls.selection_mode === "select" || (controls.selection_mode === "auto" && levelLabels.length > 5));
+    const hasSpeedControls = showSpeedSlider || showSpeedLevels;
     const hasModeControls =
       controls.show_modes &&
       (adapter.capabilities.naturalMode ||
-        (controls.show_preset_mode && state.availableModes.some((mode) => mode.toLowerCase() !== "off")));
+        (controls.show_preset_mode &&
+          adapter.capabilities.presetMode &&
+          state.availableModes.some((mode) => mode.toLowerCase() !== "off")));
     const hasChipControls =
       (controls.show_horizontal_swing && adapter.capabilities.horizontalSwing) ||
       (controls.show_vertical_swing && adapter.capabilities.verticalSwing) ||
@@ -621,7 +631,17 @@ export class XiaomiFanCard extends LitElement {
     const displayLevel =
       this.speedPreview === undefined
         ? (state.isOn ? state.level : 0) || 0
-        : Math.round((this.speedPreview / 100) * adapter.capabilities.speedLevels);
+        : speedLevelForPercentage(
+            this.speedPreview,
+            adapter.capabilities.speedLevels,
+            adapter.capabilities.percentageStep,
+          );
+    const sliderUsesLevels = percentageStepDefinesLevels(
+      adapter.capabilities.speedLevels,
+      adapter.capabilities.percentageStep,
+    );
+    const sliderMaximum = sliderUsesLevels ? adapter.capabilities.speedLevels : 100;
+    const sliderValue = sliderUsesLevels ? displayLevel : displayPercentage;
 
     return html`
       <section
@@ -630,7 +650,7 @@ export class XiaomiFanCard extends LitElement {
         style=${styleMap(styleMapFor(this.config.styles.controls, "fan-control"))}
       >
         ${
-          controls.show_speed_slider || controls.show_speed_levels
+          showSpeedSlider || showSpeedLevels
             ? html`
                 <div class="section-heading">
                   <div>
@@ -643,17 +663,17 @@ export class XiaomiFanCard extends LitElement {
             : ""
         }
         ${
-          controls.show_speed_slider
+          showSpeedSlider
             ? html`
                 <input
                   class="speed-slider"
                   type="range"
                   min="0"
-                  max="100"
-                  step="1"
-                  .value=${String(displayPercentage)}
+                  max=${sliderMaximum}
+                  step=${sliderUsesLevels ? 1 : adapter.capabilities.percentageStep}
+                  .value=${String(sliderValue)}
                   style=${styleMap({ "--fan-speed-progress": String(displayPercentage) })}
-                  @input=${this.onPercentagePreview}
+                  @input=${(event: Event) => this.onPercentagePreview(event, adapter)}
                   @change=${(event: Event) => this.onPercentageChange(event, adapter)}
                   aria-label=${this.t("fanSpeedPercentage")}
                   aria-valuetext="${displayPercentage}%"
@@ -662,9 +682,9 @@ export class XiaomiFanCard extends LitElement {
             : ""
         }
         ${
-          controls.show_speed_levels
+          showSpeedLevels
             ? useSpeedSelect
-              ? this.renderSpeedSelector(adapter, levelLabels)
+              ? this.renderSpeedSelector(adapter, levelLabels, displayLevel)
               : html`
                   <div class="level-row" role="group" aria-label=${this.t("speedLevels")}>
                     ${levelLabels.map(
@@ -672,9 +692,7 @@ export class XiaomiFanCard extends LitElement {
                         <button
                           class="level-button ${displayLevel === level ? "selected" : ""}"
                           @click=${() =>
-                            this.execute(() =>
-                              adapter.setPercentage(Math.round((level / adapter.capabilities.speedLevels) * 100)),
-                            )}
+                            this.execute(() => adapter.setPercentage(this.percentageForLevel(adapter, level)))}
                           aria-label=${this.t("setSpeedLevel", { level })}
                           aria-pressed=${displayLevel === level}
                         >
@@ -749,8 +767,8 @@ export class XiaomiFanCard extends LitElement {
     `;
   }
 
-  private renderSpeedSelector(adapter: FanAdapter, levels: number[]) {
-    const current = adapter.state.level || levels[0] || 1;
+  private renderSpeedSelector(adapter: FanAdapter, levels: number[], displayLevel: number) {
+    const current = displayLevel || levels[0] || 1;
     return html`
       <label class="feature-select speed-select">
         <span>${this.t("speedLevels")}</span>
@@ -759,7 +777,7 @@ export class XiaomiFanCard extends LitElement {
           aria-label=${this.t("speedLevels")}
           @change=${(event: Event) => {
             const level = Number((event.currentTarget as HTMLSelectElement).value);
-            this.execute(() => adapter.setPercentage(Math.round((level / adapter.capabilities.speedLevels) * 100)));
+            this.execute(() => adapter.setPercentage(this.percentageForLevel(adapter, level)));
           }}
         >
           ${levels.map(
@@ -769,6 +787,10 @@ export class XiaomiFanCard extends LitElement {
         </select>
       </label>
     `;
+  }
+
+  private percentageForLevel(adapter: FanAdapter, level: number): number {
+    return percentageForSpeedLevel(level, adapter.capabilities.speedLevels, adapter.capabilities.percentageStep);
   }
 
   private renderModeControls(adapter: FanAdapter) {
@@ -810,11 +832,15 @@ export class XiaomiFanCard extends LitElement {
             </button>
           </div>
         </div>
-        ${controls.show_preset_mode && extraModes.length > 0 ? this.renderPresetChoices(adapter, extraModes) : ""}
+        ${
+          controls.show_preset_mode && adapter.capabilities.presetMode && extraModes.length > 0
+            ? this.renderPresetChoices(adapter, extraModes)
+            : ""
+        }
       `;
     }
 
-    if (!controls.show_preset_mode || availableModes.length === 0) {
+    if (!controls.show_preset_mode || !adapter.capabilities.presetMode || availableModes.length === 0) {
       return "";
     }
 
@@ -991,14 +1017,15 @@ export class XiaomiFanCard extends LitElement {
     }
 
     if (controls.show_favorite_level && adapter.capabilities.favoriteLevel) {
+      const favoriteSpec = adapter.capabilities.favoriteLevelSpec ?? { min: 1, max: 100, step: 1 };
       features.push(html`
         <label class="feature-select">
           <span>${this.t("favoriteLevel")}</span>
           <input
             type="number"
-            min="1"
-            max="100"
-            step="1"
+            min=${favoriteSpec.min}
+            max=${favoriteSpec.max}
+            step=${favoriteSpec.step}
             .value=${String(adapter.state.favoriteLevel ?? adapter.state.level ?? 1)}
             @change=${(event: Event) =>
               this.execute(() => adapter.setFavoriteLevel(Number((event.currentTarget as HTMLInputElement).value)))}
@@ -1188,13 +1215,19 @@ export class XiaomiFanCard extends LitElement {
     await adapter.setVerticalSwing(enabled);
   }
 
-  private onPercentagePreview = (event: Event): void => {
+  private percentageFromSlider(adapter: FanAdapter, value: number): number {
+    return percentageStepDefinesLevels(adapter.capabilities.speedLevels, adapter.capabilities.percentageStep)
+      ? percentageForSpeedLevel(value, adapter.capabilities.speedLevels, adapter.capabilities.percentageStep)
+      : value;
+  }
+
+  private onPercentagePreview(event: Event, adapter: FanAdapter): void {
     this.speedDragging = true;
-    this.speedPreview = Number((event.currentTarget as HTMLInputElement).value);
-  };
+    this.speedPreview = this.percentageFromSlider(adapter, Number((event.currentTarget as HTMLInputElement).value));
+  }
 
   private onPercentageChange(event: Event, adapter: FanAdapter): void {
-    const value = Number((event.currentTarget as HTMLInputElement).value);
+    const value = this.percentageFromSlider(adapter, Number((event.currentTarget as HTMLInputElement).value));
     this.speedDragging = false;
     this.speedPreview = value;
     this.execute(() => adapter.setPercentage(value));

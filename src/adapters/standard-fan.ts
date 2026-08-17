@@ -54,6 +54,22 @@ const selectOptions = (entity: HassEntity | undefined): string[] => {
   return Array.isArray(options) ? options.map(String) : [];
 };
 
+const RELATED_ENTITY_DOMAINS: Record<keyof RelatedEntities, readonly string[]> = {
+  sleepMode: ["switch", "input_boolean", "select"],
+  horizontalSwing: ["switch", "input_boolean", "select"],
+  verticalSwing: ["switch", "input_boolean", "select"],
+  horizontalAngle: ["number", "input_number", "select"],
+  verticalAngle: ["number", "input_number", "select"],
+  favoriteLevel: ["number", "input_number"],
+  timer: ["number", "input_number"],
+  childLock: ["switch", "input_boolean", "select"],
+  led: ["switch", "input_boolean", "select", "number", "input_number"],
+  buzzer: ["switch", "input_boolean", "select"],
+  ionizer: ["switch", "input_boolean", "select"],
+  temperature: ["sensor"],
+  humidity: ["sensor"],
+};
+
 /**
  * Exact labels win over substring hints because a substring search returns the
  * first matching option rather than the closest one: `Dim` would answer a
@@ -84,10 +100,32 @@ const rawSteps = (spec: NumberSpec): number[] =>
 
 const roundStep = (value: number): number => Math.round(value * 100) / 100;
 
+const snapNumber = (value: number, spec: NumberSpec): number => {
+  const clamped = Math.min(spec.max, Math.max(spec.min, value));
+  const snapped = spec.min + Math.round((clamped - spec.min) / spec.step) * spec.step;
+  return Number(Math.min(spec.max, Math.max(spec.min, snapped)).toPrecision(12));
+};
+
+const snapPercentage = (value: number, step: number): number => {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+
+  if (value <= 0) {
+    return 0;
+  }
+
+  if (value >= 100) {
+    return 100;
+  }
+
+  return Number(Math.min(100, Math.max(0, Math.round(value / step) * step)).toFixed(6));
+};
+
 const BOOLEAN_SELECT_LABELS = {
-  enabledExact: ["on", "true", "yes", "enable", "enabled"],
+  enabledExact: ["on", "true", "yes", "enable", "enabled", "1"],
   enabledHints: ["bright", "enable", "active", "sleep", "oscillate", "swing", "true"],
-  disabledExact: ["off", "false", "no", "disable", "disabled"],
+  disabledExact: ["off", "false", "no", "disable", "disabled", "0"],
   disabledHints: ["off", "disable", "inactive", "false", "none", "normal", "fixed", "static", "dim"],
 } as const;
 
@@ -105,6 +143,7 @@ export class StandardFanAdapter implements FanAdapter {
   public readonly capabilities: FanCapabilities;
 
   protected readonly dispatcher: ServiceDispatcher;
+  private readonly actionableRelated: RelatedEntities;
 
   constructor(
     protected readonly hass: HassLike,
@@ -113,8 +152,13 @@ export class StandardFanAdapter implements FanAdapter {
     protected readonly related: RelatedEntities = {},
   ) {
     const actionableRelated = this.actionableRelatedEntities();
-    const timerSpec = this.readTimerSpec(this.related.timer);
-    this.state = normalizeFanState(entityId, this.entityWithRelatedAttributes(this.related, timerSpec));
+    this.actionableRelated = actionableRelated;
+    const timerSpec = this.readTimerSpec(actionableRelated.timer);
+    const timerUnit = this.readTimerUnit(actionableRelated.timer);
+    this.state = normalizeFanState(
+      entityId,
+      this.entityWithRelatedAttributes(this.stateRelatedEntities(actionableRelated), timerSpec, timerUnit),
+    );
     this.profile = getModelProfile(this.state.model);
     const detectedCapabilities = detectCapabilities(hass.states[entityId], services, actionableRelated);
     this.capabilities = {
@@ -125,6 +169,7 @@ export class StandardFanAdapter implements FanAdapter {
           ? detectedCapabilities.horizontalAngles
           : (this.readAngleSteps(actionableRelated.horizontalAngle) ?? [])),
       horizontalAngleSpec: this.readNumberSpec(actionableRelated.horizontalAngle),
+      favoriteLevelSpec: this.readNumberSpec(actionableRelated.favoriteLevel),
       verticalAngles:
         this.readAngleOptions(actionableRelated.verticalAngle) ??
         (detectedCapabilities.verticalAngles.length > 0
@@ -139,17 +184,28 @@ export class StandardFanAdapter implements FanAdapter {
 
   private actionableRelatedEntities(): RelatedEntities {
     const actionable = { ...this.related };
+    const booleanKeys: ReadonlySet<keyof RelatedEntities> = new Set([
+      "sleepMode",
+      "horizontalSwing",
+      "verticalSwing",
+      "childLock",
+      "buzzer",
+      "ionizer",
+    ]);
 
     for (const key of Object.keys(actionable) as Array<keyof RelatedEntities>) {
       const entityId = actionable[key];
       const state = entityId ? this.hass.states[entityId] : undefined;
+      const [domain] = entityId ? entityParts(entityId) : [""];
       if (
         !state ||
         state.state === "unknown" ||
         state.state === "unavailable" ||
+        !RELATED_ENTITY_DOMAINS[key].includes(domain) ||
         ((key === "horizontalAngle" || key === "verticalAngle") &&
           this.isSelectEntity(entityId) &&
-          numericAngleOptions(state) === undefined)
+          numericAngleOptions(state) === undefined) ||
+        (booleanKeys.has(key) && this.isSelectEntity(entityId) && !this.hasBooleanSelectOptions(state))
       ) {
         delete actionable[key];
       }
@@ -158,8 +214,36 @@ export class StandardFanAdapter implements FanAdapter {
     return actionable;
   }
 
+  private stateRelatedEntities(actionable: RelatedEntities): RelatedEntities {
+    const stateRelated = { ...actionable };
+
+    for (const key of Object.keys(this.related) as Array<keyof RelatedEntities>) {
+      if (stateRelated[key] !== undefined) {
+        continue;
+      }
+
+      const entityId = this.related[key];
+      const state = entityId ? this.hass.states[entityId] : undefined;
+      const [domain] = entityId ? entityParts(entityId) : [""];
+      if (
+        state &&
+        (state.state === "unknown" || state.state === "unavailable") &&
+        RELATED_ENTITY_DOMAINS[key].includes(domain)
+      ) {
+        stateRelated[key] = entityId;
+      }
+    }
+
+    return stateRelated;
+  }
+
   private isSelectEntity(entityId: string | undefined): boolean {
     return entityId !== undefined && entityParts(entityId)[0] === "select";
+  }
+
+  private hasBooleanSelectOptions(entity: HassEntity): boolean {
+    const options = selectOptions(entity);
+    return booleanSelectOption(options, true) !== undefined && booleanSelectOption(options, false) !== undefined;
   }
 
   private readAngleOptions(entityId: string | undefined): number[] | undefined {
@@ -190,8 +274,12 @@ export class StandardFanAdapter implements FanAdapter {
       return undefined;
     }
 
+    return { ...spec, unit: this.readTimerUnit(entityId) };
+  }
+
+  private readTimerUnit(entityId: string | undefined): TimerSpec["unit"] {
     const entity = entityId ? this.hass.states[entityId] : undefined;
-    return { ...spec, unit: parseTimerUnit(entity?.attributes["unit_of_measurement"]) };
+    return parseTimerUnit(entity?.attributes["unit_of_measurement"]);
   }
 
   /**
@@ -219,6 +307,7 @@ export class StandardFanAdapter implements FanAdapter {
   private entityWithRelatedAttributes(
     related: RelatedEntities,
     timerSpec: TimerSpec | undefined,
+    timerUnit: TimerSpec["unit"],
   ): HassEntity | undefined {
     const entity = this.hass.states[this.entityId];
     if (!entity) {
@@ -226,9 +315,33 @@ export class StandardFanAdapter implements FanAdapter {
     }
 
     const attributes = { ...entity.attributes };
+    const attributeAliases: Partial<Record<keyof RelatedEntities, readonly string[]>> = {
+      horizontalAngle: ["horizontal_swing_angle", "horizontal_angle", "swing_mode_angle", "angle"],
+      horizontalSwing: [
+        "oscillating",
+        "oscillate",
+        "horizontal_swing",
+        "horizontal_oscillating",
+        "horizontal_oscillation",
+        "swing_mode",
+      ],
+      favoriteLevel: ["favorite_level", "favorite_speed"],
+      verticalAngle: ["vertical_swing_angle", "vertical_oscillation_angle", "vertical_angle"],
+      verticalSwing: ["vertical_swing", "vertical_oscillate", "vertical_oscillation"],
+      timer: ["delay_off_countdown", "delay_time", "power_off_time", "timer", "timer_unit", "delay_time_unit"],
+      led: ["led", "light", "led_brightness", "light_enum"],
+      buzzer: ["buzzer", "notification_sound"],
+      ionizer: ["anion", "ionizer"],
+    };
+    const clearAliases = (key: keyof RelatedEntities): void => {
+      for (const alias of attributeAliases[key] ?? []) {
+        delete attributes[alias];
+      }
+    };
     const relatedValues: Array<[keyof RelatedEntities, string]> = [
       ["horizontalAngle", "horizontal_swing_angle"],
       ["sleepMode", "sleep_mode"],
+      ["horizontalSwing", "horizontal_swing"],
       ["verticalAngle", "vertical_swing_angle"],
       ["favoriteLevel", "favorite_level"],
       ["verticalSwing", "vertical_swing"],
@@ -246,8 +359,8 @@ export class StandardFanAdapter implements FanAdapter {
       const relatedState = relatedEntityId ? this.hass.states[relatedEntityId] : undefined;
       if (relatedEntityId && relatedState && relatedState.state !== "unknown" && relatedState.state !== "unavailable") {
         if (relatedKey === "led") {
+          clearAliases(relatedKey);
           attributes[attributeKey] = this.readRelatedLedState(relatedEntityId, relatedState);
-          delete attributes["led_brightness"];
           continue;
         }
 
@@ -260,16 +373,18 @@ export class StandardFanAdapter implements FanAdapter {
           continue;
         }
 
+        clearAliases(relatedKey);
         const value = Number(relatedState.state);
         attributes[attributeKey] =
-          relatedKey === "timer" && Number.isFinite(value) && timerSpec
-            ? timerValueToMinutes(value, timerSpec.unit)
+          relatedKey === "timer" && Number.isFinite(value)
+            ? timerValueToMinutes(value, timerSpec?.unit ?? timerUnit)
             : relatedState.state;
-      } else if (relatedState) {
-        delete attributes[attributeKey];
-        if (relatedKey === "led") {
-          delete attributes["led_brightness"];
+        if (relatedKey === "timer") {
+          attributes["timer_unit"] = "min";
         }
+      } else if (relatedState) {
+        clearAliases(relatedKey);
+        delete attributes[attributeKey];
       } else if (attributes[attributeKey] !== undefined && attributes[attributeKey] !== null) {
         continue;
       }
@@ -312,7 +427,8 @@ export class StandardFanAdapter implements FanAdapter {
   }
 
   public async setPercentage(percentage: number): Promise<void> {
-    if (percentage <= 0) {
+    const requestedPercentage = snapPercentage(percentage, this.capabilities.percentageStep);
+    if (requestedPercentage <= 0) {
       await this.dispatcher.standard("turn_off");
       return;
     }
@@ -320,11 +436,11 @@ export class StandardFanAdapter implements FanAdapter {
     // A stopped fan needs turn_on to carry the speed; set_percentage alone is
     // not guaranteed to start it.
     if (!this.state.isOn) {
-      await this.dispatcher.standard("turn_on", { percentage });
+      await this.dispatcher.standard("turn_on", { percentage: requestedPercentage });
       return;
     }
 
-    await this.dispatcher.standard("set_percentage", { percentage });
+    await this.dispatcher.standard("set_percentage", { percentage: requestedPercentage });
   }
 
   public async setMode(mode: FanMode): Promise<void> {
@@ -347,7 +463,7 @@ export class StandardFanAdapter implements FanAdapter {
   }
 
   public async setSleepMode(enabled: boolean): Promise<void> {
-    if (await this.setRelatedBoolean(this.related.sleepMode, enabled)) {
+    if (await this.setRelatedBoolean(this.actionableRelated.sleepMode, enabled)) {
       return;
     }
 
@@ -374,19 +490,25 @@ export class StandardFanAdapter implements FanAdapter {
   }
 
   public async setFavoriteLevel(level: number): Promise<void> {
-    if (!(await this.setRelatedValue(this.related.favoriteLevel, level))) {
+    const spec = this.capabilities.favoriteLevelSpec;
+    const value = spec === undefined ? level : snapNumber(level, spec);
+    if (!(await this.setRelatedValue(this.actionableRelated.favoriteLevel, value))) {
       throw new Error("This fan does not expose a favorite level entity.");
     }
   }
 
   public async setHorizontalSwing(enabled: boolean): Promise<void> {
+    if (await this.setRelatedBoolean(this.actionableRelated.horizontalSwing, enabled)) {
+      return;
+    }
+
     await this.dispatcher.standard("oscillate", { oscillating: enabled });
   }
 
   public async setHorizontalAngle(angle: number): Promise<void> {
     await this.startSwing("horizontal");
 
-    if (await this.setRelatedAngle(this.related.horizontalAngle, angle)) {
+    if (await this.setRelatedAngle(this.actionableRelated.horizontalAngle, angle)) {
       return;
     }
 
@@ -394,7 +516,7 @@ export class StandardFanAdapter implements FanAdapter {
   }
 
   public async setVerticalSwing(enabled: boolean): Promise<void> {
-    if (await this.setRelatedBoolean(this.related.verticalSwing, enabled)) {
+    if (await this.setRelatedBoolean(this.actionableRelated.verticalSwing, enabled)) {
       return;
     }
 
@@ -404,7 +526,7 @@ export class StandardFanAdapter implements FanAdapter {
   public async setVerticalAngle(angle: number): Promise<void> {
     await this.startSwing("vertical");
 
-    if (await this.setRelatedAngle(this.related.verticalAngle, angle)) {
+    if (await this.setRelatedAngle(this.actionableRelated.verticalAngle, angle)) {
       return;
     }
 
@@ -451,16 +573,19 @@ export class StandardFanAdapter implements FanAdapter {
   }
 
   public async setTimer(minutes: number): Promise<void> {
-    const timerSpec = this.readTimerSpec(this.related.timer);
-    if (await this.setRelatedValue(this.related.timer, minutesToTimerValue(minutes, timerSpec?.unit ?? "min"))) {
+    const timerSpec = this.readTimerSpec(this.actionableRelated.timer);
+    const timerUnit = timerSpec?.unit ?? this.readTimerUnit(this.actionableRelated.timer);
+    if (await this.setRelatedValue(this.actionableRelated.timer, minutesToTimerValue(minutes, timerUnit))) {
       return;
     }
 
-    await this.callCustom("fan_set_delay_off", { delay_off_countdown: minutes });
+    await this.callCustom("fan_set_delay_off", {
+      delay_off_countdown: minutesToTimerValue(minutes, this.profile.timerUnit ?? "min"),
+    });
   }
 
   public async setChildLock(enabled: boolean): Promise<void> {
-    if (await this.setRelatedBoolean(this.related.childLock, enabled)) {
+    if (await this.setRelatedBoolean(this.actionableRelated.childLock, enabled)) {
       return;
     }
 
@@ -468,11 +593,11 @@ export class StandardFanAdapter implements FanAdapter {
   }
 
   public async setLed(enabled: boolean): Promise<void> {
-    if (await this.setRelatedLedBrightness(this.related.led, enabled)) {
+    if (await this.setRelatedLedBrightness(this.actionableRelated.led, enabled)) {
       return;
     }
 
-    if (await this.setRelatedBoolean(this.related.led, enabled)) {
+    if (await this.setRelatedBoolean(this.actionableRelated.led, enabled)) {
       return;
     }
 
@@ -480,7 +605,7 @@ export class StandardFanAdapter implements FanAdapter {
   }
 
   public async setBuzzer(enabled: boolean): Promise<void> {
-    if (await this.setRelatedBoolean(this.related.buzzer, enabled)) {
+    if (await this.setRelatedBoolean(this.actionableRelated.buzzer, enabled)) {
       return;
     }
 
@@ -488,7 +613,7 @@ export class StandardFanAdapter implements FanAdapter {
   }
 
   public async setIonizer(enabled: boolean): Promise<void> {
-    if (await this.setRelatedBoolean(this.related.ionizer, enabled)) {
+    if (await this.setRelatedBoolean(this.actionableRelated.ionizer, enabled)) {
       return;
     }
 

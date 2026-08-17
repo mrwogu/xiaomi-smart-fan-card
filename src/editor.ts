@@ -78,6 +78,7 @@ const FIELD_TRANSLATIONS: Record<string, TranslationKey> = {
   padding: "padding",
   shadow: "shadow",
   size: "size",
+  horizontal_swing_entity: "horizontalSwingEntity",
   horizontal_angle_entity: "horizontalAngleEntity",
   vertical_swing_entity: "verticalSwingEntity",
   vertical_angle_entity: "verticalAngleEntity",

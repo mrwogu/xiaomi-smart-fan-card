@@ -317,6 +317,7 @@ const profiles = [
         label: "Smartmi Standing Fan 3",
         known: true,
         isXiaomi: true,
+        timerUnit: "s",
         speedLevels: 4,
         horizontalAngles: [30, 60, 90, 120],
         verticalAngles: [],
@@ -439,7 +440,7 @@ const unknownProfile = (model) => ({
     model,
     label: model ? `Xiaomi Fan (${model})` : "Smart Fan",
     known: false,
-    isXiaomi: model?.includes(".fan.") ?? false,
+    isXiaomi: model?.trim().toLowerCase().includes(".fan.") ?? false,
     speedLevels: 4,
     horizontalAngles: [],
     verticalAngles: [],
@@ -466,22 +467,67 @@ const resolveSpeedLevels = (attributes, profile = getModelProfile()) => {
             return Math.max(...levels);
         }
     }
+    const percentageStep = Number(attributes["percentage_step"]);
+    if (Number.isFinite(percentageStep) && percentageStep > 1 && percentageStep <= 100) {
+        return Math.ceil(100 / percentageStep);
+    }
     return profile.speedLevels;
 };
+const percentageStepDefinesLevels = (speedLevels, percentageStep) => percentageStep > 1 && Math.ceil(100 / percentageStep) === speedLevels;
+const percentageForSpeedLevel = (level, speedLevels, percentageStep = 1) => {
+    const stepDefinesLevels = percentageStepDefinesLevels(speedLevels, percentageStep);
+    return stepDefinesLevels ? Math.min(100, level * percentageStep) : Math.round((level / speedLevels) * 100);
+};
+const speedLevelForPercentage = (percentage, speedLevels, percentageStep = 1) => {
+    if (percentage <= 0) {
+        return 0;
+    }
+    if (percentage >= 100) {
+        return speedLevels;
+    }
+    const stepDefinesLevels = percentageStepDefinesLevels(speedLevels, percentageStep);
+    const level = stepDefinesLevels
+        ? Math.round(percentage / percentageStep)
+        : Math.round((percentage / 100) * speedLevels);
+    return Math.min(speedLevels, Math.max(1, level));
+};
 
+const FAN_FEATURE_SET_SPEED = 1;
 const FAN_FEATURE_OSCILLATE = 2;
 const FAN_FEATURE_DIRECTION = 4;
+const FAN_FEATURE_PRESET_MODE = 8;
 const hasAttribute = (entity, keys) => entity !== undefined && keys.some((key) => Object.prototype.hasOwnProperty.call(entity.attributes, key));
 const hasService = (services, name) => services.loaded && services.names.has(name);
 const customService = (services, name) => hasService(services, `xiaomi_miio_fan.${name}`);
+const supportedFeatures = (entity) => {
+    const value = entity?.attributes["supported_features"];
+    if (typeof value === "number") {
+        return value;
+    }
+    return typeof value === "string" && value.trim() !== "" ? Number(value) : Number.NaN;
+};
 const hasFanFeature = (entity, bit) => {
-    const supportedFeatures = Number(entity?.attributes["supported_features"]);
-    return Number.isInteger(supportedFeatures) && (supportedFeatures & bit) !== 0;
+    const features = supportedFeatures(entity);
+    return Number.isInteger(features) && (features & bit) !== 0;
+};
+const hasFeatureMask = (entity) => {
+    return Number.isInteger(supportedFeatures(entity));
+};
+const percentageStep = (entity) => {
+    const step = Number(entity?.attributes["percentage_step"]);
+    return Number.isFinite(step) && step > 0 && step <= 100 ? step : 1;
 };
 const detectCapabilities = (entity, services = { loaded: false, names: new Set() }, related = {}) => {
-    const model = typeof entity?.attributes["model"] === "string" ? entity.attributes["model"] : undefined;
+    const model = typeof entity?.attributes["model"] === "string"
+        ? entity.attributes["model"]
+        : typeof entity?.attributes["model_name"] === "string"
+            ? entity.attributes["model_name"]
+            : typeof entity?.attributes["miot_model"] === "string"
+                ? entity.attributes["miot_model"]
+                : undefined;
     const profile = getModelProfile(model);
     const isXiaomi = profile.isXiaomi || isXiaomiFanModel(model);
+    const explicitFeatureMask = hasFeatureMask(entity);
     const hasHorizontalAngle = hasAttribute(entity, [
         "horizontal_swing_angle",
         "horizontal_angle",
@@ -498,23 +544,50 @@ const detectCapabilities = (entity, services = { loaded: false, names: new Set()
         entity?.attributes["speed_list"],
         entity?.attributes["speed_modes"],
     ].some((value) => Array.isArray(value) && value.some((mode) => typeof mode === "string" && mode.toLowerCase().includes("sleep")));
-    const hasNaturalPreset = [entity?.attributes["preset_modes"], entity?.attributes["speed_list"], entity?.attributes["speed_modes"]].some((value) => Array.isArray(value) &&
-        value.some((mode) => typeof mode === "string" &&
-            (mode.toLowerCase().includes("natural") || mode.toLowerCase().includes("nature")))) ||
+    const hasNaturalPreset = [entity?.attributes["preset_modes"], entity?.attributes["speed_list"], entity?.attributes["speed_modes"]].some((value) => {
+        if (Array.isArray(value)) {
+            return value.some((mode) => typeof mode === "string" &&
+                (mode.toLowerCase().includes("natural") || mode.toLowerCase().includes("nature")));
+        }
+        return (typeof value === "string" &&
+            (value.toLowerCase().includes("natural") || value.toLowerCase().includes("nature")));
+    }) ||
         (typeof entity?.attributes["mode"] === "string" &&
             ["natural", "nature"].some((name) => entity.attributes["mode"].toLowerCase().includes(name)));
+    const hasPresetAttributes = hasAttribute(entity, ["preset_modes", "speed_list", "speed_modes", "preset_mode"]);
+    const speed = hasFanFeature(entity, FAN_FEATURE_SET_SPEED) ||
+        (!explicitFeatureMask &&
+            (hasAttribute(entity, ["percentage", "percentage_step", "fan_speed", "speed", "direct_speed", "natural_speed"]) ||
+                profile.known));
+    const presetMode = hasFanFeature(entity, FAN_FEATURE_PRESET_MODE) || (!explicitFeatureMask && (hasPresetAttributes || profile.known));
+    const xiaomiCustomModel = isXiaomi;
     return {
         isXiaomi,
         modelLabel: profile.label,
+        speed,
+        percentageStep: percentageStep(entity),
         speedLevels: resolveSpeedLevels(entity?.attributes ?? {}, profile),
-        direction: hasAttribute(entity, ["direction", "current_direction"]) ||
-            hasFanFeature(entity, FAN_FEATURE_DIRECTION) ||
-            hasService(services, "fan.set_direction"),
-        sleepMode: Boolean(related.sleepMode) || hasSleepPreset,
+        presetMode,
+        direction: (!explicitFeatureMask && hasAttribute(entity, ["direction", "current_direction"])) ||
+            hasFanFeature(entity, FAN_FEATURE_DIRECTION),
+        sleepMode: Boolean(related.sleepMode) || (presetMode && hasSleepPreset),
         favoriteLevel: Boolean(related.favoriteLevel),
-        horizontalSwing: hasAttribute(entity, ["oscillating", "oscillate", "horizontal_swing", "swing_mode"]) ||
+        horizontalSwing: Boolean(related.horizontalSwing) ||
+            (!explicitFeatureMask &&
+                hasAttribute(entity, [
+                    "oscillating",
+                    "oscillate",
+                    "horizontal_swing",
+                    "horizontal_oscillating",
+                    "horizontal_oscillation",
+                    "swing_mode",
+                ])) ||
             hasFanFeature(entity, FAN_FEATURE_OSCILLATE) ||
-            (profile.known && profile.isXiaomi && profile.model !== "xiaomi.fan.2lite"),
+            (profile.known &&
+                xiaomiCustomModel &&
+                !explicitFeatureMask &&
+                hasService(services, "fan.oscillate") &&
+                profile.model !== "xiaomi.fan.2lite"),
         horizontalAngle: Boolean(related.horizontalAngle) ||
             (hasHorizontalAngle && customService(services, "fan_set_oscillation_angle")) ||
             (profile.horizontalAngles.length > 0 && customService(services, "fan_set_oscillation_angle")),
@@ -531,28 +604,37 @@ const detectCapabilities = (entity, services = { loaded: false, names: new Set()
             (profile.verticalAngles.length > 0 && customService(services, "fan_set_vertical_oscillation_angle")),
         verticalAngles: profile.verticalAngles,
         directionNudge: profile.supportsNudge && customService(services, "fan_turn"),
-        naturalMode: hasNaturalPreset || (profile.known && profile.isXiaomi && !hasAttribute(entity, ["preset_modes", "speed_list"])),
+        naturalMode: presetMode &&
+            (hasNaturalPreset ||
+                (!explicitFeatureMask &&
+                    profile.known &&
+                    profile.isXiaomi &&
+                    !hasAttribute(entity, ["preset_modes", "speed_list", "speed_modes"]))),
         timer: Boolean(related.timer) ||
             (hasAttribute(entity, ["delay_off_countdown", "delay_time", "power_off_time", "timer"]) &&
                 customService(services, "fan_set_delay_off")) ||
-            (isXiaomi && customService(services, "fan_set_delay_off")),
+            (xiaomiCustomModel && customService(services, "fan_set_delay_off")),
         childLock: Boolean(related.childLock) ||
             (hasAttribute(entity, ["child_lock"]) && customService(services, "fan_set_child_lock_on")) ||
-            (isXiaomi && customService(services, "fan_set_child_lock_on")),
+            (xiaomiCustomModel && customService(services, "fan_set_child_lock_on")),
         led: Boolean(related.led) ||
             (hasAttribute(entity, ["led", "light", "led_brightness", "light_enum"]) &&
                 customService(services, "fan_set_led_brightness")) ||
-            (isXiaomi && customService(services, "fan_set_led_brightness")),
+            (xiaomiCustomModel && customService(services, "fan_set_led_brightness")),
         buzzer: Boolean(related.buzzer) ||
             (hasAttribute(entity, ["buzzer", "notification_sound"]) &&
                 customService(services, "fan_set_buzzer_on") &&
                 customService(services, "fan_set_buzzer_off")) ||
-            (isXiaomi && customService(services, "fan_set_buzzer_on") && customService(services, "fan_set_buzzer_off")),
+            (xiaomiCustomModel &&
+                customService(services, "fan_set_buzzer_on") &&
+                customService(services, "fan_set_buzzer_off")),
         ionizer: Boolean(related.ionizer) ||
             (hasAttribute(entity, ["anion", "ionizer"]) &&
                 customService(services, "fan_set_anion_on") &&
                 customService(services, "fan_set_anion_off")) ||
-            (isXiaomi && customService(services, "fan_set_anion_on") && customService(services, "fan_set_anion_off")),
+            (xiaomiCustomModel &&
+                customService(services, "fan_set_anion_on") &&
+                customService(services, "fan_set_anion_off")),
     };
 };
 
@@ -647,12 +729,12 @@ const firstBoolean = (attributes, keys) => {
     }
     return undefined;
 };
-const timerMinutes = (attributes) => {
+const timerMinutes = (attributes, timerUnit) => {
     const value = firstNumber(attributes, ["delay_off_countdown", "delay_time", "power_off_time", "timer"]);
     if (value === undefined) {
         return undefined;
     }
-    const unit = parseTimerUnit(attributes["timer_unit"] ?? attributes["delay_time_unit"]);
+    const unit = parseTimerUnit(attributes["timer_unit"] ?? attributes["delay_time_unit"] ?? attributes["unit_of_measurement"] ?? timerUnit);
     return timerValueToMinutes(value, unit);
 };
 const ledState = (attributes) => {
@@ -677,11 +759,11 @@ const readPresetModes = (...values) => {
 };
 const normalizeFanState = (entityId, entity) => {
     const attributes = entity?.attributes ?? {};
-    const model = stringValue(attributes["model"] ?? attributes["model_name"]);
+    const model = stringValue(attributes["model"] ?? attributes["model_name"] ?? attributes["miot_model"]);
     const profile = getModelProfile(model);
     const speedLevels = resolveSpeedLevels(attributes, profile);
     const directPercentage = firstNumber(attributes, ["percentage", "direct_speed", "natural_speed"]);
-    const rawSpeed = firstNumber(attributes, ["fan_speed", "speed"]);
+    const rawSpeed = firstNumber(attributes, ["fan_speed", "speed", "raw_speed"]);
     const rawSpeedPercentage = rawSpeed !== undefined && rawSpeed <= speedLevels ? (rawSpeed / speedLevels) * 100 : rawSpeed;
     const percentage = clamp(directPercentage ?? rawSpeedPercentage ?? 0, 0, 100);
     const presetMode = stringValue(attributes["preset_mode"])?.toLowerCase() ?? "";
@@ -691,7 +773,7 @@ const normalizeFanState = (entityId, entity) => {
     const presetModes = readPresetModes(attributes["preset_modes"], attributes["speed_list"], attributes["speed_modes"]);
     const directionValue = stringValue(attributes["direction"] ?? attributes["current_direction"])?.toLowerCase();
     const sleepMode = booleanValue$1(attributes["sleep_mode"]) ?? presetMode.includes("sleep");
-    const level = percentage === 0 ? 0 : clamp(Math.round((percentage / 100) * speedLevels), 1, speedLevels);
+    const level = speedLevelForPercentage(percentage, speedLevels, Number(attributes["percentage_step"]));
     const friendlyName = stringValue(attributes["friendly_name"]) ?? entityId;
     return {
         entityId,
@@ -708,7 +790,14 @@ const normalizeFanState = (entityId, entity) => {
         availableModes: presetModes,
         sleepMode,
         direction: directionValue === "forward" || directionValue === "reverse" ? directionValue : undefined,
-        horizontalSwing: firstBoolean(attributes, ["oscillating", "oscillate", "horizontal_swing", "swing_mode"]),
+        horizontalSwing: firstBoolean(attributes, [
+            "oscillating",
+            "oscillate",
+            "horizontal_swing",
+            "horizontal_oscillating",
+            "horizontal_oscillation",
+            "swing_mode",
+        ]),
         horizontalAngle: firstAngle(attributes, [
             "horizontal_swing_angle",
             "horizontal_angle",
@@ -717,7 +806,7 @@ const normalizeFanState = (entityId, entity) => {
         ]),
         verticalSwing: firstBoolean(attributes, ["vertical_swing", "vertical_oscillate", "vertical_oscillation"]),
         verticalAngle: firstAngle(attributes, ["vertical_swing_angle", "vertical_oscillation_angle", "vertical_angle"]),
-        timerMinutes: timerMinutes(attributes),
+        timerMinutes: timerMinutes(attributes, profile.timerUnit),
         childLock: booleanValue$1(attributes["child_lock"]),
         led: ledState(attributes),
         buzzer: firstBoolean(attributes, ["buzzer", "notification_sound"]),
@@ -792,6 +881,21 @@ const selectOptions = (entity) => {
     const options = entity?.attributes["options"];
     return Array.isArray(options) ? options.map(String) : [];
 };
+const RELATED_ENTITY_DOMAINS$1 = {
+    sleepMode: ["switch", "input_boolean", "select"],
+    horizontalSwing: ["switch", "input_boolean", "select"],
+    verticalSwing: ["switch", "input_boolean", "select"],
+    horizontalAngle: ["number", "input_number", "select"],
+    verticalAngle: ["number", "input_number", "select"],
+    favoriteLevel: ["number", "input_number"],
+    timer: ["number", "input_number"],
+    childLock: ["switch", "input_boolean", "select"],
+    led: ["switch", "input_boolean", "select", "number", "input_number"],
+    buzzer: ["switch", "input_boolean", "select"],
+    ionizer: ["switch", "input_boolean", "select"],
+    temperature: ["sensor"],
+    humidity: ["sensor"],
+};
 /**
  * Exact labels win over substring hints because a substring search returns the
  * first matching option rather than the closest one: `Dim` would answer a
@@ -815,10 +919,27 @@ const selectOptionFor = (options, exact, hints) => {
 };
 const rawSteps = (spec) => Array.from({ length: Math.floor((spec.max - spec.min) / spec.step) + 1 }, (_, index) => spec.min + index * spec.step);
 const roundStep = (value) => Math.round(value * 100) / 100;
+const snapNumber = (value, spec) => {
+    const clamped = Math.min(spec.max, Math.max(spec.min, value));
+    const snapped = spec.min + Math.round((clamped - spec.min) / spec.step) * spec.step;
+    return Number(Math.min(spec.max, Math.max(spec.min, snapped)).toPrecision(12));
+};
+const snapPercentage = (value, step) => {
+    if (!Number.isFinite(value)) {
+        return 0;
+    }
+    if (value <= 0) {
+        return 0;
+    }
+    if (value >= 100) {
+        return 100;
+    }
+    return Number(Math.min(100, Math.max(0, Math.round(value / step) * step)).toFixed(6));
+};
 const BOOLEAN_SELECT_LABELS = {
-    enabledExact: ["on", "true", "yes", "enable", "enabled"],
+    enabledExact: ["on", "true", "yes", "enable", "enabled", "1"],
     enabledHints: ["bright", "enable", "active", "sleep", "oscillate", "swing", "true"],
-    disabledExact: ["off", "false", "no", "disable", "disabled"],
+    disabledExact: ["off", "false", "no", "disable", "disabled", "0"],
     disabledHints: ["off", "disable", "inactive", "false", "none", "normal", "fixed", "static", "dim"],
 };
 const isDisabledLabel = (value) => selectOptionFor([value], BOOLEAN_SELECT_LABELS.disabledExact, ["off", "disable", "inactive"]) !== undefined;
@@ -832,8 +953,10 @@ class StandardFanAdapter {
         this.services = services;
         this.related = related;
         const actionableRelated = this.actionableRelatedEntities();
-        const timerSpec = this.readTimerSpec(this.related.timer);
-        this.state = normalizeFanState(entityId, this.entityWithRelatedAttributes(this.related, timerSpec));
+        this.actionableRelated = actionableRelated;
+        const timerSpec = this.readTimerSpec(actionableRelated.timer);
+        const timerUnit = this.readTimerUnit(actionableRelated.timer);
+        this.state = normalizeFanState(entityId, this.entityWithRelatedAttributes(this.stateRelatedEntities(actionableRelated), timerSpec, timerUnit));
         this.profile = getModelProfile(this.state.model);
         const detectedCapabilities = detectCapabilities(hass.states[entityId], services, actionableRelated);
         this.capabilities = {
@@ -843,6 +966,7 @@ class StandardFanAdapter {
                     ? detectedCapabilities.horizontalAngles
                     : (this.readAngleSteps(actionableRelated.horizontalAngle) ?? [])),
             horizontalAngleSpec: this.readNumberSpec(actionableRelated.horizontalAngle),
+            favoriteLevelSpec: this.readNumberSpec(actionableRelated.favoriteLevel),
             verticalAngles: this.readAngleOptions(actionableRelated.verticalAngle) ??
                 (detectedCapabilities.verticalAngles.length > 0
                     ? detectedCapabilities.verticalAngles
@@ -855,22 +979,54 @@ class StandardFanAdapter {
     }
     actionableRelatedEntities() {
         const actionable = { ...this.related };
+        const booleanKeys = new Set([
+            "sleepMode",
+            "horizontalSwing",
+            "verticalSwing",
+            "childLock",
+            "buzzer",
+            "ionizer",
+        ]);
         for (const key of Object.keys(actionable)) {
             const entityId = actionable[key];
             const state = entityId ? this.hass.states[entityId] : undefined;
+            const [domain] = entityId ? entityParts(entityId) : [""];
             if (!state ||
                 state.state === "unknown" ||
                 state.state === "unavailable" ||
+                !RELATED_ENTITY_DOMAINS$1[key].includes(domain) ||
                 ((key === "horizontalAngle" || key === "verticalAngle") &&
                     this.isSelectEntity(entityId) &&
-                    numericAngleOptions(state) === undefined)) {
+                    numericAngleOptions(state) === undefined) ||
+                (booleanKeys.has(key) && this.isSelectEntity(entityId) && !this.hasBooleanSelectOptions(state))) {
                 delete actionable[key];
             }
         }
         return actionable;
     }
+    stateRelatedEntities(actionable) {
+        const stateRelated = { ...actionable };
+        for (const key of Object.keys(this.related)) {
+            if (stateRelated[key] !== undefined) {
+                continue;
+            }
+            const entityId = this.related[key];
+            const state = entityId ? this.hass.states[entityId] : undefined;
+            const [domain] = entityId ? entityParts(entityId) : [""];
+            if (state &&
+                (state.state === "unknown" || state.state === "unavailable") &&
+                RELATED_ENTITY_DOMAINS$1[key].includes(domain)) {
+                stateRelated[key] = entityId;
+            }
+        }
+        return stateRelated;
+    }
     isSelectEntity(entityId) {
         return entityId !== undefined && entityParts(entityId)[0] === "select";
+    }
+    hasBooleanSelectOptions(entity) {
+        const options = selectOptions(entity);
+        return booleanSelectOption(options, true) !== undefined && booleanSelectOption(options, false) !== undefined;
     }
     readAngleOptions(entityId) {
         return numericAngleOptions(entityId ? this.hass.states[entityId] : undefined);
@@ -894,8 +1050,11 @@ class StandardFanAdapter {
         if (!spec || (spec.max - spec.min) / spec.step > MAX_TIMER_STEPS) {
             return undefined;
         }
+        return { ...spec, unit: this.readTimerUnit(entityId) };
+    }
+    readTimerUnit(entityId) {
         const entity = entityId ? this.hass.states[entityId] : undefined;
-        return { ...spec, unit: parseTimerUnit(entity?.attributes["unit_of_measurement"]) };
+        return parseTimerUnit(entity?.attributes["unit_of_measurement"]);
     }
     /**
      * Angles carry no timer unit, so they never go through the timer conversion.
@@ -915,15 +1074,39 @@ class StandardFanAdapter {
         }
         return rawSteps(spec).map((value) => roundStep(timerValueToMinutes(value, spec.unit)));
     }
-    entityWithRelatedAttributes(related, timerSpec) {
+    entityWithRelatedAttributes(related, timerSpec, timerUnit) {
         const entity = this.hass.states[this.entityId];
         if (!entity) {
             return undefined;
         }
         const attributes = { ...entity.attributes };
+        const attributeAliases = {
+            horizontalAngle: ["horizontal_swing_angle", "horizontal_angle", "swing_mode_angle", "angle"],
+            horizontalSwing: [
+                "oscillating",
+                "oscillate",
+                "horizontal_swing",
+                "horizontal_oscillating",
+                "horizontal_oscillation",
+                "swing_mode",
+            ],
+            favoriteLevel: ["favorite_level", "favorite_speed"],
+            verticalAngle: ["vertical_swing_angle", "vertical_oscillation_angle", "vertical_angle"],
+            verticalSwing: ["vertical_swing", "vertical_oscillate", "vertical_oscillation"],
+            timer: ["delay_off_countdown", "delay_time", "power_off_time", "timer", "timer_unit", "delay_time_unit"],
+            led: ["led", "light", "led_brightness", "light_enum"],
+            buzzer: ["buzzer", "notification_sound"],
+            ionizer: ["anion", "ionizer"],
+        };
+        const clearAliases = (key) => {
+            for (const alias of attributeAliases[key] ?? []) {
+                delete attributes[alias];
+            }
+        };
         const relatedValues = [
             ["horizontalAngle", "horizontal_swing_angle"],
             ["sleepMode", "sleep_mode"],
+            ["horizontalSwing", "horizontal_swing"],
             ["verticalAngle", "vertical_swing_angle"],
             ["favoriteLevel", "favorite_level"],
             ["verticalSwing", "vertical_swing"],
@@ -940,8 +1123,8 @@ class StandardFanAdapter {
             const relatedState = relatedEntityId ? this.hass.states[relatedEntityId] : undefined;
             if (relatedEntityId && relatedState && relatedState.state !== "unknown" && relatedState.state !== "unavailable") {
                 if (relatedKey === "led") {
+                    clearAliases(relatedKey);
                     attributes[attributeKey] = this.readRelatedLedState(relatedEntityId, relatedState);
-                    delete attributes["led_brightness"];
                     continue;
                 }
                 // A mode selector matched as an angle entity carries no angle, so the
@@ -950,17 +1133,19 @@ class StandardFanAdapter {
                     numericLabel(relatedState.state) === undefined) {
                     continue;
                 }
+                clearAliases(relatedKey);
                 const value = Number(relatedState.state);
                 attributes[attributeKey] =
-                    relatedKey === "timer" && Number.isFinite(value) && timerSpec
-                        ? timerValueToMinutes(value, timerSpec.unit)
+                    relatedKey === "timer" && Number.isFinite(value)
+                        ? timerValueToMinutes(value, timerSpec?.unit ?? timerUnit)
                         : relatedState.state;
+                if (relatedKey === "timer") {
+                    attributes["timer_unit"] = "min";
+                }
             }
             else if (relatedState) {
+                clearAliases(relatedKey);
                 delete attributes[attributeKey];
-                if (relatedKey === "led") {
-                    delete attributes["led_brightness"];
-                }
             }
             else if (attributes[attributeKey] !== undefined && attributes[attributeKey] !== null) {
                 continue;
@@ -995,17 +1180,18 @@ class StandardFanAdapter {
         await this.dispatcher.standard("toggle");
     }
     async setPercentage(percentage) {
-        if (percentage <= 0) {
+        const requestedPercentage = snapPercentage(percentage, this.capabilities.percentageStep);
+        if (requestedPercentage <= 0) {
             await this.dispatcher.standard("turn_off");
             return;
         }
         // A stopped fan needs turn_on to carry the speed; set_percentage alone is
         // not guaranteed to start it.
         if (!this.state.isOn) {
-            await this.dispatcher.standard("turn_on", { percentage });
+            await this.dispatcher.standard("turn_on", { percentage: requestedPercentage });
             return;
         }
-        await this.dispatcher.standard("set_percentage", { percentage });
+        await this.dispatcher.standard("set_percentage", { percentage: requestedPercentage });
     }
     async setMode(mode) {
         const preferred = mode === "natural" ? ["natural", "nature", "natural 1"] : ["normal", "straight", "manual", "level 1"];
@@ -1023,7 +1209,7 @@ class StandardFanAdapter {
         await this.dispatcher.standard("set_preset_mode", { preset_mode: preset });
     }
     async setSleepMode(enabled) {
-        if (await this.setRelatedBoolean(this.related.sleepMode, enabled)) {
+        if (await this.setRelatedBoolean(this.actionableRelated.sleepMode, enabled)) {
             return;
         }
         const sleepPreset = this.state.availableModes.find((preset) => preset.toLowerCase().includes("sleep"));
@@ -1040,29 +1226,34 @@ class StandardFanAdapter {
         await this.setPresetMode(current && !current.includes("sleep") ? this.state.presetMode : (normalPreset ?? fallbackPreset ?? "Normal"));
     }
     async setFavoriteLevel(level) {
-        if (!(await this.setRelatedValue(this.related.favoriteLevel, level))) {
+        const spec = this.capabilities.favoriteLevelSpec;
+        const value = spec === undefined ? level : snapNumber(level, spec);
+        if (!(await this.setRelatedValue(this.actionableRelated.favoriteLevel, value))) {
             throw new Error("This fan does not expose a favorite level entity.");
         }
     }
     async setHorizontalSwing(enabled) {
+        if (await this.setRelatedBoolean(this.actionableRelated.horizontalSwing, enabled)) {
+            return;
+        }
         await this.dispatcher.standard("oscillate", { oscillating: enabled });
     }
     async setHorizontalAngle(angle) {
         await this.startSwing("horizontal");
-        if (await this.setRelatedAngle(this.related.horizontalAngle, angle)) {
+        if (await this.setRelatedAngle(this.actionableRelated.horizontalAngle, angle)) {
             return;
         }
         await this.callCustom("fan_set_oscillation_angle", { angle });
     }
     async setVerticalSwing(enabled) {
-        if (await this.setRelatedBoolean(this.related.verticalSwing, enabled)) {
+        if (await this.setRelatedBoolean(this.actionableRelated.verticalSwing, enabled)) {
             return;
         }
         await this.callCustom(enabled ? "fan_set_vertical_oscillation_on" : "fan_set_vertical_oscillation_off");
     }
     async setVerticalAngle(angle) {
         await this.startSwing("vertical");
-        if (await this.setRelatedAngle(this.related.verticalAngle, angle)) {
+        if (await this.setRelatedAngle(this.actionableRelated.verticalAngle, angle)) {
             return;
         }
         await this.callCustom("fan_set_vertical_oscillation_angle", {
@@ -1101,35 +1292,38 @@ class StandardFanAdapter {
         await this.dispatcher.standard("set_direction", { direction });
     }
     async setTimer(minutes) {
-        const timerSpec = this.readTimerSpec(this.related.timer);
-        if (await this.setRelatedValue(this.related.timer, minutesToTimerValue(minutes, timerSpec?.unit ?? "min"))) {
+        const timerSpec = this.readTimerSpec(this.actionableRelated.timer);
+        const timerUnit = timerSpec?.unit ?? this.readTimerUnit(this.actionableRelated.timer);
+        if (await this.setRelatedValue(this.actionableRelated.timer, minutesToTimerValue(minutes, timerUnit))) {
             return;
         }
-        await this.callCustom("fan_set_delay_off", { delay_off_countdown: minutes });
+        await this.callCustom("fan_set_delay_off", {
+            delay_off_countdown: minutesToTimerValue(minutes, this.profile.timerUnit ?? "min"),
+        });
     }
     async setChildLock(enabled) {
-        if (await this.setRelatedBoolean(this.related.childLock, enabled)) {
+        if (await this.setRelatedBoolean(this.actionableRelated.childLock, enabled)) {
             return;
         }
         await this.callCustom(enabled ? "fan_set_child_lock_on" : "fan_set_child_lock_off");
     }
     async setLed(enabled) {
-        if (await this.setRelatedLedBrightness(this.related.led, enabled)) {
+        if (await this.setRelatedLedBrightness(this.actionableRelated.led, enabled)) {
             return;
         }
-        if (await this.setRelatedBoolean(this.related.led, enabled)) {
+        if (await this.setRelatedBoolean(this.actionableRelated.led, enabled)) {
             return;
         }
         await this.callCustom("fan_set_led_brightness", { brightness: enabled ? 0 : 2 });
     }
     async setBuzzer(enabled) {
-        if (await this.setRelatedBoolean(this.related.buzzer, enabled)) {
+        if (await this.setRelatedBoolean(this.actionableRelated.buzzer, enabled)) {
             return;
         }
         await this.callCustom(enabled ? "fan_set_buzzer_on" : "fan_set_buzzer_off");
     }
     async setIonizer(enabled) {
-        if (await this.setRelatedBoolean(this.related.ionizer, enabled)) {
+        if (await this.setRelatedBoolean(this.actionableRelated.ionizer, enabled)) {
             return;
         }
         await this.callCustom(enabled ? "fan_set_anion_on" : "fan_set_anion_off");
@@ -1559,6 +1753,7 @@ const normalizeCardConfig = (raw) => {
         details: normalizeDetails(source.details),
         layout: normalizeLayout(source.layout, source.theme),
         styles: normalizeStyles(source.styles),
+        horizontal_swing_entity: relatedEntity("horizontal_swing_entity"),
         horizontal_angle_entity: relatedEntity("horizontal_angle_entity"),
         vertical_swing_entity: relatedEntity("vertical_swing_entity"),
         vertical_angle_entity: relatedEntity("vertical_angle_entity"),
@@ -1575,6 +1770,7 @@ const normalizeCardConfig = (raw) => {
 };
 
 const RELATED_ENTITY_DOMAINS = {
+    horizontal_swing_entity: ["switch", "input_boolean", "select"],
     horizontal_angle_entity: ["number", "input_number", "select"],
     vertical_swing_entity: ["switch", "input_boolean", "select"],
     vertical_angle_entity: ["number", "input_number", "select"],
@@ -1749,6 +1945,7 @@ const getConfigForm = () => {
                 icon: "mdi:link-variant",
                 flatten: true,
                 schema: [
+                    relatedEntityField("horizontal_swing_entity"),
                     relatedEntityField("horizontal_angle_entity"),
                     relatedEntityField("vertical_swing_entity"),
                     relatedEntityField("vertical_angle_entity"),
@@ -1886,6 +2083,7 @@ const english = {
     showTimerWhenOff: "Show timer when off",
     airflowControls: "Airflow controls",
     positionControls: "Position controls",
+    horizontalSwingEntity: "Horizontal oscillation entity",
     horizontalAngleEntity: "Horizontal angle entity",
     verticalSwingEntity: "Vertical oscillation entity",
     verticalAngleEntity: "Vertical angle entity",
@@ -2042,6 +2240,7 @@ const TRANSLATIONS = {
         showTimerWhenOff: "Pokaż timer, gdy wentylator jest wyłączony",
         airflowControls: "Sterowanie nawiewem",
         positionControls: "Sterowanie pozycją",
+        horizontalSwingEntity: "Encja poziomej cyrkulacji",
         horizontalAngleEntity: "Encja kąta poziomego",
         verticalSwingEntity: "Encja pionowej cyrkulacji",
         verticalAngleEntity: "Encja kąta pionowego",
@@ -2196,6 +2395,7 @@ const TRANSLATIONS = {
         showTimerWhenOff: "Mostrar temporizador cuando esté apagado",
         airflowControls: "Controles del flujo de aire",
         positionControls: "Controles de posición",
+        horizontalSwingEntity: "Entidad de oscilación horizontal",
         horizontalAngleEntity: "Entidad del ángulo horizontal",
         verticalSwingEntity: "Entidad de oscilación vertical",
         verticalAngleEntity: "Entidad del ángulo vertical",
@@ -2350,6 +2550,7 @@ const TRANSLATIONS = {
         showTimerWhenOff: "Afficher la minuterie lorsque le ventilateur est éteint",
         airflowControls: "Commandes du flux d'air",
         positionControls: "Commandes de position",
+        horizontalSwingEntity: "Entité d'oscillation horizontale",
         horizontalAngleEntity: "Entité de l'angle horizontal",
         verticalSwingEntity: "Entité d'oscillation verticale",
         verticalAngleEntity: "Entité de l'angle vertical",
@@ -2504,6 +2705,7 @@ const TRANSLATIONS = {
         showTimerWhenOff: "Mostra timer quando spento",
         airflowControls: "Controlli del flusso d'aria",
         positionControls: "Controlli posizione",
+        horizontalSwingEntity: "Entità oscillazione orizzontale",
         horizontalAngleEntity: "Entità angolo orizzontale",
         verticalSwingEntity: "Entità oscillazione verticale",
         verticalAngleEntity: "Entità angolo verticale",
@@ -2624,6 +2826,7 @@ const FIELD_TRANSLATIONS = {
     padding: "padding",
     shadow: "shadow",
     size: "size",
+    horizontal_swing_entity: "horizontalSwingEntity",
     horizontal_angle_entity: "horizontalAngleEntity",
     vertical_swing_entity: "verticalSwingEntity",
     vertical_angle_entity: "verticalAngleEntity",
@@ -2750,7 +2953,8 @@ if (!customElements.get("xiaomi-fan-card-editor")) {
 
 const suffixes = {
     sleepMode: ["_sleep_mode"],
-    verticalSwing: ["_vertical_swing", "_vertical_oscillate", "_vertical_oscillation"],
+    horizontalSwing: ["_oscillating", "_oscillate", "_horizontal_swing", "_horizontal_oscillation", "_swing_mode"],
+    verticalSwing: ["_vertical_swing", "_vertical_oscillate", "_vertical_oscillating", "_vertical_oscillation"],
     horizontalAngle: ["_oscillation_angle", "_horizontal_swing_angle", "_swing_mode_angle", "_horizontal_angle"],
     verticalAngle: ["_vertical_oscillation_angle", "_vertical_swing_angle", "_vertical_angle"],
     favoriteLevel: ["_favorite_level", "_favorite_speed"],
@@ -2821,8 +3025,10 @@ const resolveRelatedEntities = async (hass, entityId) => {
         const withoutVerticalAngle = entries.filter((entry) => entry.entity_id !== related.verticalAngle);
         related.horizontalAngle = findBySuffix(withoutVerticalAngle, angle, suffixes.horizontalAngle);
         const withoutAngles = withoutVerticalAngle.filter((entry) => entry.entity_id !== related.horizontalAngle);
-        related.sleepMode = findBySuffix(withoutAngles, [...boolean, "select"], suffixes.sleepMode);
         related.verticalSwing = findBySuffix(withoutAngles, [...boolean, "select"], suffixes.verticalSwing);
+        const withoutVerticalSwing = withoutAngles.filter((entry) => entry.entity_id !== related.verticalSwing);
+        related.sleepMode = findBySuffix(withoutAngles, [...boolean, "select"], suffixes.sleepMode);
+        related.horizontalSwing = findBySuffix(withoutVerticalSwing, [...boolean, "select"], suffixes.horizontalSwing);
         related.favoriteLevel = findBySuffix(entries, numeric, suffixes.favoriteLevel);
         related.timer = findBySuffix(entries, numeric, suffixes.timer);
         related.childLock = findBySuffix(entries, [...boolean, ...select], suffixes.childLock);
@@ -2895,10 +3101,6 @@ class XiaomiFanCard extends i$2 {
         this.retryDelay = 0;
         this.translatorLanguage = "";
         this.translator = createTranslator();
-        this.onPercentagePreview = (event) => {
-            this.speedDragging = true;
-            this.speedPreview = Number(event.currentTarget.value);
-        };
         this.onHeaderClick = () => {
             if (this.hass && this.config) {
                 handleAction(this, this.hass, this.config);
@@ -3120,6 +3322,7 @@ class XiaomiFanCard extends i$2 {
     withConfiguredRelatedEntities(discovered) {
         return {
             ...discovered,
+            horizontalSwing: this.config.horizontal_swing_entity ?? discovered.horizontalSwing,
             sleepMode: this.config.sleep_mode_entity ?? discovered.sleepMode,
             horizontalAngle: this.config.horizontal_angle_entity ?? discovered.horizontalAngle,
             verticalSwing: this.config.vertical_swing_entity ?? discovered.verticalSwing,
@@ -3136,6 +3339,7 @@ class XiaomiFanCard extends i$2 {
     }
     relatedConfigKey(config) {
         return [
+            config.horizontal_swing_entity,
             config.horizontal_angle_entity,
             config.vertical_swing_entity,
             config.vertical_angle_entity,
@@ -3278,7 +3482,9 @@ class XiaomiFanCard extends i$2 {
         ${details.show_vertical_angle && adapter.capabilities.verticalAngle && verticalAngle !== undefined
             ? this.renderMetaItem("mdi:swap-vertical", `${verticalAngle}°`, this.t("verticalAngleValue", { value: verticalAngle }))
             : ""}
-        ${details.show_timer && (details.show_timer_when_off || Boolean(state.timerMinutes))
+        ${details.show_timer &&
+            adapter.capabilities.timer &&
+            (details.show_timer_when_off || Boolean(state.timerMinutes))
             ? this.renderMetaItem("mdi:timer-outline", this.displayTimer(state.timerMinutes), `${this.t("timer")}: ${this.displayTimer(state.timerMinutes)}`, Boolean(state.timerMinutes))
             : ""}
         ${details.show_temperature && state.temperature !== undefined
@@ -3302,11 +3508,16 @@ class XiaomiFanCard extends i$2 {
         const state = adapter.state;
         const controls = this.config.controls;
         const levelLabels = Array.from({ length: adapter.capabilities.speedLevels }, (_, index) => index + 1);
-        const useSpeedSelect = controls.selection_mode === "select" || (controls.selection_mode === "auto" && levelLabels.length > 5);
-        const hasSpeedControls = controls.show_speed_slider || controls.show_speed_levels;
+        const showSpeedSlider = controls.show_speed_slider && adapter.capabilities.speed;
+        const showSpeedLevels = controls.show_speed_levels && adapter.capabilities.speed;
+        const useSpeedSelect = showSpeedLevels &&
+            (controls.selection_mode === "select" || (controls.selection_mode === "auto" && levelLabels.length > 5));
+        const hasSpeedControls = showSpeedSlider || showSpeedLevels;
         const hasModeControls = controls.show_modes &&
             (adapter.capabilities.naturalMode ||
-                (controls.show_preset_mode && state.availableModes.some((mode) => mode.toLowerCase() !== "off")));
+                (controls.show_preset_mode &&
+                    adapter.capabilities.presetMode &&
+                    state.availableModes.some((mode) => mode.toLowerCase() !== "off")));
         const hasChipControls = (controls.show_horizontal_swing && adapter.capabilities.horizontalSwing) ||
             (controls.show_vertical_swing && adapter.capabilities.verticalSwing) ||
             (controls.show_sleep && adapter.capabilities.sleepMode) ||
@@ -3319,14 +3530,17 @@ class XiaomiFanCard extends i$2 {
         const displayPercentage = this.speedPreview ?? (state.isOn ? state.percentage : 0);
         const displayLevel = this.speedPreview === undefined
             ? (state.isOn ? state.level : 0) || 0
-            : Math.round((this.speedPreview / 100) * adapter.capabilities.speedLevels);
+            : speedLevelForPercentage(this.speedPreview, adapter.capabilities.speedLevels, adapter.capabilities.percentageStep);
+        const sliderUsesLevels = percentageStepDefinesLevels(adapter.capabilities.speedLevels, adapter.capabilities.percentageStep);
+        const sliderMaximum = sliderUsesLevels ? adapter.capabilities.speedLevels : 100;
+        const sliderValue = sliderUsesLevels ? displayLevel : displayPercentage;
         return b `
       <section
         class="controls airflow-controls"
         aria-label=${this.t("airflow")}
         style=${o(styleMapFor(this.config.styles.controls, "fan-control"))}
       >
-        ${controls.show_speed_slider || controls.show_speed_levels
+        ${showSpeedSlider || showSpeedLevels
             ? b `
                 <div class="section-heading">
                   <div>
@@ -3337,32 +3551,32 @@ class XiaomiFanCard extends i$2 {
                 </div>
               `
             : ""}
-        ${controls.show_speed_slider
+        ${showSpeedSlider
             ? b `
                 <input
                   class="speed-slider"
                   type="range"
                   min="0"
-                  max="100"
-                  step="1"
-                  .value=${String(displayPercentage)}
+                  max=${sliderMaximum}
+                  step=${sliderUsesLevels ? 1 : adapter.capabilities.percentageStep}
+                  .value=${String(sliderValue)}
                   style=${o({ "--fan-speed-progress": String(displayPercentage) })}
-                  @input=${this.onPercentagePreview}
+                  @input=${(event) => this.onPercentagePreview(event, adapter)}
                   @change=${(event) => this.onPercentageChange(event, adapter)}
                   aria-label=${this.t("fanSpeedPercentage")}
                   aria-valuetext="${displayPercentage}%"
                 />
               `
             : ""}
-        ${controls.show_speed_levels
+        ${showSpeedLevels
             ? useSpeedSelect
-                ? this.renderSpeedSelector(adapter, levelLabels)
+                ? this.renderSpeedSelector(adapter, levelLabels, displayLevel)
                 : b `
                   <div class="level-row" role="group" aria-label=${this.t("speedLevels")}>
                     ${levelLabels.map((level) => b `
                         <button
                           class="level-button ${displayLevel === level ? "selected" : ""}"
-                          @click=${() => this.execute(() => adapter.setPercentage(Math.round((level / adapter.capabilities.speedLevels) * 100)))}
+                          @click=${() => this.execute(() => adapter.setPercentage(this.percentageForLevel(adapter, level)))}
                           aria-label=${this.t("setSpeedLevel", { level })}
                           aria-pressed=${displayLevel === level}
                         >
@@ -3426,8 +3640,8 @@ class XiaomiFanCard extends i$2 {
       </section>
     `;
     }
-    renderSpeedSelector(adapter, levels) {
-        const current = adapter.state.level || levels[0] || 1;
+    renderSpeedSelector(adapter, levels, displayLevel) {
+        const current = displayLevel || levels[0] || 1;
         return b `
       <label class="feature-select speed-select">
         <span>${this.t("speedLevels")}</span>
@@ -3436,13 +3650,16 @@ class XiaomiFanCard extends i$2 {
           aria-label=${this.t("speedLevels")}
           @change=${(event) => {
             const level = Number(event.currentTarget.value);
-            this.execute(() => adapter.setPercentage(Math.round((level / adapter.capabilities.speedLevels) * 100)));
+            this.execute(() => adapter.setPercentage(this.percentageForLevel(adapter, level)));
         }}
         >
           ${levels.map((level) => b `<option value=${level} ?selected=${level === current}>${this.t("speedLevel", { level })}</option>`)}
         </select>
       </label>
     `;
+    }
+    percentageForLevel(adapter, level) {
+        return percentageForSpeedLevel(level, adapter.capabilities.speedLevels, adapter.capabilities.percentageStep);
     }
     renderModeControls(adapter) {
         const state = adapter.state;
@@ -3480,10 +3697,12 @@ class XiaomiFanCard extends i$2 {
             </button>
           </div>
         </div>
-        ${controls.show_preset_mode && extraModes.length > 0 ? this.renderPresetChoices(adapter, extraModes) : ""}
+        ${controls.show_preset_mode && adapter.capabilities.presetMode && extraModes.length > 0
+                ? this.renderPresetChoices(adapter, extraModes)
+                : ""}
       `;
         }
-        if (!controls.show_preset_mode || availableModes.length === 0) {
+        if (!controls.show_preset_mode || !adapter.capabilities.presetMode || availableModes.length === 0) {
             return "";
         }
         return this.renderPresetChoices(adapter, availableModes);
@@ -3607,14 +3826,15 @@ class XiaomiFanCard extends i$2 {
       `);
         }
         if (controls.show_favorite_level && adapter.capabilities.favoriteLevel) {
+            const favoriteSpec = adapter.capabilities.favoriteLevelSpec ?? { min: 1, max: 100, step: 1 };
             features.push(b `
         <label class="feature-select">
           <span>${this.t("favoriteLevel")}</span>
           <input
             type="number"
-            min="1"
-            max="100"
-            step="1"
+            min=${favoriteSpec.min}
+            max=${favoriteSpec.max}
+            step=${favoriteSpec.step}
             .value=${String(adapter.state.favoriteLevel ?? adapter.state.level ?? 1)}
             @change=${(event) => this.execute(() => adapter.setFavoriteLevel(Number(event.currentTarget.value)))}
           />
@@ -3767,8 +3987,17 @@ class XiaomiFanCard extends i$2 {
         await adapter.setHorizontalSwing(enabled);
         await adapter.setVerticalSwing(enabled);
     }
+    percentageFromSlider(adapter, value) {
+        return percentageStepDefinesLevels(adapter.capabilities.speedLevels, adapter.capabilities.percentageStep)
+            ? percentageForSpeedLevel(value, adapter.capabilities.speedLevels, adapter.capabilities.percentageStep)
+            : value;
+    }
+    onPercentagePreview(event, adapter) {
+        this.speedDragging = true;
+        this.speedPreview = this.percentageFromSlider(adapter, Number(event.currentTarget.value));
+    }
     onPercentageChange(event, adapter) {
-        const value = Number(event.currentTarget.value);
+        const value = this.percentageFromSlider(adapter, Number(event.currentTarget.value));
         this.speedDragging = false;
         this.speedPreview = value;
         this.execute(() => adapter.setPercentage(value));
