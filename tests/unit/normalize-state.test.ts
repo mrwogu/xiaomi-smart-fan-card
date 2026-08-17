@@ -88,4 +88,16 @@ describe("normalizeFanState", () => {
     expect(state.horizontalAngle).toBe(90);
     expect(state.verticalAngle).toBe(60);
   });
+
+  it("uses the Smartmi Fan 3 timer seconds profile when no unit is reported", () => {
+    const state = normalizeFanState("fan.za5", {
+      state: "on",
+      attributes: {
+        model: "zhimi.fan.za5",
+        delay_off_countdown: 120,
+      },
+    });
+
+    expect(state.timerMinutes).toBe(2);
+  });
 });

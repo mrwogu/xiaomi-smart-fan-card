@@ -1,5 +1,5 @@
 import type { FanMode, HassEntity, NormalizedFanState } from "../types";
-import { getModelProfile, resolveSpeedLevels } from "./model-profiles";
+import { getModelProfile, resolveSpeedLevels, speedLevelForPercentage } from "./model-profiles";
 import type { TimerUnit } from "../types";
 
 export const parseTimerUnit = (value: unknown): TimerUnit => {
@@ -124,13 +124,15 @@ const firstBoolean = (attributes: Record<string, unknown>, keys: string[]): bool
   return undefined;
 };
 
-const timerMinutes = (attributes: Record<string, unknown>): number | undefined => {
+const timerMinutes = (attributes: Record<string, unknown>, timerUnit: "min" | "s" | undefined): number | undefined => {
   const value = firstNumber(attributes, ["delay_off_countdown", "delay_time", "power_off_time", "timer"]);
   if (value === undefined) {
     return undefined;
   }
 
-  const unit = parseTimerUnit(attributes["timer_unit"] ?? attributes["delay_time_unit"]);
+  const unit = parseTimerUnit(
+    attributes["timer_unit"] ?? attributes["delay_time_unit"] ?? attributes["unit_of_measurement"] ?? timerUnit,
+  );
   return timerValueToMinutes(value, unit);
 };
 
@@ -161,11 +163,11 @@ const readPresetModes = (...values: unknown[]): string[] => {
 
 export const normalizeFanState = (entityId: string, entity?: HassEntity): NormalizedFanState => {
   const attributes = entity?.attributes ?? {};
-  const model = stringValue(attributes["model"] ?? attributes["model_name"]);
+  const model = stringValue(attributes["model"] ?? attributes["model_name"] ?? attributes["miot_model"]);
   const profile = getModelProfile(model);
   const speedLevels = resolveSpeedLevels(attributes, profile);
   const directPercentage = firstNumber(attributes, ["percentage", "direct_speed", "natural_speed"]);
-  const rawSpeed = firstNumber(attributes, ["fan_speed", "speed"]);
+  const rawSpeed = firstNumber(attributes, ["fan_speed", "speed", "raw_speed"]);
   const rawSpeedPercentage =
     rawSpeed !== undefined && rawSpeed <= speedLevels ? (rawSpeed / speedLevels) * 100 : rawSpeed;
   const percentage = clamp(directPercentage ?? rawSpeedPercentage ?? 0, 0, 100);
@@ -176,7 +178,7 @@ export const normalizeFanState = (entityId: string, entity?: HassEntity): Normal
   const presetModes = readPresetModes(attributes["preset_modes"], attributes["speed_list"], attributes["speed_modes"]);
   const directionValue = stringValue(attributes["direction"] ?? attributes["current_direction"])?.toLowerCase();
   const sleepMode = booleanValue(attributes["sleep_mode"]) ?? presetMode.includes("sleep");
-  const level = percentage === 0 ? 0 : clamp(Math.round((percentage / 100) * speedLevels), 1, speedLevels);
+  const level = speedLevelForPercentage(percentage, speedLevels, Number(attributes["percentage_step"]));
   const friendlyName = stringValue(attributes["friendly_name"]) ?? entityId;
 
   return {
@@ -194,7 +196,14 @@ export const normalizeFanState = (entityId: string, entity?: HassEntity): Normal
     availableModes: presetModes,
     sleepMode,
     direction: directionValue === "forward" || directionValue === "reverse" ? directionValue : undefined,
-    horizontalSwing: firstBoolean(attributes, ["oscillating", "oscillate", "horizontal_swing", "swing_mode"]),
+    horizontalSwing: firstBoolean(attributes, [
+      "oscillating",
+      "oscillate",
+      "horizontal_swing",
+      "horizontal_oscillating",
+      "horizontal_oscillation",
+      "swing_mode",
+    ]),
     horizontalAngle: firstAngle(attributes, [
       "horizontal_swing_angle",
       "horizontal_angle",
@@ -203,7 +212,7 @@ export const normalizeFanState = (entityId: string, entity?: HassEntity): Normal
     ]),
     verticalSwing: firstBoolean(attributes, ["vertical_swing", "vertical_oscillate", "vertical_oscillation"]),
     verticalAngle: firstAngle(attributes, ["vertical_swing_angle", "vertical_oscillation_angle", "vertical_angle"]),
-    timerMinutes: timerMinutes(attributes),
+    timerMinutes: timerMinutes(attributes, profile.timerUnit),
     childLock: booleanValue(attributes["child_lock"]),
     led: ledState(attributes),
     buzzer: firstBoolean(attributes, ["buzzer", "notification_sound"]),

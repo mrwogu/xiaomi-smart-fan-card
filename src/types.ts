@@ -9,6 +9,7 @@ export interface HassEntity {
 
 export interface RelatedEntities {
   sleepMode?: string;
+  horizontalSwing?: string;
   verticalSwing?: string;
   horizontalAngle?: string;
   verticalAngle?: string;
@@ -52,6 +53,7 @@ export interface FanModelProfile {
   label: string;
   known: boolean;
   isXiaomi: boolean;
+  timerUnit?: TimerUnit;
   speedLevels: number;
   horizontalAngles: number[];
   verticalAngles: number[];
@@ -62,7 +64,10 @@ export interface FanModelProfile {
 export interface FanCapabilities {
   isXiaomi: boolean;
   modelLabel: string;
+  speed: boolean;
+  percentageStep: number;
   speedLevels: number;
+  presetMode: boolean;
   direction: boolean;
   sleepMode: boolean;
   favoriteLevel: boolean;
@@ -77,6 +82,7 @@ export interface FanCapabilities {
   directionNudge: boolean;
   naturalMode: boolean;
   timer: boolean;
+  favoriteLevelSpec?: NumberSpec;
   timerSteps?: number[];
   timerSpec?: TimerSpec;
   childLock: boolean;
@@ -215,6 +221,7 @@ export interface FanLayoutConfig {
 }
 
 export interface FanRelatedEntitiesConfig {
+  horizontal_swing_entity?: string;
   horizontal_angle_entity?: string;
   vertical_swing_entity?: string;
   vertical_angle_entity?: string;
@@ -230,6 +237,7 @@ export interface FanRelatedEntitiesConfig {
 }
 
 export const RELATED_ENTITY_DOMAINS = {
+  horizontal_swing_entity: ["switch", "input_boolean", "select"],
   horizontal_angle_entity: ["number", "input_number", "select"],
   vertical_swing_entity: ["switch", "input_boolean", "select"],
   vertical_angle_entity: ["number", "input_number", "select"],
@@ -269,6 +277,7 @@ export interface FanCardConfig extends LovelaceCardConfig {
   show_led?: boolean;
   show_buzzer?: boolean;
   show_ionizer?: boolean;
+  horizontal_swing_entity?: string;
   horizontal_angle_entity?: string;
   vertical_swing_entity?: string;
   vertical_angle_entity?: string;

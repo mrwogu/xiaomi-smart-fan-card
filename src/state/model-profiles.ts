@@ -41,6 +41,7 @@ const profiles: FanModelProfile[] = [
     label: "Smartmi Standing Fan 3",
     known: true,
     isXiaomi: true,
+    timerUnit: "s",
     speedLevels: 4,
     horizontalAngles: [30, 60, 90, 120],
     verticalAngles: [],
@@ -165,7 +166,7 @@ const unknownProfile = (model?: string): FanModelProfile => ({
   model,
   label: model ? `Xiaomi Fan (${model})` : "Smart Fan",
   known: false,
-  isXiaomi: model?.includes(".fan.") ?? false,
+  isXiaomi: model?.trim().toLowerCase().includes(".fan.") ?? false,
   speedLevels: 4,
   horizontalAngles: [],
   verticalAngles: [],
@@ -206,5 +207,27 @@ export const resolveSpeedLevels = (
     }
   }
 
+  const percentageStep = Number(attributes["percentage_step"]);
+  if (Number.isFinite(percentageStep) && percentageStep > 1 && percentageStep <= 100) {
+    return Math.ceil(100 / percentageStep);
+  }
+
   return profile.speedLevels;
+};
+
+export const percentageForSpeedLevel = (level: number, speedLevels: number, percentageStep = 1): number => {
+  const stepDefinesLevels = percentageStep > 1 && Math.ceil(100 / percentageStep) === speedLevels;
+  return stepDefinesLevels ? Math.min(100, level * percentageStep) : Math.round((level / speedLevels) * 100);
+};
+
+export const speedLevelForPercentage = (percentage: number, speedLevels: number, percentageStep = 1): number => {
+  if (percentage <= 0) {
+    return 0;
+  }
+
+  const stepDefinesLevels = percentageStep > 1 && Math.ceil(100 / percentageStep) === speedLevels;
+  const level = stepDefinesLevels
+    ? Math.round(percentage / percentageStep)
+    : Math.round((percentage / 100) * speedLevels);
+  return Math.min(speedLevels, Math.max(1, level));
 };

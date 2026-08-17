@@ -372,9 +372,13 @@ describe("XiaomiFanCard", () => {
     const timer = related.schema!.find((field) => field.name === "timer_entity") as {
       selector: { entity: { domain: string[] } };
     };
+    const horizontalSwing = related.schema!.find((field) => field.name === "horizontal_swing_entity") as {
+      selector: { entity: { domain: string[] } };
+    };
 
     expect(entity.selector.entity.domain).toEqual(["fan"]);
-    expect(related.schema).toHaveLength(12);
+    expect(related.schema).toHaveLength(13);
+    expect(horizontalSwing.selector.entity.domain).toEqual(["switch", "input_boolean", "select"]);
     expect(timer.selector.entity.domain).toEqual(["number", "input_number"]);
     expect(panelFields(schema, "details").some((field) => field.name === "show_timer_when_off")).toBe(true);
     expect(panelFields(schema, "header").find((field) => field.name === "show_name")?.visible).toEqual([
@@ -588,6 +592,33 @@ describe("XiaomiFanCard", () => {
     expect(generic.shadowRoot?.querySelector(".header .title")?.textContent).toContain("Living Room Fan");
   });
 
+  it("does not render standard controls that an explicit feature mask rejects", async () => {
+    const { hass } = createHass();
+    hass.states["fan.p76"] = {
+      state: "on",
+      attributes: {
+        friendly_name: "Basic fan",
+        percentage: 50,
+        preset_modes: ["Normal", "Natural"],
+        timer: 120,
+        supported_features: 0,
+      },
+    };
+    const card = new XiaomiFanCard();
+    card.hass = hass as unknown as HomeAssistant;
+    card.setConfig({
+      type: "custom:xiaomi-fan-card",
+      entity: "fan.p76",
+      integration: "standard",
+      visual: { show: true, show_graphic: false, show_details: true },
+    });
+    document.body.append(card);
+    await settle(card);
+
+    expect(card.shadowRoot?.querySelector(".airflow-controls")).toBeNull();
+    expect(card.shadowRoot?.querySelector(".visual-meta")).toBeNull();
+  });
+
   it("previews the dragged speed before committing it to the fan", async () => {
     const { card, callService } = await renderCard({
       ...baseConfig,
@@ -638,6 +669,58 @@ describe("XiaomiFanCard", () => {
 
     expect(withoutSlider.card.shadowRoot?.querySelector(".speed-slider")).toBeNull();
     expect(withoutSlider.card.shadowRoot?.querySelector(".level-row")).toBeTruthy();
+  });
+
+  it("maps non-divisible percentage steps to unique speed levels", async () => {
+    const { hass, callService } = createHass();
+    hass.states["fan.p76"] = {
+      ...hass.states["fan.p76"]!,
+      attributes: {
+        ...hass.states["fan.p76"]!.attributes,
+        percentage_step: 30,
+      },
+    };
+    const card = new XiaomiFanCard();
+    card.hass = hass as unknown as HomeAssistant;
+    card.setConfig({
+      type: "custom:xiaomi-fan-card",
+      entity: "fan.p76",
+      integration: "standard",
+      header: { show: false },
+      visual: { show: false },
+      controls: {
+        show: true,
+        show_speed_slider: false,
+        show_speed_levels: true,
+        show_modes: false,
+        show_horizontal_swing: false,
+        show_vertical_swing: false,
+        show_sleep: false,
+        show_cycle: false,
+        show_horizontal_angle: false,
+        show_vertical_angle: false,
+        show_nudge: false,
+        show_direction: false,
+        show_favorite_level: false,
+        show_timer: false,
+        show_child_lock: false,
+        show_led: false,
+        show_buzzer: false,
+        show_ionizer: false,
+      },
+    });
+    document.body.append(card);
+    await settle(card);
+
+    const levels = [...(card.shadowRoot?.querySelectorAll(".level-button") ?? [])] as HTMLButtonElement[];
+    expect(levels).toHaveLength(4);
+    levels[2]?.click();
+    await Promise.resolve();
+
+    expect(callService).toHaveBeenCalledWith("fan", "set_percentage", {
+      entity_id: "fan.p76",
+      percentage: 90,
+    });
   });
 
   it("reports zero speed while the fan is off", async () => {

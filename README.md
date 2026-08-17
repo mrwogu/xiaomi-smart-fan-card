@@ -257,6 +257,11 @@ integration:
   entities. Primary angle attributes without a matching action remain hidden
   and do not create dead controls or details.
 
+When a standard fan exposes `supported_features`, that feature mask is
+authoritative for percentage, presets, oscillation, and direction. Related
+switches, input booleans, and selects can provide an optional control when the
+fan integration exposes it as a separate entity.
+
 The card does not connect directly to Xiaomi devices and does not invent
 MIoT property or service names. If the MIoT integration exposes only primary
 fan attributes, use `xiaomi_miio_fan` for its vendor-specific controls or keep
@@ -296,6 +301,10 @@ what it can._
 Nudge arrows are hidden by default when angle controls exist, because both
 target the same fan position. Set `controls.show_nudge_with_angles: true` to
 show both, as in the position block above.
+
+Timer values are shown in minutes. The custom `xiaomi_miio_fan` integration
+uses seconds for `zhimi.fan.za5`; the card converts that model-specific
+service value while keeping related timer entities in their declared unit.
 
 ## Install
 
