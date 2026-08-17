@@ -723,6 +723,32 @@ describe("XiaomiFanCard", () => {
     });
   });
 
+  it("renders and dispatches normal and natural mode buttons", async () => {
+    const { card, callService } = await renderCard({
+      ...baseConfig,
+      controls: {
+        ...baseConfig.controls,
+        show_modes: true,
+        show_preset_mode: true,
+      },
+    });
+    const buttons = [...(card.shadowRoot?.querySelectorAll(".mode-button") ?? [])] as HTMLButtonElement[];
+
+    expect(buttons).toHaveLength(2);
+    buttons[0]?.click();
+    buttons[1]?.click();
+    await Promise.resolve();
+
+    expect(callService).toHaveBeenCalledWith("fan", "set_preset_mode", {
+      entity_id: "fan.p76",
+      preset_mode: "Normal",
+    });
+    expect(callService).toHaveBeenCalledWith("fan", "set_preset_mode", {
+      entity_id: "fan.p76",
+      preset_mode: "Natural",
+    });
+  });
+
   it("reports zero speed while the fan is off", async () => {
     const { hass } = createHass();
     const entity = hass.states["fan.p76"]!;

@@ -274,6 +274,74 @@ describe("StandardFanAdapter", () => {
     await expect(adapter.setSleepMode(true)).rejects.toThrow("does not expose a sleep preset");
   });
 
+  it("sets and clears a primary sleep preset", async () => {
+    const { hass, calls } = createHass([], []);
+    hass.states["fan.example"] = {
+      state: "on",
+      attributes: {
+        friendly_name: "Example fan",
+        preset_mode: "Normal",
+        preset_modes: ["Normal", "Sleep"],
+      },
+    };
+    const adapter = new StandardFanAdapter(hass, "fan.example", services);
+
+    await adapter.setSleepMode(true);
+    await adapter.setSleepMode(false);
+
+    expect(calls).toEqual([
+      ["fan", "set_preset_mode", { entity_id: "fan.example", preset_mode: "Sleep" }],
+      ["fan", "set_preset_mode", { entity_id: "fan.example", preset_mode: "Normal" }],
+    ]);
+  });
+
+  it("dispatches standard mode selections", async () => {
+    const { hass, calls } = createHass([], []);
+    hass.states["fan.example"] = {
+      state: "on",
+      attributes: {
+        friendly_name: "Example fan",
+        preset_mode: "Normal",
+        preset_modes: ["Normal", "Natural"],
+      },
+    };
+    const adapter = new StandardFanAdapter(hass, "fan.example", services);
+
+    await adapter.setMode("natural");
+    await adapter.setMode("normal");
+
+    expect(calls).toEqual([
+      ["fan", "set_preset_mode", { entity_id: "fan.example", preset_mode: "Natural" }],
+      ["fan", "set_preset_mode", { entity_id: "fan.example", preset_mode: "Normal" }],
+    ]);
+  });
+
+  it("dispatches a related sleep switch", async () => {
+    const { hass, calls } = createHass([], []);
+    hass.states["switch.example_sleep_mode"] = {
+      state: "off",
+      attributes: {},
+    };
+    const adapter = new StandardFanAdapter(hass, "fan.example", services, {
+      sleepMode: "switch.example_sleep_mode",
+    });
+
+    await adapter.setSleepMode(true);
+
+    expect(calls).toEqual([["switch", "turn_on", { entity_id: "switch.example_sleep_mode" }]]);
+  });
+
+  it("rejects sleep actions when no sleep preset exists", async () => {
+    const { hass } = createHass([], []);
+    hass.states["fan.example"] = {
+      state: "on",
+      attributes: { friendly_name: "Example fan", preset_modes: ["Normal"] },
+    };
+    const adapter = new StandardFanAdapter(hass, "fan.example", services);
+
+    await expect(adapter.setSleepMode(true)).rejects.toThrow("does not expose a sleep preset");
+  });
+
   it("reports an angle spec instead of an unusable preset list for a fine-grained number", () => {
     const { hass } = createHass([], []);
     hass.states["number.example_horizontal_angle"] = {
