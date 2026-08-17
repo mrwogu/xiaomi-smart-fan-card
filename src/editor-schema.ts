@@ -1,4 +1,4 @@
-import { DEFAULT_BLOCK_ORDER, STYLE_TOKENS, VISUAL_SIZE_MAX, VISUAL_SIZE_MIN, VISUAL_SIZE_STEP } from "./config";
+import { DEFAULT_BLOCK_ORDER, STYLE_TOKENS, VISUAL_SIZE_EDITOR_MIN, VISUAL_SIZE_MAX, VISUAL_SIZE_STEP } from "./config";
 import { RELATED_ENTITY_DOMAINS } from "./types";
 import type { FanRelatedEntitiesConfig } from "./types";
 
@@ -79,7 +79,7 @@ export const getConfigForm = () => {
             name: "size",
             selector: {
               number: {
-                min: VISUAL_SIZE_MIN,
+                min: VISUAL_SIZE_EDITOR_MIN,
                 max: VISUAL_SIZE_MAX,
                 step: VISUAL_SIZE_STEP,
                 mode: "box",

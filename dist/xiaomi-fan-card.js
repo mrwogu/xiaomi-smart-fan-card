@@ -1295,6 +1295,8 @@ const DEFAULT_VISUAL_SIZE = 300;
 const VISUAL_SIZE_MIN = 120;
 const VISUAL_SIZE_MAX = 480;
 const VISUAL_SIZE_STEP = 10;
+// Keep the first digits of a multi-digit mobile edit valid until the final value is entered.
+const VISUAL_SIZE_EDITOR_MIN = 1;
 const SURFACE_STYLE_TOKENS = [
     "background",
     "border",
@@ -1650,7 +1652,7 @@ const getConfigForm = () => {
                     name: "size",
                     selector: {
                         number: {
-                            min: VISUAL_SIZE_MIN,
+                            min: VISUAL_SIZE_EDITOR_MIN,
                             max: VISUAL_SIZE_MAX,
                             step: VISUAL_SIZE_STEP,
                             mode: "box",
