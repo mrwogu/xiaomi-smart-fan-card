@@ -26,6 +26,8 @@ export const DEFAULT_VISUAL_SIZE = 300;
 export const VISUAL_SIZE_MIN = 120;
 export const VISUAL_SIZE_MAX = 480;
 export const VISUAL_SIZE_STEP = 10;
+// Keep the first digits of a multi-digit mobile edit valid until the final value is entered.
+export const VISUAL_SIZE_EDITOR_MIN = 1;
 
 const SURFACE_STYLE_TOKENS = [
   "background",

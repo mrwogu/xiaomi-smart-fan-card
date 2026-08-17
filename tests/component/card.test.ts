@@ -382,7 +382,7 @@ describe("XiaomiFanCard", () => {
     ]);
     expect(panelFields(schema, "visual").find((field) => field.name === "size")?.selector).toEqual({
       number: {
-        min: 120,
+        min: 1,
         max: 480,
         step: 10,
         mode: "box",
