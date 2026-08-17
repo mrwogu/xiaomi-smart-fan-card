@@ -215,8 +215,11 @@ export const resolveSpeedLevels = (
   return profile.speedLevels;
 };
 
+export const percentageStepDefinesLevels = (speedLevels: number, percentageStep: number): boolean =>
+  percentageStep > 1 && Math.ceil(100 / percentageStep) === speedLevels;
+
 export const percentageForSpeedLevel = (level: number, speedLevels: number, percentageStep = 1): number => {
-  const stepDefinesLevels = percentageStep > 1 && Math.ceil(100 / percentageStep) === speedLevels;
+  const stepDefinesLevels = percentageStepDefinesLevels(speedLevels, percentageStep);
   return stepDefinesLevels ? Math.min(100, level * percentageStep) : Math.round((level / speedLevels) * 100);
 };
 
@@ -225,7 +228,11 @@ export const speedLevelForPercentage = (percentage: number, speedLevels: number,
     return 0;
   }
 
-  const stepDefinesLevels = percentageStep > 1 && Math.ceil(100 / percentageStep) === speedLevels;
+  if (percentage >= 100) {
+    return speedLevels;
+  }
+
+  const stepDefinesLevels = percentageStepDefinesLevels(speedLevels, percentageStep);
   const level = stepDefinesLevels
     ? Math.round(percentage / percentageStep)
     : Math.round((percentage / 100) * speedLevels);

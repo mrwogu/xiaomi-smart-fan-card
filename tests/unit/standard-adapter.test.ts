@@ -149,6 +149,61 @@ describe("StandardFanAdapter", () => {
     expect(adapter.state.horizontalSwing).toBeUndefined();
   });
 
+  it("drops stale primary values when related entities are unavailable", () => {
+    const { hass } = createHass([], []);
+    hass.states["fan.example"] = {
+      state: "on",
+      attributes: {
+        friendly_name: "Example fan",
+        anion: true,
+        child_lock: true,
+        favorite_speed: 7,
+        humidity: 45,
+        notification_sound: true,
+        temperature: 21.5,
+      },
+    };
+    hass.states["switch.example_buzzer"] = {
+      state: "unavailable",
+      attributes: {},
+    };
+    hass.states["switch.example_child_lock"] = {
+      state: "unavailable",
+      attributes: {},
+    };
+    hass.states["number.example_favorite_level"] = {
+      state: "unavailable",
+      attributes: { min: 1, max: 10, step: 1 },
+    };
+    hass.states["switch.example_ionizer"] = {
+      state: "unknown",
+      attributes: {},
+    };
+    hass.states["sensor.example_humidity"] = {
+      state: "unknown",
+      attributes: {},
+    };
+    hass.states["sensor.example_temperature"] = {
+      state: "unavailable",
+      attributes: {},
+    };
+    const adapter = new StandardFanAdapter(hass, "fan.example", services, {
+      buzzer: "switch.example_buzzer",
+      childLock: "switch.example_child_lock",
+      favoriteLevel: "number.example_favorite_level",
+      humidity: "sensor.example_humidity",
+      ionizer: "switch.example_ionizer",
+      temperature: "sensor.example_temperature",
+    });
+
+    expect(adapter.state.buzzer).toBeUndefined();
+    expect(adapter.state.childLock).toBeUndefined();
+    expect(adapter.state.favoriteLevel).toBeUndefined();
+    expect(adapter.state.humidity).toBeUndefined();
+    expect(adapter.state.ionizer).toBeUndefined();
+    expect(adapter.state.temperature).toBeUndefined();
+  });
+
   it("supports numeric boolean select options used by MIoT entities", async () => {
     const { hass, calls } = createHass([], []);
     hass.states["select.example_vertical_swing"] = {

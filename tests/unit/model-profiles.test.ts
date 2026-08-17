@@ -41,6 +41,8 @@ describe("Xiaomi fan model profiles", () => {
 
   it("keeps percentage-step speed levels aligned in both directions", () => {
     expect(percentageForSpeedLevel(3, 4, 30)).toBe(90);
+    expect(percentageForSpeedLevel(4, 4, 30)).toBe(100);
     expect(speedLevelForPercentage(90, 4, 30)).toBe(3);
+    expect(speedLevelForPercentage(100, 4, 30)).toBe(4);
   });
 });

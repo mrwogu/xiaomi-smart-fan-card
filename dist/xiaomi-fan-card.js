@@ -473,15 +473,19 @@ const resolveSpeedLevels = (attributes, profile = getModelProfile()) => {
     }
     return profile.speedLevels;
 };
+const percentageStepDefinesLevels = (speedLevels, percentageStep) => percentageStep > 1 && Math.ceil(100 / percentageStep) === speedLevels;
 const percentageForSpeedLevel = (level, speedLevels, percentageStep = 1) => {
-    const stepDefinesLevels = percentageStep > 1 && Math.ceil(100 / percentageStep) === speedLevels;
+    const stepDefinesLevels = percentageStepDefinesLevels(speedLevels, percentageStep);
     return stepDefinesLevels ? Math.min(100, level * percentageStep) : Math.round((level / speedLevels) * 100);
 };
 const speedLevelForPercentage = (percentage, speedLevels, percentageStep = 1) => {
     if (percentage <= 0) {
         return 0;
     }
-    const stepDefinesLevels = percentageStep > 1 && Math.ceil(100 / percentageStep) === speedLevels;
+    if (percentage >= 100) {
+        return speedLevels;
+    }
+    const stepDefinesLevels = percentageStepDefinesLevels(speedLevels, percentageStep);
     const level = stepDefinesLevels
         ? Math.round(percentage / percentageStep)
         : Math.round((percentage / 100) * speedLevels);
@@ -1086,10 +1090,13 @@ class StandardFanAdapter {
                 "horizontal_oscillation",
                 "swing_mode",
             ],
+            favoriteLevel: ["favorite_level", "favorite_speed"],
             verticalAngle: ["vertical_swing_angle", "vertical_oscillation_angle", "vertical_angle"],
             verticalSwing: ["vertical_swing", "vertical_oscillate", "vertical_oscillation"],
             timer: ["delay_off_countdown", "delay_time", "power_off_time", "timer", "timer_unit", "delay_time_unit"],
             led: ["led", "light", "led_brightness", "light_enum"],
+            buzzer: ["buzzer", "notification_sound"],
+            ionizer: ["anion", "ionizer"],
         };
         const clearAliases = (key) => {
             for (const alias of attributeAliases[key] ?? []) {
@@ -1138,6 +1145,7 @@ class StandardFanAdapter {
             }
             else if (relatedState) {
                 clearAliases(relatedKey);
+                delete attributes[attributeKey];
             }
             else if (attributes[attributeKey] !== undefined && attributes[attributeKey] !== null) {
                 continue;
@@ -3017,10 +3025,10 @@ const resolveRelatedEntities = async (hass, entityId) => {
         const withoutVerticalAngle = entries.filter((entry) => entry.entity_id !== related.verticalAngle);
         related.horizontalAngle = findBySuffix(withoutVerticalAngle, angle, suffixes.horizontalAngle);
         const withoutAngles = withoutVerticalAngle.filter((entry) => entry.entity_id !== related.horizontalAngle);
-        const withoutVerticalSwing = withoutAngles.filter((entry) => !suffixes.verticalSwing.some((suffix) => entry.entity_id.endsWith(suffix)));
+        related.verticalSwing = findBySuffix(withoutAngles, [...boolean, "select"], suffixes.verticalSwing);
+        const withoutVerticalSwing = withoutAngles.filter((entry) => entry.entity_id !== related.verticalSwing);
         related.sleepMode = findBySuffix(withoutAngles, [...boolean, "select"], suffixes.sleepMode);
         related.horizontalSwing = findBySuffix(withoutVerticalSwing, [...boolean, "select"], suffixes.horizontalSwing);
-        related.verticalSwing = findBySuffix(withoutAngles, [...boolean, "select"], suffixes.verticalSwing);
         related.favoriteLevel = findBySuffix(entries, numeric, suffixes.favoriteLevel);
         related.timer = findBySuffix(entries, numeric, suffixes.timer);
         related.childLock = findBySuffix(entries, [...boolean, ...select], suffixes.childLock);
@@ -3093,10 +3101,6 @@ class XiaomiFanCard extends i$2 {
         this.retryDelay = 0;
         this.translatorLanguage = "";
         this.translator = createTranslator();
-        this.onPercentagePreview = (event) => {
-            this.speedDragging = true;
-            this.speedPreview = Number(event.currentTarget.value);
-        };
         this.onHeaderClick = () => {
             if (this.hass && this.config) {
                 handleAction(this, this.hass, this.config);
@@ -3527,6 +3531,9 @@ class XiaomiFanCard extends i$2 {
         const displayLevel = this.speedPreview === undefined
             ? (state.isOn ? state.level : 0) || 0
             : speedLevelForPercentage(this.speedPreview, adapter.capabilities.speedLevels, adapter.capabilities.percentageStep);
+        const sliderUsesLevels = percentageStepDefinesLevels(adapter.capabilities.speedLevels, adapter.capabilities.percentageStep);
+        const sliderMaximum = sliderUsesLevels ? adapter.capabilities.speedLevels : 100;
+        const sliderValue = sliderUsesLevels ? displayLevel : displayPercentage;
         return b `
       <section
         class="controls airflow-controls"
@@ -3550,11 +3557,11 @@ class XiaomiFanCard extends i$2 {
                   class="speed-slider"
                   type="range"
                   min="0"
-                  max="100"
-                  step=${adapter.capabilities.percentageStep}
-                  .value=${String(displayPercentage)}
+                  max=${sliderMaximum}
+                  step=${sliderUsesLevels ? 1 : adapter.capabilities.percentageStep}
+                  .value=${String(sliderValue)}
                   style=${o({ "--fan-speed-progress": String(displayPercentage) })}
-                  @input=${this.onPercentagePreview}
+                  @input=${(event) => this.onPercentagePreview(event, adapter)}
                   @change=${(event) => this.onPercentageChange(event, adapter)}
                   aria-label=${this.t("fanSpeedPercentage")}
                   aria-valuetext="${displayPercentage}%"
@@ -3563,7 +3570,7 @@ class XiaomiFanCard extends i$2 {
             : ""}
         ${showSpeedLevels
             ? useSpeedSelect
-                ? this.renderSpeedSelector(adapter, levelLabels)
+                ? this.renderSpeedSelector(adapter, levelLabels, displayLevel)
                 : b `
                   <div class="level-row" role="group" aria-label=${this.t("speedLevels")}>
                     ${levelLabels.map((level) => b `
@@ -3633,8 +3640,8 @@ class XiaomiFanCard extends i$2 {
       </section>
     `;
     }
-    renderSpeedSelector(adapter, levels) {
-        const current = adapter.state.level || levels[0] || 1;
+    renderSpeedSelector(adapter, levels, displayLevel) {
+        const current = displayLevel || levels[0] || 1;
         return b `
       <label class="feature-select speed-select">
         <span>${this.t("speedLevels")}</span>
@@ -3980,8 +3987,17 @@ class XiaomiFanCard extends i$2 {
         await adapter.setHorizontalSwing(enabled);
         await adapter.setVerticalSwing(enabled);
     }
+    percentageFromSlider(adapter, value) {
+        return percentageStepDefinesLevels(adapter.capabilities.speedLevels, adapter.capabilities.percentageStep)
+            ? percentageForSpeedLevel(value, adapter.capabilities.speedLevels, adapter.capabilities.percentageStep)
+            : value;
+    }
+    onPercentagePreview(event, adapter) {
+        this.speedDragging = true;
+        this.speedPreview = this.percentageFromSlider(adapter, Number(event.currentTarget.value));
+    }
     onPercentageChange(event, adapter) {
-        const value = Number(event.currentTarget.value);
+        const value = this.percentageFromSlider(adapter, Number(event.currentTarget.value));
         this.speedDragging = false;
         this.speedPreview = value;
         this.execute(() => adapter.setPercentage(value));

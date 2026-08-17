@@ -325,10 +325,13 @@ export class StandardFanAdapter implements FanAdapter {
         "horizontal_oscillation",
         "swing_mode",
       ],
+      favoriteLevel: ["favorite_level", "favorite_speed"],
       verticalAngle: ["vertical_swing_angle", "vertical_oscillation_angle", "vertical_angle"],
       verticalSwing: ["vertical_swing", "vertical_oscillate", "vertical_oscillation"],
       timer: ["delay_off_countdown", "delay_time", "power_off_time", "timer", "timer_unit", "delay_time_unit"],
       led: ["led", "light", "led_brightness", "light_enum"],
+      buzzer: ["buzzer", "notification_sound"],
+      ionizer: ["anion", "ionizer"],
     };
     const clearAliases = (key: keyof RelatedEntities): void => {
       for (const alias of attributeAliases[key] ?? []) {
@@ -381,6 +384,7 @@ export class StandardFanAdapter implements FanAdapter {
         }
       } else if (relatedState) {
         clearAliases(relatedKey);
+        delete attributes[attributeKey];
       } else if (attributes[attributeKey] !== undefined && attributes[attributeKey] !== null) {
         continue;
       }

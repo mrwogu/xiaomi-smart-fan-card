@@ -105,12 +105,10 @@ export const resolveRelatedEntities = async (
     const withoutVerticalAngle = entries.filter((entry) => entry.entity_id !== related.verticalAngle);
     related.horizontalAngle = findBySuffix(withoutVerticalAngle, angle, suffixes.horizontalAngle);
     const withoutAngles = withoutVerticalAngle.filter((entry) => entry.entity_id !== related.horizontalAngle);
-    const withoutVerticalSwing = withoutAngles.filter(
-      (entry) => !suffixes.verticalSwing.some((suffix) => entry.entity_id.endsWith(suffix)),
-    );
+    related.verticalSwing = findBySuffix(withoutAngles, [...boolean, "select"], suffixes.verticalSwing);
+    const withoutVerticalSwing = withoutAngles.filter((entry) => entry.entity_id !== related.verticalSwing);
     related.sleepMode = findBySuffix(withoutAngles, [...boolean, "select"], suffixes.sleepMode);
     related.horizontalSwing = findBySuffix(withoutVerticalSwing, [...boolean, "select"], suffixes.horizontalSwing);
-    related.verticalSwing = findBySuffix(withoutAngles, [...boolean, "select"], suffixes.verticalSwing);
     related.favoriteLevel = findBySuffix(entries, numeric, suffixes.favoriteLevel);
     related.timer = findBySuffix(entries, numeric, suffixes.timer);
     related.childLock = findBySuffix(entries, [...boolean, ...select], suffixes.childLock);

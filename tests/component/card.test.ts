@@ -622,7 +622,12 @@ describe("XiaomiFanCard", () => {
   it("previews the dragged speed before committing it to the fan", async () => {
     const { card, callService } = await renderCard({
       ...baseConfig,
-      controls: { ...baseConfig.controls, show_speed_slider: true },
+      controls: {
+        ...baseConfig.controls,
+        show_speed_slider: true,
+        show_speed_levels: true,
+        selection_mode: "select",
+      },
     });
     const root = card.shadowRoot;
     const slider = root?.querySelector(".speed-slider") as HTMLInputElement;
@@ -632,6 +637,7 @@ describe("XiaomiFanCard", () => {
     await settle(card);
 
     expect(root?.querySelector(".value")?.textContent).toContain("80%");
+    expect((root?.querySelector(".speed-select select") as HTMLSelectElement).value).toBe("3");
     expect(slider.getAttribute("style")).toContain("--fan-speed-progress");
     expect(callService).not.toHaveBeenCalled();
 
@@ -677,6 +683,7 @@ describe("XiaomiFanCard", () => {
       ...hass.states["fan.p76"]!,
       attributes: {
         ...hass.states["fan.p76"]!.attributes,
+        percentage: 100,
         percentage_step: 30,
       },
     };
@@ -690,7 +697,7 @@ describe("XiaomiFanCard", () => {
       visual: { show: false },
       controls: {
         show: true,
-        show_speed_slider: false,
+        show_speed_slider: true,
         show_speed_levels: true,
         show_modes: false,
         show_horizontal_swing: false,
@@ -713,13 +720,35 @@ describe("XiaomiFanCard", () => {
     await settle(card);
 
     const levels = [...(card.shadowRoot?.querySelectorAll(".level-button") ?? [])] as HTMLButtonElement[];
+    const slider = card.shadowRoot?.querySelector(".speed-slider") as HTMLInputElement;
     expect(levels).toHaveLength(4);
+    expect(levels[3]?.classList.contains("selected")).toBe(true);
+    expect(slider.max).toBe("4");
+    expect(slider.step).toBe("1");
+    expect(slider.value).toBe("4");
+
     levels[2]?.click();
     await Promise.resolve();
 
     expect(callService).toHaveBeenCalledWith("fan", "set_percentage", {
       entity_id: "fan.p76",
       percentage: 90,
+    });
+
+    callService.mockClear();
+    slider.value = "4";
+    slider.dispatchEvent(new Event("input"));
+    await settle(card);
+
+    expect(card.shadowRoot?.querySelector(".value")?.textContent).toContain("100%");
+    expect(slider.getAttribute("aria-valuetext")).toBe("100%");
+
+    slider.dispatchEvent(new Event("change"));
+    await Promise.resolve();
+
+    expect(callService).toHaveBeenCalledWith("fan", "set_percentage", {
+      entity_id: "fan.p76",
+      percentage: 100,
     });
   });
 
