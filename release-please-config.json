@@ -9,6 +9,13 @@
       "bump-patch-for-minor-pre-major": true
     }
   },
+  "release-rules": [
+    {
+      "type": "chore",
+      "scope": "deps",
+      "release": "patch"
+    }
+  ],
   "changelog-sections": [
     {
       "type": "feat",

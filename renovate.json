@@ -11,13 +11,34 @@
   "rebaseWhen": "behind-base-branch",
   "semanticCommits": "enabled",
   "semanticCommitType": "chore",
-  "semanticCommitScope": "deps",
   "packageRules": [
     {
-      "description": "Automerge every dependency update after checks pass",
+      "description": "Use release scope for production dependencies",
+      "matchManagers": ["npm"],
+      "matchDepTypes": ["dependencies"],
+      "semanticCommitScope": "deps"
+    },
+    {
+      "description": "Keep development dependency updates maintenance-only",
+      "matchManagers": ["npm"],
+      "matchDepTypes": ["devDependencies"],
+      "semanticCommitScope": "deps-dev"
+    },
+    {
+      "description": "Keep GitHub Actions updates maintenance-only",
+      "matchManagers": ["github-actions"],
+      "semanticCommitScope": "ci"
+    },
+    {
+      "description": "Release production lockfile maintenance",
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["lockFileMaintenance"],
+      "semanticCommitScope": "deps"
+    },
+    {
+      "description": "Automerge non-major dependency updates after checks pass",
       "matchManagers": ["npm", "github-actions"],
       "matchUpdateTypes": [
-        "major",
         "minor",
         "patch",
         "pin",

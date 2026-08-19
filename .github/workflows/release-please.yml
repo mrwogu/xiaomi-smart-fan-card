@@ -23,3 +23,27 @@ jobs:
           token: ${{ secrets.RELEASE_PAT }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+
+      - name: Enable release PR auto-merge
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
+        run: |
+          release_pr_number="$(
+            gh pr list \
+              --repo "$GITHUB_REPOSITORY" \
+              --base main \
+              --state open \
+              --json number,title,labels \
+              --jq '.[] | select(.title | startswith("chore(main): release ")) | select([.labels[].name] | index("autorelease: pending")) | .number' |
+              head -n 1
+          )"
+
+          if [[ -z "$release_pr_number" ]]; then
+            echo "No open Release Please PR found"
+            exit 0
+          fi
+
+          gh pr merge "$release_pr_number" \
+            --repo "$GITHUB_REPOSITORY" \
+            --auto \
+            --squash
