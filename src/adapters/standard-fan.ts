@@ -66,6 +66,10 @@ const RELATED_ENTITY_DOMAINS: Record<keyof RelatedEntities, readonly string[]> =
   led: ["switch", "input_boolean", "select", "number", "input_number"],
   buzzer: ["switch", "input_boolean", "select"],
   ionizer: ["switch", "input_boolean", "select"],
+  nudgeLeft: ["button"],
+  nudgeRight: ["button"],
+  nudgeUp: ["button"],
+  nudgeDown: ["button"],
   temperature: ["sensor"],
   humidity: ["sensor"],
 };
@@ -192,6 +196,14 @@ export class StandardFanAdapter implements FanAdapter {
       "buzzer",
       "ionizer",
     ]);
+    // Momentary buttons report `unknown` until their first press, which would
+    // otherwise drop a fully working position pad.
+    const momentaryKeys: ReadonlySet<keyof RelatedEntities> = new Set([
+      "nudgeLeft",
+      "nudgeRight",
+      "nudgeUp",
+      "nudgeDown",
+    ]);
 
     for (const key of Object.keys(actionable) as Array<keyof RelatedEntities>) {
       const entityId = actionable[key];
@@ -199,8 +211,8 @@ export class StandardFanAdapter implements FanAdapter {
       const [domain] = entityId ? entityParts(entityId) : [""];
       if (
         !state ||
-        state.state === "unknown" ||
         state.state === "unavailable" ||
+        (state.state === "unknown" && !momentaryKeys.has(key)) ||
         !RELATED_ENTITY_DOMAINS[key].includes(domain) ||
         ((key === "horizontalAngle" || key === "verticalAngle") &&
           this.isSelectEntity(entityId) &&
@@ -536,9 +548,26 @@ export class StandardFanAdapter implements FanAdapter {
   }
 
   public async nudge(direction: "left" | "right" | "up" | "down"): Promise<void> {
+    const button = this.nudgeButton(direction);
+    if (button) {
+      // Xiaomi Home exposes each pad direction as a momentary button entity.
+      await this.hass.callService("button", "press", { entity_id: button });
+      return;
+    }
+
     // Aiming the head only holds while the fan is not sweeping.
     await this.stopSwing();
     await this.callCustom("fan_turn", { direction });
+  }
+
+  private nudgeButton(direction: "left" | "right" | "up" | "down"): string | undefined {
+    const buttons: Record<"left" | "right" | "up" | "down", string | undefined> = {
+      left: this.actionableRelated.nudgeLeft,
+      right: this.actionableRelated.nudgeRight,
+      up: this.actionableRelated.nudgeUp,
+      down: this.actionableRelated.nudgeDown,
+    };
+    return buttons[direction];
   }
 
   /**

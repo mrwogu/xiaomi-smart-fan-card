@@ -561,6 +561,9 @@ const detectCapabilities = (entity, services = { loaded: false, names: new Set()
                 profile.known));
     const presetMode = hasFanFeature(entity, FAN_FEATURE_PRESET_MODE) || (!explicitFeatureMask && (hasPresetAttributes || profile.known));
     const xiaomiCustomModel = isXiaomi;
+    // Xiaomi Home has no fan_turn service and exposes the pad as four button
+    // entities instead, so all four buttons make the pad actionable on their own.
+    const hasNudgeButtons = Boolean(related.nudgeLeft) && Boolean(related.nudgeRight) && Boolean(related.nudgeUp) && Boolean(related.nudgeDown);
     return {
         isXiaomi,
         modelLabel: profile.label,
@@ -603,7 +606,7 @@ const detectCapabilities = (entity, services = { loaded: false, names: new Set()
             (hasVerticalAngle && customService(services, "fan_set_vertical_oscillation_angle")) ||
             (profile.verticalAngles.length > 0 && customService(services, "fan_set_vertical_oscillation_angle")),
         verticalAngles: profile.verticalAngles,
-        directionNudge: profile.supportsNudge && customService(services, "fan_turn"),
+        directionNudge: (profile.supportsNudge && customService(services, "fan_turn")) || hasNudgeButtons,
         naturalMode: presetMode &&
             (hasNaturalPreset ||
                 (!explicitFeatureMask &&
@@ -893,6 +896,10 @@ const RELATED_ENTITY_DOMAINS$1 = {
     led: ["switch", "input_boolean", "select", "number", "input_number"],
     buzzer: ["switch", "input_boolean", "select"],
     ionizer: ["switch", "input_boolean", "select"],
+    nudgeLeft: ["button"],
+    nudgeRight: ["button"],
+    nudgeUp: ["button"],
+    nudgeDown: ["button"],
     temperature: ["sensor"],
     humidity: ["sensor"],
 };
@@ -987,13 +994,21 @@ class StandardFanAdapter {
             "buzzer",
             "ionizer",
         ]);
+        // Momentary buttons report `unknown` until their first press, which would
+        // otherwise drop a fully working position pad.
+        const momentaryKeys = new Set([
+            "nudgeLeft",
+            "nudgeRight",
+            "nudgeUp",
+            "nudgeDown",
+        ]);
         for (const key of Object.keys(actionable)) {
             const entityId = actionable[key];
             const state = entityId ? this.hass.states[entityId] : undefined;
             const [domain] = entityId ? entityParts(entityId) : [""];
             if (!state ||
-                state.state === "unknown" ||
                 state.state === "unavailable" ||
+                (state.state === "unknown" && !momentaryKeys.has(key)) ||
                 !RELATED_ENTITY_DOMAINS$1[key].includes(domain) ||
                 ((key === "horizontalAngle" || key === "verticalAngle") &&
                     this.isSelectEntity(entityId) &&
@@ -1261,9 +1276,24 @@ class StandardFanAdapter {
         });
     }
     async nudge(direction) {
+        const button = this.nudgeButton(direction);
+        if (button) {
+            // Xiaomi Home exposes each pad direction as a momentary button entity.
+            await this.hass.callService("button", "press", { entity_id: button });
+            return;
+        }
         // Aiming the head only holds while the fan is not sweeping.
         await this.stopSwing();
         await this.callCustom("fan_turn", { direction });
+    }
+    nudgeButton(direction) {
+        const buttons = {
+            left: this.actionableRelated.nudgeLeft,
+            right: this.actionableRelated.nudgeRight,
+            up: this.actionableRelated.nudgeUp,
+            down: this.actionableRelated.nudgeDown,
+        };
+        return buttons[direction];
     }
     /**
      * An angle only takes effect on a sweeping axis, so selecting one implies
@@ -2963,6 +2993,10 @@ const suffixes = {
     led: ["_led", "_led_brightness", "_light"],
     buzzer: ["_buzzer", "_notification_sound"],
     ionizer: ["_anion", "_ionizer"],
+    nudgeLeft: ["_turn_left", "_move_left"],
+    nudgeRight: ["_turn_right", "_move_right"],
+    nudgeUp: ["_turn_upward", "_move_upward"],
+    nudgeDown: ["_turn_downward", "_move_downward"],
     temperature: ["_temperature"],
     humidity: ["_humidity"],
 };
@@ -3035,6 +3069,12 @@ const resolveRelatedEntities = async (hass, entityId) => {
         related.led = findBySuffix(entries, [...boolean, ...select, ...numeric], suffixes.led);
         related.buzzer = findBySuffix(entries, [...boolean, ...select], suffixes.buzzer);
         related.ionizer = findBySuffix(entries, [...boolean, ...select], suffixes.ionizer);
+        // Xiaomi Home exposes the position pad as momentary buttons whose ids end
+        // in a MIoT action suffix, so the hint fallback below does the matching.
+        related.nudgeLeft = findBySuffix(entries, ["button"], suffixes.nudgeLeft);
+        related.nudgeRight = findBySuffix(entries, ["button"], suffixes.nudgeRight);
+        related.nudgeUp = findBySuffix(entries, ["button"], suffixes.nudgeUp);
+        related.nudgeDown = findBySuffix(entries, ["button"], suffixes.nudgeDown);
         related.temperature = findSensorByDeviceClass(hass, entries, "temperature", suffixes.temperature);
         related.humidity = findSensorByDeviceClass(hass, entries, "humidity", suffixes.humidity);
         return related;
