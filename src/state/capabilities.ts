@@ -101,6 +101,10 @@ export const detectCapabilities = (
   const presetMode =
     hasFanFeature(entity, FAN_FEATURE_PRESET_MODE) || (!explicitFeatureMask && (hasPresetAttributes || profile.known));
   const xiaomiCustomModel = isXiaomi;
+  // Xiaomi Home has no fan_turn service and exposes the pad as four button
+  // entities instead, so all four buttons make the pad actionable on their own.
+  const hasNudgeButtons =
+    Boolean(related.nudgeLeft) && Boolean(related.nudgeRight) && Boolean(related.nudgeUp) && Boolean(related.nudgeDown);
   return {
     isXiaomi,
     modelLabel: profile.label,
@@ -148,7 +152,7 @@ export const detectCapabilities = (
       (hasVerticalAngle && customService(services, "fan_set_vertical_oscillation_angle")) ||
       (profile.verticalAngles.length > 0 && customService(services, "fan_set_vertical_oscillation_angle")),
     verticalAngles: profile.verticalAngles,
-    directionNudge: profile.supportsNudge && customService(services, "fan_turn"),
+    directionNudge: (profile.supportsNudge && customService(services, "fan_turn")) || hasNudgeButtons,
     naturalMode:
       presetMode &&
       (hasNaturalPreset ||

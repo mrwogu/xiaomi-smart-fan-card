@@ -19,6 +19,10 @@ export interface RelatedEntities {
   led?: string;
   buzzer?: string;
   ionizer?: string;
+  nudgeLeft?: string;
+  nudgeRight?: string;
+  nudgeUp?: string;
+  nudgeDown?: string;
   temperature?: string;
   humidity?: string;
 }

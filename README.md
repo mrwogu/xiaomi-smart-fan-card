@@ -300,7 +300,10 @@ what it can._
 
 Nudge arrows are hidden by default when angle controls exist, because both
 target the same fan position. Set `controls.show_nudge_with_angles: true` to
-show both, as in the position block above.
+show both, as in the position block above. The pad also appears for Xiaomi Home
+devices that expose `turn_left`, `turn_right`, `turn_upward`, and
+`turn_downward` buttons: the card discovers them on the same device and presses
+them instead of calling vendor services.
 
 Timer values are shown in minutes. The custom `xiaomi_miio_fan` integration
 uses seconds for `zhimi.fan.za5`; the card converts that model-specific

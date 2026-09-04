@@ -21,6 +21,10 @@ const suffixes: Record<keyof RelatedEntities, string[]> = {
   led: ["_led", "_led_brightness", "_light"],
   buzzer: ["_buzzer", "_notification_sound"],
   ionizer: ["_anion", "_ionizer"],
+  nudgeLeft: ["_turn_left", "_move_left"],
+  nudgeRight: ["_turn_right", "_move_right"],
+  nudgeUp: ["_turn_upward", "_move_upward"],
+  nudgeDown: ["_turn_downward", "_move_downward"],
   temperature: ["_temperature"],
   humidity: ["_humidity"],
 };
@@ -115,6 +119,12 @@ export const resolveRelatedEntities = async (
     related.led = findBySuffix(entries, [...boolean, ...select, ...numeric], suffixes.led);
     related.buzzer = findBySuffix(entries, [...boolean, ...select], suffixes.buzzer);
     related.ionizer = findBySuffix(entries, [...boolean, ...select], suffixes.ionizer);
+    // Xiaomi Home exposes the position pad as momentary buttons whose ids end
+    // in a MIoT action suffix, so the hint fallback below does the matching.
+    related.nudgeLeft = findBySuffix(entries, ["button"], suffixes.nudgeLeft);
+    related.nudgeRight = findBySuffix(entries, ["button"], suffixes.nudgeRight);
+    related.nudgeUp = findBySuffix(entries, ["button"], suffixes.nudgeUp);
+    related.nudgeDown = findBySuffix(entries, ["button"], suffixes.nudgeDown);
     related.temperature = findSensorByDeviceClass(hass, entries, "temperature", suffixes.temperature);
     related.humidity = findSensorByDeviceClass(hass, entries, "humidity", suffixes.humidity);
 
