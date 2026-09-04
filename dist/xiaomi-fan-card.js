@@ -3123,8 +3123,10 @@ class XiaomiFanCard extends i$2 {
         return this.estimatedRows();
     }
     getGridOptions() {
-        const rows = this.estimatedRows();
-        return { columns: 12, rows, min_columns: 6, min_rows: Math.min(rows, 2) };
+        // A fixed row count would reserve grid cells for controls the card hides
+        // when a feature is disabled or unsupported, so the section keeps the empty
+        // space below the card. "auto" lets the grid follow the rendered height.
+        return { columns: 12, rows: "auto", min_columns: 6, min_rows: 1 };
     }
     setConfig(config) {
         const entity = config?.entity ?? config?.entity_id;
@@ -3367,17 +3369,22 @@ class XiaomiFanCard extends i$2 {
         const title = this.config.name || state.friendlyName;
         const modeLabel = state.mode === "natural" ? this.t("naturalBreeze") : this.t("straightAirflow");
         const status = state.isOn ? this.t("running") : this.t("standby");
+        // The eyebrow names a Xiaomi product line, so a generic fan entity must
+        // never claim it even when the full header is active.
+        const showEyebrow = this.config.header.show_eyebrow && adapter.capabilities.isXiaomi;
+        const showSubtitle = this.config.header.show_status || this.config.header.show_mode;
+        const showModel = this.config.header.show_model && adapter.profile.known;
+        // An empty header would still reserve its tap target and divider, so the
+        // block disappears completely once every header element is hidden.
+        if (!showEyebrow && !this.config.header.show_name && !showSubtitle && !showModel) {
+            return "";
+        }
         return b `
       <header class="header" style=${o(styleMapFor(this.config.styles.header, "fan-header"))}>
         <button class="title-button" @click=${this.onHeaderClick} aria-label=${this.t("open", { title })}>
-          ${
-        // The eyebrow names a Xiaomi product line, so a generic fan entity
-        // must never claim it even when the full header is active.
-        this.config.header.show_eyebrow && adapter.capabilities.isXiaomi
-            ? b `<span class="eyebrow">${this.t("xiaomiAirCirculation")}</span>`
-            : ""}
+          ${showEyebrow ? b `<span class="eyebrow">${this.t("xiaomiAirCirculation")}</span>` : ""}
           ${this.config.header.show_name ? b `<span class="title">${title}</span>` : ""}
-          ${this.config.header.show_status || this.config.header.show_mode
+          ${showSubtitle
             ? b `
                   <span class="subtitle">
                     ${this.config.header.show_status
@@ -3388,9 +3395,7 @@ class XiaomiFanCard extends i$2 {
                 `
             : ""}
         </button>
-        ${this.config.header.show_model && adapter.profile.known
-            ? b `<span class="model-badge">${adapter.profile.model?.split(".").at(-1) ?? "XIAOMI"}</span>`
-            : ""}
+        ${showModel ? b `<span class="model-badge">${adapter.profile.model?.split(".").at(-1) ?? "XIAOMI"}</span>` : ""}
       </header>
     `;
     }
@@ -3400,6 +3405,12 @@ class XiaomiFanCard extends i$2 {
         const style = `--speed:${speed}; --spin-duration:${Math.max(1.8, 12 - speed / 11)}s;`;
         const axis = getAirflowAxis(state.horizontalSwing, state.verticalSwing);
         const animationDisabled = this.config.disable_animation || this.config.visual.animation === "disabled";
+        const details = this.config.visual.show_details ? this.renderDetails(adapter) : "";
+        // An empty section would still add a block gap to the card, so the visual
+        // block disappears completely once the graphic and the details are gone.
+        if (!this.config.visual.show_graphic && details === "") {
+            return "";
+        }
         return b `
       <section
         class="visual-section details-${this.config.details.position} ${this.config.visual.show_graphic ? "details-with-graphic" : "details-only"}"
@@ -3450,7 +3461,7 @@ class XiaomiFanCard extends i$2 {
                 </div>
               `
             : ""}
-        ${this.config.visual.show_details ? this.renderDetails(adapter) : ""}
+        ${details}
       </section>
     `;
     }
