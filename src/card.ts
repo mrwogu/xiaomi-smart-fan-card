@@ -489,7 +489,7 @@ export class XiaomiFanCard extends LitElement {
                     <span class="hub"></span>
                   </div>
                   ${
-                    this.config.visual.show_power
+                    this.config.visual.show_power && adapter.capabilities.power
                       ? html`
                           <button
                             class="power-button ${state.isOn ? "active" : ""}"
@@ -961,22 +961,33 @@ export class XiaomiFanCard extends LitElement {
       adapter.capabilities.directionNudge &&
       (!hasAutomaticAngle || controls.show_nudge_with_angles)
     ) {
+      const directions = adapter.capabilities.nudgeDirections;
+      const axisClass =
+        directions.length === 2 ? (directions.includes("left") ? "horizontal-only" : "vertical-only") : "";
       nudgeFeatures.push(html`
         <div class="nudge-control">
           <span>${this.t("position")}</span>
-          <div class="nudge-grid">
-            <button @click=${() => this.execute(() => adapter.nudge("up"))} aria-label=${this.t("moveFanUp")}>
-              <ha-icon icon="mdi:chevron-up"></ha-icon>
-            </button>
-            <button @click=${() => this.execute(() => adapter.nudge("left"))} aria-label=${this.t("moveFanLeft")}>
-              <ha-icon icon="mdi:chevron-left"></ha-icon>
-            </button>
-            <button @click=${() => this.execute(() => adapter.nudge("right"))} aria-label=${this.t("moveFanRight")}>
-              <ha-icon icon="mdi:chevron-right"></ha-icon>
-            </button>
-            <button @click=${() => this.execute(() => adapter.nudge("down"))} aria-label=${this.t("moveFanDown")}>
-              <ha-icon icon="mdi:chevron-down"></ha-icon>
-            </button>
+          <div class="nudge-grid ${axisClass}">
+            ${(
+              [
+                ["up", "moveFanUp", "mdi:chevron-up"],
+                ["left", "moveFanLeft", "mdi:chevron-left"],
+                ["right", "moveFanRight", "mdi:chevron-right"],
+                ["down", "moveFanDown", "mdi:chevron-down"],
+              ] as const
+            )
+              .filter(([direction]) => directions.includes(direction))
+              .map(
+                ([direction, label, icon]) => html`
+                  <button
+                    class=${direction}
+                    @click=${() => this.execute(() => adapter.nudge(direction))}
+                    aria-label=${this.t(label)}
+                  >
+                    <ha-icon icon=${icon}></ha-icon>
+                  </button>
+                `,
+              )}
           </div>
         </div>
       `);
@@ -1057,6 +1068,7 @@ export class XiaomiFanCard extends LitElement {
         <button
           class="feature-button ${state.childLock ? "selected" : ""}"
           @click=${() => this.execute(() => adapter.setChildLock(!state.childLock))}
+          aria-pressed=${state.childLock ?? false}
         >
           <ha-icon icon="mdi:lock${state.childLock ? "" : "-open-outline"}"></ha-icon>
           <span>
@@ -1071,6 +1083,7 @@ export class XiaomiFanCard extends LitElement {
         <button
           class="feature-button ${state.led ? "selected" : ""}"
           @click=${() => this.execute(() => adapter.setLed(!state.led))}
+          aria-pressed=${state.led ?? false}
         >
           <ha-icon icon="mdi:led-outline"></ha-icon>
           <span><small>${this.t("led")}</small><strong>${state.led ? this.t("on") : this.t("off")}</strong></span>
@@ -1083,6 +1096,7 @@ export class XiaomiFanCard extends LitElement {
         <button
           class="feature-button ${state.buzzer ? "selected" : ""}"
           @click=${() => this.execute(() => adapter.setBuzzer(!state.buzzer))}
+          aria-pressed=${state.buzzer ?? false}
         >
           <ha-icon icon="mdi:bell-outline"></ha-icon>
           <span><small>${this.t("buzzer")}</small><strong>${state.buzzer ? this.t("on") : this.t("off")}</strong></span>
@@ -1095,6 +1109,7 @@ export class XiaomiFanCard extends LitElement {
         <button
           class="feature-button ${state.ionizer ? "selected" : ""}"
           @click=${() => this.execute(() => adapter.setIonizer(!state.ionizer))}
+          aria-pressed=${state.ionizer ?? false}
         >
           <ha-icon icon="mdi:air-filter"></ha-icon>
           <span>
@@ -2140,6 +2155,20 @@ export class XiaomiFanCard extends LitElement {
       background: var(--fan-panel);
     }
 
+    .nudge-grid.horizontal-only {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-areas: "left right";
+      max-width: 120px;
+    }
+
+    .nudge-grid.vertical-only {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-areas:
+        "up"
+        "down";
+      max-width: 58px;
+    }
+
     .nudge-grid button {
       display: grid;
       place-items: center;
@@ -2154,19 +2183,19 @@ export class XiaomiFanCard extends LitElement {
         transform var(--fan-transition);
     }
 
-    .nudge-grid button:nth-child(1) {
+    .nudge-grid .up {
       grid-area: up;
     }
 
-    .nudge-grid button:nth-child(2) {
+    .nudge-grid .left {
       grid-area: left;
     }
 
-    .nudge-grid button:nth-child(3) {
+    .nudge-grid .right {
       grid-area: right;
     }
 
-    .nudge-grid button:nth-child(4) {
+    .nudge-grid .down {
       grid-area: down;
     }
 

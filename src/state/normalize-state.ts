@@ -174,7 +174,12 @@ export const normalizeFanState = (entityId: string, entity?: HassEntity): Normal
   const presetMode = stringValue(attributes["preset_mode"])?.toLowerCase() ?? "";
   const operationMode = stringValue(attributes["mode"] ?? attributes["operation_mode"])?.toLowerCase() ?? "";
   const isNatural = (value: string): boolean => value.includes("natural") || value.includes("nature");
-  const mode: FanMode = isNatural(presetMode) || isNatural(operationMode) ? "natural" : "normal";
+  const mode: FanMode =
+    isNatural(presetMode) ||
+    isNatural(operationMode) ||
+    (operationMode === "" && (firstNumber(attributes, ["natural_speed"]) ?? 0) > 0)
+      ? "natural"
+      : "normal";
   const presetModes = readPresetModes(attributes["preset_modes"], attributes["speed_list"], attributes["speed_modes"]);
   const directionValue = stringValue(attributes["direction"] ?? attributes["current_direction"])?.toLowerCase();
   const sleepMode = booleanValue(attributes["sleep_mode"]) ?? presetMode.includes("sleep");

@@ -174,7 +174,7 @@ describe("XiaomiMiioP76Adapter", () => {
     expect(calls).toEqual([["number", "set_value", { entity_id: "number.p76_timer", value: 120 }]]);
   });
 
-  it("converts custom Smartmi Fan 3 timers to protocol seconds", async () => {
+  it("sends Smartmi Fan 3 timers in service minutes, not device seconds", async () => {
     const hass = p76Hass();
     hass.states["fan.xiaomi_p76"] = {
       ...hass.states["fan.xiaomi_p76"]!,
@@ -193,7 +193,7 @@ describe("XiaomiMiioP76Adapter", () => {
     await adapter.setTimer(2);
 
     expect(calls).toEqual([
-      ["xiaomi_miio_fan", "fan_set_delay_off", { entity_id: "fan.xiaomi_p76", delay_off_countdown: 120 }],
+      ["xiaomi_miio_fan", "fan_set_delay_off", { entity_id: "fan.xiaomi_p76", delay_off_countdown: 2 }],
     ]);
   });
 

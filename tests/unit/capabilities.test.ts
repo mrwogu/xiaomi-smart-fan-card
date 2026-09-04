@@ -101,7 +101,7 @@ describe("detectCapabilities", () => {
     expect(capabilities.percentageStep).toBe(25);
   });
 
-  it("keeps registered Xiaomi services available for unknown Xiaomi models", () => {
+  it("requires device evidence in addition to globally registered Xiaomi services", () => {
     const services = readServiceAvailability({
       xiaomi_miio_fan: {
         fan_set_delay_off: {},
@@ -116,7 +116,17 @@ describe("detectCapabilities", () => {
       services,
     );
 
-    expect(capabilities.timer).toBe(true);
-    expect(capabilities.led).toBe(true);
+    expect(capabilities.timer).toBe(false);
+    expect(capabilities.led).toBe(false);
+
+    const withAttributes = detectCapabilities(
+      {
+        state: "on",
+        attributes: { model: "xiaomi.fan.future", delay_off_countdown: 0, led: false },
+      },
+      services,
+    );
+    expect(withAttributes.timer).toBe(true);
+    expect(withAttributes.led).toBe(true);
   });
 });

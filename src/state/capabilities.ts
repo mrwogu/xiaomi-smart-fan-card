@@ -1,13 +1,18 @@
 import { getModelProfile, isXiaomiFanModel, resolveSpeedLevels } from "./model-profiles";
-import type { FanCapabilities, HassEntity, RelatedEntities, ServiceAvailability } from "../types";
+import type { FanCapabilities, HassEntity, NudgeDirection, RelatedEntities, ServiceAvailability } from "../types";
 
 const FAN_FEATURE_SET_SPEED = 1;
 const FAN_FEATURE_OSCILLATE = 2;
 const FAN_FEATURE_DIRECTION = 4;
 const FAN_FEATURE_PRESET_MODE = 8;
+const FAN_FEATURE_TURN_OFF = 16;
+const FAN_FEATURE_TURN_ON = 32;
 
 const hasAttribute = (entity: HassEntity | undefined, keys: string[]): boolean =>
-  entity !== undefined && keys.some((key) => Object.prototype.hasOwnProperty.call(entity.attributes, key));
+  keys.some((key) => {
+    const value = entity?.attributes[key];
+    return value !== undefined && value !== null && value !== "" && value !== "unknown" && value !== "unavailable";
+  });
 
 const hasService = (services: ServiceAvailability, name: string): boolean =>
   services.loaded && services.names.has(name);
@@ -100,14 +105,33 @@ export const detectCapabilities = (
         profile.known));
   const presetMode =
     hasFanFeature(entity, FAN_FEATURE_PRESET_MODE) || (!explicitFeatureMask && (hasPresetAttributes || profile.known));
-  const xiaomiCustomModel = isXiaomi;
-  // Xiaomi Home has no fan_turn service and exposes the pad as four button
-  // entities instead, so all four buttons make the pad actionable on their own.
-  const hasNudgeButtons =
-    Boolean(related.nudgeLeft) && Boolean(related.nudgeRight) && Boolean(related.nudgeUp) && Boolean(related.nudgeDown);
+  const naturalService =
+    profile.known &&
+    profile.isXiaomi &&
+    customService(services, "fan_set_natural_mode_on") &&
+    customService(services, "fan_set_natural_mode_off");
+  const nudgeDirections: NudgeDirection[] = [];
+  if (profile.supportsNudge && customService(services, "fan_turn")) {
+    nudgeDirections.push("left", "right");
+    if (profile.supportsVerticalSwing) {
+      nudgeDirections.push("up", "down");
+    }
+  }
+  if (hasService(services, "button.press")) {
+    if (related.nudgeLeft && related.nudgeRight) {
+      nudgeDirections.push("left", "right");
+    }
+    if (related.nudgeUp && related.nudgeDown) {
+      nudgeDirections.push("up", "down");
+    }
+  }
   return {
     isXiaomi,
     modelLabel: profile.label,
+    power:
+      (entity?.state === "on" || entity?.state === "off") &&
+      (!explicitFeatureMask ||
+        hasFanFeature(entity, entity.state === "on" ? FAN_FEATURE_TURN_OFF : FAN_FEATURE_TURN_ON)),
     speed,
     percentageStep: percentageStep(entity),
     speedLevels: resolveSpeedLevels(entity?.attributes ?? {}, profile),
@@ -130,64 +154,51 @@ export const detectCapabilities = (
         ])) ||
       hasFanFeature(entity, FAN_FEATURE_OSCILLATE) ||
       (profile.known &&
-        xiaomiCustomModel &&
+        isXiaomi &&
         !explicitFeatureMask &&
         hasService(services, "fan.oscillate") &&
         profile.model !== "xiaomi.fan.2lite"),
     horizontalAngle:
       Boolean(related.horizontalAngle) ||
-      (hasHorizontalAngle && customService(services, "fan_set_oscillation_angle")) ||
-      (profile.horizontalAngles.length > 0 && customService(services, "fan_set_oscillation_angle")),
+      ((profile.known ? profile.horizontalAngles.length > 0 : hasHorizontalAngle) &&
+        customService(services, "fan_set_oscillation_angle")),
     horizontalAngles: profile.horizontalAngles,
     verticalSwing:
       Boolean(related.verticalSwing) ||
-      (hasAttribute(entity, ["vertical_swing", "vertical_oscillate", "vertical_oscillation"]) &&
-        customService(services, "fan_set_vertical_oscillation_on") &&
-        customService(services, "fan_set_vertical_oscillation_off")) ||
-      (profile.supportsVerticalSwing &&
+      ((profile.known
+        ? profile.supportsVerticalSwing
+        : hasAttribute(entity, ["vertical_swing", "vertical_oscillate", "vertical_oscillation"])) &&
         customService(services, "fan_set_vertical_oscillation_on") &&
         customService(services, "fan_set_vertical_oscillation_off")),
     verticalAngle:
       Boolean(related.verticalAngle) ||
-      (hasVerticalAngle && customService(services, "fan_set_vertical_oscillation_angle")) ||
-      (profile.verticalAngles.length > 0 && customService(services, "fan_set_vertical_oscillation_angle")),
+      ((profile.known ? profile.verticalAngles.length > 0 : hasVerticalAngle) &&
+        customService(services, "fan_set_vertical_oscillation_angle")),
     verticalAngles: profile.verticalAngles,
-    directionNudge: (profile.supportsNudge && customService(services, "fan_turn")) || hasNudgeButtons,
-    naturalMode:
-      presetMode &&
-      (hasNaturalPreset ||
-        (!explicitFeatureMask &&
-          profile.known &&
-          profile.isXiaomi &&
-          !hasAttribute(entity, ["preset_modes", "speed_list", "speed_modes"]))),
+    directionNudge: nudgeDirections.length > 0,
+    nudgeDirections: [...new Set(nudgeDirections)],
+    naturalMode: (presetMode && hasNaturalPreset) || naturalService,
     timer:
       Boolean(related.timer) ||
       (hasAttribute(entity, ["delay_off_countdown", "delay_time", "power_off_time", "timer"]) &&
-        customService(services, "fan_set_delay_off")) ||
-      (xiaomiCustomModel && customService(services, "fan_set_delay_off")),
+        customService(services, "fan_set_delay_off")),
     childLock:
       Boolean(related.childLock) ||
-      (hasAttribute(entity, ["child_lock"]) && customService(services, "fan_set_child_lock_on")) ||
-      (xiaomiCustomModel && customService(services, "fan_set_child_lock_on")),
+      (hasAttribute(entity, ["child_lock"]) &&
+        customService(services, "fan_set_child_lock_on") &&
+        customService(services, "fan_set_child_lock_off")),
     led:
       Boolean(related.led) ||
       (hasAttribute(entity, ["led", "light", "led_brightness", "light_enum"]) &&
-        customService(services, "fan_set_led_brightness")) ||
-      (xiaomiCustomModel && customService(services, "fan_set_led_brightness")),
+        customService(services, "fan_set_led_brightness")),
     buzzer:
       Boolean(related.buzzer) ||
       (hasAttribute(entity, ["buzzer", "notification_sound"]) &&
-        customService(services, "fan_set_buzzer_on") &&
-        customService(services, "fan_set_buzzer_off")) ||
-      (xiaomiCustomModel &&
         customService(services, "fan_set_buzzer_on") &&
         customService(services, "fan_set_buzzer_off")),
     ionizer:
       Boolean(related.ionizer) ||
       (hasAttribute(entity, ["anion", "ionizer"]) &&
-        customService(services, "fan_set_anion_on") &&
-        customService(services, "fan_set_anion_off")) ||
-      (xiaomiCustomModel &&
         customService(services, "fan_set_anion_on") &&
         customService(services, "fan_set_anion_off")),
   };

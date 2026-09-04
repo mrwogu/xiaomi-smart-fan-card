@@ -1,6 +1,7 @@
 import type { LovelaceCardConfig } from "custom-card-helpers";
 
 export type FanMode = "normal" | "natural";
+export type NudgeDirection = "left" | "right" | "up" | "down";
 
 export interface HassEntity {
   state: string;
@@ -68,6 +69,7 @@ export interface FanModelProfile {
 export interface FanCapabilities {
   isXiaomi: boolean;
   modelLabel: string;
+  power: boolean;
   speed: boolean;
   percentageStep: number;
   speedLevels: number;
@@ -84,6 +86,7 @@ export interface FanCapabilities {
   verticalAngles: number[];
   verticalAngleSpec?: NumberSpec;
   directionNudge: boolean;
+  nudgeDirections: NudgeDirection[];
   naturalMode: boolean;
   timer: boolean;
   favoriteLevelSpec?: NumberSpec;
@@ -249,7 +252,7 @@ export const RELATED_ENTITY_DOMAINS = {
   sleep_mode_entity: ["switch", "input_boolean", "select"],
   timer_entity: ["number", "input_number"],
   child_lock_entity: ["switch", "input_boolean", "select"],
-  led_entity: ["switch", "input_boolean", "select", "number", "input_number"],
+  led_entity: ["switch", "input_boolean", "select", "number", "input_number", "light"],
   buzzer_entity: ["switch", "input_boolean", "select"],
   ionizer_entity: ["switch", "input_boolean", "select"],
   temperature_entity: ["sensor"],
@@ -329,7 +332,7 @@ export interface FanAdapter {
   setHorizontalAngle(angle: number): Promise<void>;
   setVerticalSwing(enabled: boolean): Promise<void>;
   setVerticalAngle(angle: number): Promise<void>;
-  nudge(direction: "left" | "right" | "up" | "down"): Promise<void>;
+  nudge(direction: NudgeDirection): Promise<void>;
   setDirection(direction: "forward" | "reverse"): Promise<void>;
   setTimer(minutes: number): Promise<void>;
   setChildLock(enabled: boolean): Promise<void>;

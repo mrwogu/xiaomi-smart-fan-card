@@ -284,8 +284,9 @@ const profiles = [
         label: "Mi Smart Fan V2",
         known: true,
         isXiaomi: true,
+        timerUnit: "s",
         speedLevels: 4,
-        horizontalAngles: [30, 60, 90, 120, 140, 150],
+        horizontalAngles: [30, 60, 90, 120],
         verticalAngles: [],
         supportsVerticalSwing: false,
         supportsNudge: false,
@@ -295,8 +296,9 @@ const profiles = [
         label: "Mi Smart Fan V3",
         known: true,
         isXiaomi: true,
+        timerUnit: "s",
         speedLevels: 4,
-        horizontalAngles: [30, 60, 90, 120, 140, 150],
+        horizontalAngles: [30, 60, 90, 120],
         verticalAngles: [],
         supportsVerticalSwing: false,
         supportsNudge: false,
@@ -306,8 +308,9 @@ const profiles = [
         label: "Xiaomi Smart Fan",
         known: true,
         isXiaomi: true,
+        timerUnit: "s",
         speedLevels: 4,
-        horizontalAngles: [...commonAngles],
+        horizontalAngles: [30, 60, 90, 120],
         verticalAngles: [],
         supportsVerticalSwing: false,
         supportsNudge: false,
@@ -322,7 +325,7 @@ const profiles = [
         horizontalAngles: [30, 60, 90, 120],
         verticalAngles: [],
         supportsVerticalSwing: false,
-        supportsNudge: true,
+        supportsNudge: false,
     },
     ...["dmaker.fan.p5", "dmaker.fan.p9", "dmaker.fan.p10", "dmaker.fan.p11", "dmaker.fan.p15"].map((model) => ({
         model,
@@ -330,7 +333,7 @@ const profiles = [
         known: true,
         isXiaomi: true,
         speedLevels: 4,
-        horizontalAngles: [...commonAngles],
+        horizontalAngles: model === "dmaker.fan.p9" ? [30, 60, 90, 120, 150] : [...commonAngles],
         verticalAngles: [],
         supportsVerticalSwing: false,
         supportsNudge: false,
@@ -340,8 +343,8 @@ const profiles = [
         label: "Xiaomi Smart Fan 1C",
         known: true,
         isXiaomi: true,
-        speedLevels: 4,
-        horizontalAngles: [...commonAngles],
+        speedLevels: 3,
+        horizontalAngles: [],
         verticalAngles: [],
         supportsVerticalSwing: false,
         supportsNudge: false,
@@ -366,7 +369,7 @@ const profiles = [
         horizontalAngles: [...commonAngles],
         verticalAngles: [],
         supportsVerticalSwing: false,
-        supportsNudge: model === "dmaker.fan.p33",
+        supportsNudge: false,
     })),
     {
         model: "xiaomi.fan.p45",
@@ -407,7 +410,7 @@ const profiles = [
         known: true,
         isXiaomi: true,
         speedLevels: 4,
-        horizontalAngles: [30, 60, 90],
+        horizontalAngles: model === "xiaomi.fan.p30" ? [...commonAngles] : [30, 60, 90],
         verticalAngles: [],
         supportsVerticalSwing: false,
         supportsNudge: true,
@@ -496,7 +499,12 @@ const FAN_FEATURE_SET_SPEED = 1;
 const FAN_FEATURE_OSCILLATE = 2;
 const FAN_FEATURE_DIRECTION = 4;
 const FAN_FEATURE_PRESET_MODE = 8;
-const hasAttribute = (entity, keys) => entity !== undefined && keys.some((key) => Object.prototype.hasOwnProperty.call(entity.attributes, key));
+const FAN_FEATURE_TURN_OFF = 16;
+const FAN_FEATURE_TURN_ON = 32;
+const hasAttribute = (entity, keys) => keys.some((key) => {
+    const value = entity?.attributes[key];
+    return value !== undefined && value !== null && value !== "" && value !== "unknown" && value !== "unavailable";
+});
 const hasService = (services, name) => services.loaded && services.names.has(name);
 const customService = (services, name) => hasService(services, `xiaomi_miio_fan.${name}`);
 const supportedFeatures = (entity) => {
@@ -560,13 +568,31 @@ const detectCapabilities = (entity, services = { loaded: false, names: new Set()
             (hasAttribute(entity, ["percentage", "percentage_step", "fan_speed", "speed", "direct_speed", "natural_speed"]) ||
                 profile.known));
     const presetMode = hasFanFeature(entity, FAN_FEATURE_PRESET_MODE) || (!explicitFeatureMask && (hasPresetAttributes || profile.known));
-    const xiaomiCustomModel = isXiaomi;
-    // Xiaomi Home has no fan_turn service and exposes the pad as four button
-    // entities instead, so all four buttons make the pad actionable on their own.
-    const hasNudgeButtons = Boolean(related.nudgeLeft) && Boolean(related.nudgeRight) && Boolean(related.nudgeUp) && Boolean(related.nudgeDown);
+    const naturalService = profile.known &&
+        profile.isXiaomi &&
+        customService(services, "fan_set_natural_mode_on") &&
+        customService(services, "fan_set_natural_mode_off");
+    const nudgeDirections = [];
+    if (profile.supportsNudge && customService(services, "fan_turn")) {
+        nudgeDirections.push("left", "right");
+        if (profile.supportsVerticalSwing) {
+            nudgeDirections.push("up", "down");
+        }
+    }
+    if (hasService(services, "button.press")) {
+        if (related.nudgeLeft && related.nudgeRight) {
+            nudgeDirections.push("left", "right");
+        }
+        if (related.nudgeUp && related.nudgeDown) {
+            nudgeDirections.push("up", "down");
+        }
+    }
     return {
         isXiaomi,
         modelLabel: profile.label,
+        power: (entity?.state === "on" || entity?.state === "off") &&
+            (!explicitFeatureMask ||
+                hasFanFeature(entity, entity.state === "on" ? FAN_FEATURE_TURN_OFF : FAN_FEATURE_TURN_ON)),
         speed,
         percentageStep: percentageStep(entity),
         speedLevels: resolveSpeedLevels(entity?.attributes ?? {}, profile),
@@ -587,55 +613,43 @@ const detectCapabilities = (entity, services = { loaded: false, names: new Set()
                 ])) ||
             hasFanFeature(entity, FAN_FEATURE_OSCILLATE) ||
             (profile.known &&
-                xiaomiCustomModel &&
+                isXiaomi &&
                 !explicitFeatureMask &&
                 hasService(services, "fan.oscillate") &&
                 profile.model !== "xiaomi.fan.2lite"),
         horizontalAngle: Boolean(related.horizontalAngle) ||
-            (hasHorizontalAngle && customService(services, "fan_set_oscillation_angle")) ||
-            (profile.horizontalAngles.length > 0 && customService(services, "fan_set_oscillation_angle")),
+            ((profile.known ? profile.horizontalAngles.length > 0 : hasHorizontalAngle) &&
+                customService(services, "fan_set_oscillation_angle")),
         horizontalAngles: profile.horizontalAngles,
         verticalSwing: Boolean(related.verticalSwing) ||
-            (hasAttribute(entity, ["vertical_swing", "vertical_oscillate", "vertical_oscillation"]) &&
-                customService(services, "fan_set_vertical_oscillation_on") &&
-                customService(services, "fan_set_vertical_oscillation_off")) ||
-            (profile.supportsVerticalSwing &&
+            ((profile.known
+                ? profile.supportsVerticalSwing
+                : hasAttribute(entity, ["vertical_swing", "vertical_oscillate", "vertical_oscillation"])) &&
                 customService(services, "fan_set_vertical_oscillation_on") &&
                 customService(services, "fan_set_vertical_oscillation_off")),
         verticalAngle: Boolean(related.verticalAngle) ||
-            (hasVerticalAngle && customService(services, "fan_set_vertical_oscillation_angle")) ||
-            (profile.verticalAngles.length > 0 && customService(services, "fan_set_vertical_oscillation_angle")),
+            ((profile.known ? profile.verticalAngles.length > 0 : hasVerticalAngle) &&
+                customService(services, "fan_set_vertical_oscillation_angle")),
         verticalAngles: profile.verticalAngles,
-        directionNudge: (profile.supportsNudge && customService(services, "fan_turn")) || hasNudgeButtons,
-        naturalMode: presetMode &&
-            (hasNaturalPreset ||
-                (!explicitFeatureMask &&
-                    profile.known &&
-                    profile.isXiaomi &&
-                    !hasAttribute(entity, ["preset_modes", "speed_list", "speed_modes"]))),
+        directionNudge: nudgeDirections.length > 0,
+        nudgeDirections: [...new Set(nudgeDirections)],
+        naturalMode: (presetMode && hasNaturalPreset) || naturalService,
         timer: Boolean(related.timer) ||
             (hasAttribute(entity, ["delay_off_countdown", "delay_time", "power_off_time", "timer"]) &&
-                customService(services, "fan_set_delay_off")) ||
-            (xiaomiCustomModel && customService(services, "fan_set_delay_off")),
+                customService(services, "fan_set_delay_off")),
         childLock: Boolean(related.childLock) ||
-            (hasAttribute(entity, ["child_lock"]) && customService(services, "fan_set_child_lock_on")) ||
-            (xiaomiCustomModel && customService(services, "fan_set_child_lock_on")),
+            (hasAttribute(entity, ["child_lock"]) &&
+                customService(services, "fan_set_child_lock_on") &&
+                customService(services, "fan_set_child_lock_off")),
         led: Boolean(related.led) ||
             (hasAttribute(entity, ["led", "light", "led_brightness", "light_enum"]) &&
-                customService(services, "fan_set_led_brightness")) ||
-            (xiaomiCustomModel && customService(services, "fan_set_led_brightness")),
+                customService(services, "fan_set_led_brightness")),
         buzzer: Boolean(related.buzzer) ||
             (hasAttribute(entity, ["buzzer", "notification_sound"]) &&
-                customService(services, "fan_set_buzzer_on") &&
-                customService(services, "fan_set_buzzer_off")) ||
-            (xiaomiCustomModel &&
                 customService(services, "fan_set_buzzer_on") &&
                 customService(services, "fan_set_buzzer_off")),
         ionizer: Boolean(related.ionizer) ||
             (hasAttribute(entity, ["anion", "ionizer"]) &&
-                customService(services, "fan_set_anion_on") &&
-                customService(services, "fan_set_anion_off")) ||
-            (xiaomiCustomModel &&
                 customService(services, "fan_set_anion_on") &&
                 customService(services, "fan_set_anion_off")),
     };
@@ -772,7 +786,11 @@ const normalizeFanState = (entityId, entity) => {
     const presetMode = stringValue(attributes["preset_mode"])?.toLowerCase() ?? "";
     const operationMode = stringValue(attributes["mode"] ?? attributes["operation_mode"])?.toLowerCase() ?? "";
     const isNatural = (value) => value.includes("natural") || value.includes("nature");
-    const mode = isNatural(presetMode) || isNatural(operationMode) ? "natural" : "normal";
+    const mode = isNatural(presetMode) ||
+        isNatural(operationMode) ||
+        (operationMode === "" && (firstNumber(attributes, ["natural_speed"]) ?? 0) > 0)
+        ? "natural"
+        : "normal";
     const presetModes = readPresetModes(attributes["preset_modes"], attributes["speed_list"], attributes["speed_modes"]);
     const directionValue = stringValue(attributes["direction"] ?? attributes["current_direction"])?.toLowerCase();
     const sleepMode = booleanValue$1(attributes["sleep_mode"]) ?? presetMode.includes("sleep");
@@ -848,7 +866,7 @@ class ServiceDispatcher {
         this.availability = availability;
     }
     canCallCustom(domain, service) {
-        return !this.availability.loaded || this.availability.names.has(serviceName(domain, service));
+        return this.availability.loaded && this.availability.names.has(serviceName(domain, service));
     }
     async standard(service, data = {}) {
         await this.hass.callService("fan", service, { entity_id: this.entityId, ...data });
@@ -893,7 +911,7 @@ const RELATED_ENTITY_DOMAINS$1 = {
     favoriteLevel: ["number", "input_number"],
     timer: ["number", "input_number"],
     childLock: ["switch", "input_boolean", "select"],
-    led: ["switch", "input_boolean", "select", "number", "input_number"],
+    led: ["switch", "input_boolean", "select", "number", "input_number", "light"],
     buzzer: ["switch", "input_boolean", "select"],
     ionizer: ["switch", "input_boolean", "select"],
     nudgeLeft: ["button"],
@@ -1192,17 +1210,22 @@ class StandardFanAdapter {
         return entityId.endsWith("_led_brightness") && minimum === 0 && maximum === 2;
     }
     async togglePower() {
-        await this.dispatcher.standard("toggle");
+        if (!this.capabilities.power) {
+            throw new Error("This fan does not support changing power in its current state");
+        }
+        await this.dispatcher.standard(this.state.isOn ? "turn_off" : "turn_on");
     }
     async setPercentage(percentage) {
+        if (!this.capabilities.speed) {
+            throw new Error("This fan does not support percentage control");
+        }
         const requestedPercentage = snapPercentage(percentage, this.capabilities.percentageStep);
-        if (requestedPercentage <= 0) {
+        if (requestedPercentage <= 0 && this.state.isOn && this.capabilities.power) {
             await this.dispatcher.standard("turn_off");
             return;
         }
-        // A stopped fan needs turn_on to carry the speed; set_percentage alone is
-        // not guaranteed to start it.
-        if (!this.state.isOn) {
+        // Prefer turn_on when supported, since set_percentage need not start a fan.
+        if (requestedPercentage > 0 && !this.state.isOn && this.capabilities.power) {
             await this.dispatcher.standard("turn_on", { percentage: requestedPercentage });
             return;
         }
@@ -1276,8 +1299,11 @@ class StandardFanAdapter {
         });
     }
     async nudge(direction) {
+        if (!this.capabilities.nudgeDirections.includes(direction)) {
+            throw new Error(`This fan does not support nudging ${direction}.`);
+        }
         const button = this.nudgeButton(direction);
-        if (button) {
+        if (button && this.services.loaded && this.services.names.has("button.press")) {
             // Xiaomi Home exposes each pad direction as a momentary button entity.
             await this.hass.callService("button", "press", { entity_id: button });
             return;
@@ -1328,7 +1354,7 @@ class StandardFanAdapter {
             return;
         }
         await this.callCustom("fan_set_delay_off", {
-            delay_off_countdown: minutesToTimerValue(minutes, this.profile.timerUnit ?? "min"),
+            delay_off_countdown: minutes,
         });
     }
     async setChildLock(enabled) {
@@ -1412,7 +1438,7 @@ class StandardFanAdapter {
             return false;
         }
         const [domain] = entityParts(entityId);
-        if (domain === "switch" || domain === "input_boolean") {
+        if (domain === "switch" || domain === "input_boolean" || domain === "light") {
             await this.hass.callService(domain, enabled ? "turn_on" : "turn_off", { entity_id: entityId });
             return true;
         }
@@ -1484,6 +1510,16 @@ class XiaomiMiioFanAdapter extends StandardFanAdapter {
         this.nativeXiaomiHome = nativeXiaomiHome;
     }
     async setMode(mode) {
+        const hasNaturalPreset = this.state.availableModes.some((preset) => /natur(?:al|e)/i.test(preset));
+        if (!hasNaturalPreset &&
+            !this.nativeXiaomiHome &&
+            this.profile.known &&
+            this.profile.isXiaomi &&
+            this.dispatcher.canCallCustom("xiaomi_miio_fan", "fan_set_natural_mode_on") &&
+            this.dispatcher.canCallCustom("xiaomi_miio_fan", "fan_set_natural_mode_off")) {
+            await this.callCustom(mode === "natural" ? "fan_set_natural_mode_on" : "fan_set_natural_mode_off");
+            return;
+        }
         const level = this.state.level || 1;
         const prefix = mode === "natural" ? "Natural" : "Level";
         const requested = `${prefix} ${level}`;
@@ -1498,6 +1534,19 @@ class XiaomiMiioFanAdapter extends StandardFanAdapter {
         const fallback = this.nativeXiaomiHome ? (mode === "natural" ? "Nature" : "Normal") : requested;
         const firstAvailable = this.state.availableModes.find((candidate) => candidate.toLowerCase() !== "off");
         await this.setPresetMode(available ?? firstAvailable ?? fallback);
+    }
+    async setSleepMode(enabled) {
+        if (!enabled &&
+            !this.related.sleepMode &&
+            this.state.availableModes.every((preset) => preset.toLowerCase() === "sleep") &&
+            !this.nativeXiaomiHome &&
+            this.profile.known &&
+            this.profile.isXiaomi &&
+            this.dispatcher.canCallCustom("xiaomi_miio_fan", "fan_set_natural_mode_off")) {
+            await this.callCustom("fan_set_natural_mode_off");
+            return;
+        }
+        await super.setSleepMode(enabled);
     }
 }
 
@@ -1808,7 +1857,7 @@ const RELATED_ENTITY_DOMAINS = {
     sleep_mode_entity: ["switch", "input_boolean", "select"],
     timer_entity: ["number", "input_number"],
     child_lock_entity: ["switch", "input_boolean", "select"],
-    led_entity: ["switch", "input_boolean", "select", "number", "input_number"],
+    led_entity: ["switch", "input_boolean", "select", "number", "input_number", "light"],
     buzzer_entity: ["switch", "input_boolean", "select"],
     ionizer_entity: ["switch", "input_boolean", "select"],
     temperature_entity: ["sensor"],
@@ -2985,13 +3034,24 @@ const suffixes = {
     sleepMode: ["_sleep_mode"],
     horizontalSwing: ["_oscillating", "_oscillate", "_horizontal_swing", "_horizontal_oscillation", "_swing_mode"],
     verticalSwing: ["_vertical_swing", "_vertical_oscillate", "_vertical_oscillating", "_vertical_oscillation"],
-    horizontalAngle: ["_oscillation_angle", "_horizontal_swing_angle", "_swing_mode_angle", "_horizontal_angle"],
-    verticalAngle: ["_vertical_oscillation_angle", "_vertical_swing_angle", "_vertical_angle"],
+    horizontalAngle: [
+        "_oscillation_angle",
+        "_horizontal_swing_angle",
+        "_horizontal_swing_included_angle",
+        "_swing_mode_angle",
+        "_horizontal_angle",
+    ],
+    verticalAngle: [
+        "_vertical_oscillation_angle",
+        "_vertical_swing_angle",
+        "_vertical_swing_included_angle",
+        "_vertical_angle",
+    ],
     favoriteLevel: ["_favorite_level", "_favorite_speed"],
-    timer: ["_delay_off_countdown", "_delay_time", "_power_off_time", "_timer"],
-    childLock: ["_child_lock"],
-    led: ["_led", "_led_brightness", "_light"],
-    buzzer: ["_buzzer", "_notification_sound"],
+    timer: ["_delay_off_countdown", "_delay_time", "_off_delay_time", "_off_delay", "_power_off_time", "_timer"],
+    childLock: ["_child_lock", "_physical_controls_locked"],
+    led: ["_led", "_led_brightness", "_indicator_light", "_light", "_brightness"],
+    buzzer: ["_buzzer", "_notification_sound", "_alarm"],
     ionizer: ["_anion", "_ionizer"],
     nudgeLeft: ["_turn_left", "_move_left"],
     nudgeRight: ["_turn_right", "_move_right"],
@@ -3066,7 +3126,7 @@ const resolveRelatedEntities = async (hass, entityId) => {
         related.favoriteLevel = findBySuffix(entries, numeric, suffixes.favoriteLevel);
         related.timer = findBySuffix(entries, numeric, suffixes.timer);
         related.childLock = findBySuffix(entries, [...boolean, ...select], suffixes.childLock);
-        related.led = findBySuffix(entries, [...boolean, ...select, ...numeric], suffixes.led);
+        related.led = findBySuffix(entries, [...boolean, ...select, ...numeric, "light"], suffixes.led);
         related.buzzer = findBySuffix(entries, [...boolean, ...select], suffixes.buzzer);
         related.ionizer = findBySuffix(entries, [...boolean, ...select], suffixes.ionizer);
         // Xiaomi Home exposes the position pad as momentary buttons whose ids end
@@ -3478,7 +3538,7 @@ class XiaomiFanCard extends i$2 {
                     <span class="blade blade-four"></span>
                     <span class="hub"></span>
                   </div>
-                  ${this.config.visual.show_power
+                  ${this.config.visual.show_power && adapter.capabilities.power
                 ? b `
                           <button
                             class="power-button ${state.isOn ? "active" : ""}"
@@ -3820,22 +3880,28 @@ class XiaomiFanCard extends i$2 {
         if (controls.show_nudge &&
             adapter.capabilities.directionNudge &&
             (!hasAutomaticAngle || controls.show_nudge_with_angles)) {
+            const directions = adapter.capabilities.nudgeDirections;
+            const axisClass = directions.length === 2 ? (directions.includes("left") ? "horizontal-only" : "vertical-only") : "";
             nudgeFeatures.push(b `
         <div class="nudge-control">
           <span>${this.t("position")}</span>
-          <div class="nudge-grid">
-            <button @click=${() => this.execute(() => adapter.nudge("up"))} aria-label=${this.t("moveFanUp")}>
-              <ha-icon icon="mdi:chevron-up"></ha-icon>
-            </button>
-            <button @click=${() => this.execute(() => adapter.nudge("left"))} aria-label=${this.t("moveFanLeft")}>
-              <ha-icon icon="mdi:chevron-left"></ha-icon>
-            </button>
-            <button @click=${() => this.execute(() => adapter.nudge("right"))} aria-label=${this.t("moveFanRight")}>
-              <ha-icon icon="mdi:chevron-right"></ha-icon>
-            </button>
-            <button @click=${() => this.execute(() => adapter.nudge("down"))} aria-label=${this.t("moveFanDown")}>
-              <ha-icon icon="mdi:chevron-down"></ha-icon>
-            </button>
+          <div class="nudge-grid ${axisClass}">
+            ${[
+                ["up", "moveFanUp", "mdi:chevron-up"],
+                ["left", "moveFanLeft", "mdi:chevron-left"],
+                ["right", "moveFanRight", "mdi:chevron-right"],
+                ["down", "moveFanDown", "mdi:chevron-down"],
+            ]
+                .filter(([direction]) => directions.includes(direction))
+                .map(([direction, label, icon]) => b `
+                  <button
+                    class=${direction}
+                    @click=${() => this.execute(() => adapter.nudge(direction))}
+                    aria-label=${this.t(label)}
+                  >
+                    <ha-icon icon=${icon}></ha-icon>
+                  </button>
+                `)}
           </div>
         </div>
       `);
@@ -3902,6 +3968,7 @@ class XiaomiFanCard extends i$2 {
         <button
           class="feature-button ${state.childLock ? "selected" : ""}"
           @click=${() => this.execute(() => adapter.setChildLock(!state.childLock))}
+          aria-pressed=${state.childLock ?? false}
         >
           <ha-icon icon="mdi:lock${state.childLock ? "" : "-open-outline"}"></ha-icon>
           <span>
@@ -3915,6 +3982,7 @@ class XiaomiFanCard extends i$2 {
         <button
           class="feature-button ${state.led ? "selected" : ""}"
           @click=${() => this.execute(() => adapter.setLed(!state.led))}
+          aria-pressed=${state.led ?? false}
         >
           <ha-icon icon="mdi:led-outline"></ha-icon>
           <span><small>${this.t("led")}</small><strong>${state.led ? this.t("on") : this.t("off")}</strong></span>
@@ -3926,6 +3994,7 @@ class XiaomiFanCard extends i$2 {
         <button
           class="feature-button ${state.buzzer ? "selected" : ""}"
           @click=${() => this.execute(() => adapter.setBuzzer(!state.buzzer))}
+          aria-pressed=${state.buzzer ?? false}
         >
           <ha-icon icon="mdi:bell-outline"></ha-icon>
           <span><small>${this.t("buzzer")}</small><strong>${state.buzzer ? this.t("on") : this.t("off")}</strong></span>
@@ -3937,6 +4006,7 @@ class XiaomiFanCard extends i$2 {
         <button
           class="feature-button ${state.ionizer ? "selected" : ""}"
           @click=${() => this.execute(() => adapter.setIonizer(!state.ionizer))}
+          aria-pressed=${state.ionizer ?? false}
         >
           <ha-icon icon="mdi:air-filter"></ha-icon>
           <span>
@@ -4944,6 +5014,20 @@ class XiaomiFanCard extends i$2 {
       background: var(--fan-panel);
     }
 
+    .nudge-grid.horizontal-only {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-areas: "left right";
+      max-width: 120px;
+    }
+
+    .nudge-grid.vertical-only {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-areas:
+        "up"
+        "down";
+      max-width: 58px;
+    }
+
     .nudge-grid button {
       display: grid;
       place-items: center;
@@ -4958,19 +5042,19 @@ class XiaomiFanCard extends i$2 {
         transform var(--fan-transition);
     }
 
-    .nudge-grid button:nth-child(1) {
+    .nudge-grid .up {
       grid-area: up;
     }
 
-    .nudge-grid button:nth-child(2) {
+    .nudge-grid .left {
       grid-area: left;
     }
 
-    .nudge-grid button:nth-child(3) {
+    .nudge-grid .right {
       grid-area: right;
     }
 
-    .nudge-grid button:nth-child(4) {
+    .nudge-grid .down {
       grid-area: down;
     }
 

@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { XiaomiFanCard } from "../../src/card";
 import { getModelProfile } from "../../src/state/model-profiles";
 import type { FanCardConfig, HassEntity, HassLike } from "../../src/types";
+import { standardPowerContracts } from "../fixtures/integration-contracts";
 
 const services = {
   xiaomi_miio_fan: {
@@ -156,6 +157,109 @@ describe("XiaomiFanCard", () => {
     expect(root?.querySelector(".angle-layout.two-column > .angle-controls")).toBeTruthy();
     expect(root?.querySelector(".angle-layout > .nudge-controls")).toBeTruthy();
     expect(root?.querySelectorAll(".nudge-controls .nudge-grid button")).toHaveLength(4);
+  });
+
+  it.each(["xiaomi.fan.p30", "xiaomi.fan.p43", "xiaomi.fan.p45", "xiaomi.fan.p85"])(
+    "renders only left and right nudge buttons for %s",
+    async (model) => {
+      const { hass, callService } = createHass();
+      hass.states["fan.p76"]!.attributes["model"] = model;
+      const card = new XiaomiFanCard();
+      card.hass = hass as unknown as HomeAssistant;
+      card.setConfig(baseConfig);
+      document.body.append(card);
+      await settle(card);
+
+      const buttons = card.shadowRoot?.querySelectorAll<HTMLButtonElement>(".nudge-grid button");
+      expect(buttons).toHaveLength(2);
+      expect(buttons?.[0]?.className).toBe("left");
+      expect(buttons?.[1]?.className).toBe("right");
+      expect(card.shadowRoot?.querySelector(".nudge-grid.horizontal-only")).toBeTruthy();
+      expect(buttons?.[0]?.getAttribute("aria-label")).toBeTruthy();
+      expect(card.shadowRoot?.querySelector(".nudge-grid .up")).toBeNull();
+      expect(card.shadowRoot?.querySelector(".nudge-grid .down")).toBeNull();
+      buttons?.[0]?.click();
+      await settle(card);
+      expect(callService).toHaveBeenCalledWith("xiaomi_miio_fan", "fan_turn", {
+        entity_id: "fan.p76",
+        direction: "left",
+      });
+    },
+  );
+
+  it("uses a compact vertical pad for an opposing up/down button pair", async () => {
+    const { hass, callService } = createHass();
+    hass.states["button.fan_turn_upward"] = { state: "unknown", attributes: {} };
+    hass.states["button.fan_turn_downward"] = { state: "unknown", attributes: {} };
+    hass.callWS = async <T>(message: Record<string, unknown>) =>
+      (message["type"] === "get_services"
+        ? { button: { press: {} } }
+        : Object.keys(hass.states).map((entity_id) => ({ entity_id, device_id: "test-fan" }))) as T;
+    const card = new XiaomiFanCard();
+    card.hass = hass as unknown as HomeAssistant;
+    card.setConfig({ ...baseConfig, integration: "xiaomi_miot" });
+    document.body.append(card);
+    await settle(card);
+
+    const buttons = card.shadowRoot?.querySelectorAll<HTMLButtonElement>(".nudge-grid.vertical-only button");
+    expect(buttons).toHaveLength(2);
+    expect(buttons?.[0]?.className).toBe("up");
+    expect(buttons?.[1]?.className).toBe("down");
+    buttons?.[0]?.click();
+    await settle(card);
+    expect(callService).toHaveBeenCalledWith("button", "press", { entity_id: "button.fan_turn_upward" });
+  });
+
+  it("allows a Home Assistant light as the related LED entity", async () => {
+    const { hass, callService } = createHass();
+    hass.states["light.fan_indicator"] = { state: "on", attributes: { supported_color_modes: ["onoff"] } };
+    const card = new XiaomiFanCard();
+    card.hass = hass as unknown as HomeAssistant;
+    card.setConfig({
+      ...baseConfig,
+      integration: "xiaomi_miot",
+      controls: { ...baseConfig.controls, show_led: true },
+      related_entities: { ...baseConfig.related_entities, led_entity: "light.fan_indicator" },
+    });
+    document.body.append(card);
+    await settle(card);
+
+    const button = [...(card.shadowRoot?.querySelectorAll<HTMLButtonElement>("button") ?? [])].find(
+      (candidate) => candidate.querySelector("small")?.textContent === "LED",
+    );
+    expect(button).toBeDefined();
+    button?.click();
+    expect(button?.getAttribute("aria-pressed")).toBe("true");
+    await settle(card);
+    expect(callService).toHaveBeenCalledWith("light", "turn_off", { entity_id: "light.fan_indicator" });
+    hass.states["light.fan_indicator"]!.state = "off";
+    card.hass = { ...hass } as unknown as HomeAssistant;
+    await settle(card);
+    expect(button?.getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it.each(["child_lock", "buzzer", "ionizer"] as const)("exposes pressed state for the %s toggle", async (feature) => {
+    const { hass } = createHass();
+    hass.states["switch.fan_feature"] = { state: "on", attributes: {} };
+    const card = new XiaomiFanCard();
+    card.hass = hass as unknown as HomeAssistant;
+    card.setConfig({
+      ...baseConfig,
+      integration: "standard",
+      controls: { ...baseConfig.controls, [`show_${feature}`]: true },
+      related_entities: { ...baseConfig.related_entities, [`${feature}_entity`]: "switch.fan_feature" },
+    });
+    document.body.append(card);
+    await settle(card);
+
+    const button = [...(card.shadowRoot?.querySelectorAll<HTMLButtonElement>(".feature-button") ?? [])].find(
+      (candidate) => candidate.querySelector("small")?.textContent?.toLowerCase() === feature.replace("_", " "),
+    );
+    expect(button?.getAttribute("aria-pressed")).toBe("true");
+    hass.states["switch.fan_feature"]!.state = "off";
+    card.hass = { ...hass } as unknown as HomeAssistant;
+    await settle(card);
+    expect(button?.getAttribute("aria-pressed")).toBe("false");
   });
 
   it("renders cycle angle controls and advances the selected angle", async () => {
@@ -376,11 +480,22 @@ describe("XiaomiFanCard", () => {
     const horizontalSwing = related.schema!.find((field) => field.name === "horizontal_swing_entity") as {
       selector: { entity: { domain: string[] } };
     };
+    const led = related.schema!.find((field) => field.name === "led_entity") as {
+      selector: { entity: { domain: string[] } };
+    };
 
     expect(entity.selector.entity.domain).toEqual(["fan"]);
     expect(related.schema).toHaveLength(13);
     expect(horizontalSwing.selector.entity.domain).toEqual(["switch", "input_boolean", "select"]);
     expect(timer.selector.entity.domain).toEqual(["number", "input_number"]);
+    expect(led.selector.entity.domain).toEqual([
+      "switch",
+      "input_boolean",
+      "select",
+      "number",
+      "input_number",
+      "light",
+    ]);
     expect(panelFields(schema, "details").some((field) => field.name === "show_timer_when_off")).toBe(true);
     expect(panelFields(schema, "header").find((field) => field.name === "show_name")?.visible).toEqual([
       { field: "show", value: true },
@@ -709,6 +824,28 @@ describe("XiaomiFanCard", () => {
     expect(card.shadowRoot?.querySelector(".airflow-controls")).toBeNull();
     expect(card.shadowRoot?.querySelector(".visual-meta")).toBeNull();
   });
+
+  for (const state of ["on", "off"] as const) {
+    it.each(standardPowerContracts)(`shows power only when $name allows toggling from ${state}`, async (contract) => {
+      const { hass, callService } = createHass();
+      hass.states["fan.p76"] = { state, attributes: { supported_features: contract.mask } };
+      const card = new XiaomiFanCard();
+      card.hass = hass as unknown as HomeAssistant;
+      card.setConfig({ type: "custom:xiaomi-fan-card", entity: "fan.p76", integration: "standard" });
+      document.body.append(card);
+      await settle(card);
+
+      const button = card.shadowRoot?.querySelector<HTMLButtonElement>(".power-button");
+      expect(Boolean(button)).toBe(contract[state]);
+      if (button) {
+        button.click();
+        await settle(card);
+        expect(callService).toHaveBeenCalledWith("fan", state === "on" ? "turn_off" : "turn_on", {
+          entity_id: "fan.p76",
+        });
+      }
+    });
+  }
 
   it("previews the dragged speed before committing it to the fan", async () => {
     const { card, callService } = await renderCard({

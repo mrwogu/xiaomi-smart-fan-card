@@ -16,6 +16,7 @@ import type {
   HassEntity,
   HassLike,
   NormalizedFanState,
+  NudgeDirection,
   NumberSpec,
   RelatedEntities,
   ServiceAvailability,
@@ -63,7 +64,7 @@ const RELATED_ENTITY_DOMAINS: Record<keyof RelatedEntities, readonly string[]> =
   favoriteLevel: ["number", "input_number"],
   timer: ["number", "input_number"],
   childLock: ["switch", "input_boolean", "select"],
-  led: ["switch", "input_boolean", "select", "number", "input_number"],
+  led: ["switch", "input_boolean", "select", "number", "input_number", "light"],
   buzzer: ["switch", "input_boolean", "select"],
   ionizer: ["switch", "input_boolean", "select"],
   nudgeLeft: ["button"],
@@ -435,19 +436,24 @@ export class StandardFanAdapter implements FanAdapter {
   }
 
   public async togglePower(): Promise<void> {
-    await this.dispatcher.standard("toggle");
+    if (!this.capabilities.power) {
+      throw new Error("This fan does not support changing power in its current state");
+    }
+    await this.dispatcher.standard(this.state.isOn ? "turn_off" : "turn_on");
   }
 
   public async setPercentage(percentage: number): Promise<void> {
+    if (!this.capabilities.speed) {
+      throw new Error("This fan does not support percentage control");
+    }
     const requestedPercentage = snapPercentage(percentage, this.capabilities.percentageStep);
-    if (requestedPercentage <= 0) {
+    if (requestedPercentage <= 0 && this.state.isOn && this.capabilities.power) {
       await this.dispatcher.standard("turn_off");
       return;
     }
 
-    // A stopped fan needs turn_on to carry the speed; set_percentage alone is
-    // not guaranteed to start it.
-    if (!this.state.isOn) {
+    // Prefer turn_on when supported, since set_percentage need not start a fan.
+    if (requestedPercentage > 0 && !this.state.isOn && this.capabilities.power) {
       await this.dispatcher.standard("turn_on", { percentage: requestedPercentage });
       return;
     }
@@ -547,9 +553,12 @@ export class StandardFanAdapter implements FanAdapter {
     });
   }
 
-  public async nudge(direction: "left" | "right" | "up" | "down"): Promise<void> {
+  public async nudge(direction: NudgeDirection): Promise<void> {
+    if (!this.capabilities.nudgeDirections.includes(direction)) {
+      throw new Error(`This fan does not support nudging ${direction}.`);
+    }
     const button = this.nudgeButton(direction);
-    if (button) {
+    if (button && this.services.loaded && this.services.names.has("button.press")) {
       // Xiaomi Home exposes each pad direction as a momentary button entity.
       await this.hass.callService("button", "press", { entity_id: button });
       return;
@@ -560,8 +569,8 @@ export class StandardFanAdapter implements FanAdapter {
     await this.callCustom("fan_turn", { direction });
   }
 
-  private nudgeButton(direction: "left" | "right" | "up" | "down"): string | undefined {
-    const buttons: Record<"left" | "right" | "up" | "down", string | undefined> = {
+  private nudgeButton(direction: NudgeDirection): string | undefined {
+    const buttons: Record<NudgeDirection, string | undefined> = {
       left: this.actionableRelated.nudgeLeft,
       right: this.actionableRelated.nudgeRight,
       up: this.actionableRelated.nudgeUp,
@@ -609,7 +618,7 @@ export class StandardFanAdapter implements FanAdapter {
     }
 
     await this.callCustom("fan_set_delay_off", {
-      delay_off_countdown: minutesToTimerValue(minutes, this.profile.timerUnit ?? "min"),
+      delay_off_countdown: minutes,
     });
   }
 
@@ -716,7 +725,7 @@ export class StandardFanAdapter implements FanAdapter {
     }
 
     const [domain] = entityParts(entityId);
-    if (domain === "switch" || domain === "input_boolean") {
+    if (domain === "switch" || domain === "input_boolean" || domain === "light") {
       await this.hass.callService(domain, enabled ? "turn_on" : "turn_off", { entity_id: entityId });
       return true;
     }
