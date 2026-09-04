@@ -41,15 +41,6 @@ export const xiaomiHomeP76Hass = (): HassLike => ({
     "button.xiaomi_sg_000000000000_p76_turn_downward_a_2_7": { state: "unknown", attributes: {} },
   },
   callService: () => undefined,
-  callWS: async <T>(message: Record<string, unknown>) => {
-    if (message.type === "config/entity_registry/list") {
-      return registry as T;
-    }
-
-    if (message.type === "get_services") {
-      return services as T;
-    }
-
-    return {} as T;
-  },
+  callWS: async <T>(message: Record<string, unknown>) =>
+    message.type === "get_services" ? (services as T) : (registry as T),
 });

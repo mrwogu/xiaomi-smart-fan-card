@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createFanAdapter } from "../../src/adapters";
-import { readServiceAvailability } from "../../src/services/service-dispatcher";
+import { loadServiceAvailability, readServiceAvailability } from "../../src/services/service-dispatcher";
 import { detectCapabilities } from "../../src/state/capabilities";
 import { resolveRelatedEntities } from "../../src/state/related-entities";
 import { xiaomiHomeP76Hass } from "../fixtures/xiaomi-home-p76";
@@ -62,5 +62,25 @@ describe("native Xiaomi Home P76", () => {
       ["button", "press", { entity_id: "button.xiaomi_sg_000000000000_p76_turn_upward_a_2_6" }],
       ["button", "press", { entity_id: "button.xiaomi_sg_000000000000_p76_turn_left_a_2_4" }],
     ]);
+  });
+
+  it("reads the registered services through the device websocket", async () => {
+    const hass = xiaomiHomeP76Hass();
+    const availability = await loadServiceAvailability(hass);
+
+    expect(availability.loaded).toBe(true);
+    expect(availability.names.has("button.press")).toBe(true);
+  });
+
+  it("dispatches nudges through the fixture's no-op call service", async () => {
+    const hass = xiaomiHomeP76Hass();
+    const services = readServiceAvailability({
+      fan: { turn_on: {}, turn_off: {}, set_percentage: {}, set_preset_mode: {} },
+      button: { press: {} },
+    });
+    const related = await resolveRelatedEntities(hass, "fan.xiaomi_sg_000000000000_p76_s_2_fan");
+    const adapter = createFanAdapter(hass, "fan.xiaomi_sg_000000000000_p76_s_2_fan", services, "auto", related);
+
+    await expect(adapter.nudge("down")).resolves.toBeUndefined();
   });
 });
