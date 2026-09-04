@@ -215,26 +215,70 @@ describe("Xiaomi Miot P76 property controls", () => {
     ]);
   });
 
-  it("uses live Info values when unavailable related entities cannot provide a control", async () => {
-    const { hass, services, related, callService } = await createAdapter();
-    hass.states["select.p76_vertical_angle"] = { state: "unavailable", attributes: { options: ["30", "60"] } };
-    hass.states["switch.p76_vertical_swing"] = { state: "unavailable", attributes: {} };
-    const adapter = createFanAdapter(hass, "fan.xiaomi_p76", services, "xiaomi_miot", {
-      ...related,
-      verticalAngle: "select.p76_vertical_angle",
-      verticalSwing: "switch.p76_vertical_swing",
-    });
+  it.each([
+    ["horizontal", false, 120, 90],
+    ["vertical", true, 100, 60],
+  ] as const)(
+    "uses live Info values when %s related controls are unavailable",
+    async (axis, swing, currentAngle, targetAngle) => {
+      const hass = xiaomiMiotP76InfoHass();
+      const info = hass.states["button.xiaomi_p76_info"]!;
+      const angleField =
+        axis === "horizontal" ? "horizontal_swing_included_angle-2-7" : "vertical_swing_included_angle-2-9";
+      const swingField = axis === "horizontal" ? "fan.horizontal_swing" : "fan.vertical_swing";
+      const angleCapability = axis === "horizontal" ? "horizontalAngle" : "verticalAngle";
+      const anglesCapability = axis === "horizontal" ? "horizontalAngles" : "verticalAngles";
+      const swingCapability = axis === "horizontal" ? "horizontalSwing" : "verticalSwing";
+      const angleState = axis === "horizontal" ? "select.p76_horizontal_angle" : "select.p76_vertical_angle";
+      const swingState = axis === "horizontal" ? "switch.p76_horizontal_swing" : "switch.p76_vertical_swing";
 
-    expect(adapter.capabilities.verticalAngle).toBe(true);
-    expect(adapter.state.verticalAngle).toBe(30);
-    expect(adapter.state.verticalSwing).toBe(true);
-    await adapter.setVerticalAngle(60);
-    expect(callService).toHaveBeenCalledWith("xiaomi_miot", "set_property", {
-      entity_id: "fan.xiaomi_p76",
-      field: "vertical_swing_included_angle-2-9",
-      value: 60,
-    });
-  });
+      info.attributes[swingField] = swing;
+      info.attributes[angleField] = currentAngle;
+      if (axis === "horizontal") {
+        hass.states["fan.xiaomi_p76"]!.attributes["supported_features"] = 1;
+        delete hass.states["fan.xiaomi_p76"]!.attributes["oscillating"];
+      }
+
+      const { services, related, callService } = await createAdapter(hass);
+      hass.states[angleState] = {
+        state: "unavailable",
+        attributes: { options: ["30", "60", "90", "100", "120"] },
+      };
+      hass.states[swingState] = { state: "unavailable", attributes: {} };
+      const adapter = createFanAdapter(
+        hass,
+        "fan.xiaomi_p76",
+        services,
+        "xiaomi_miot",
+        axis === "horizontal"
+          ? { ...related, horizontalAngle: angleState, horizontalSwing: swingState }
+          : { ...related, verticalAngle: angleState, verticalSwing: swingState },
+      );
+
+      expect(adapter.state[axis === "horizontal" ? "horizontalAngle" : "verticalAngle"]).toBe(currentAngle);
+      expect(adapter.state[axis === "horizontal" ? "horizontalSwing" : "verticalSwing"]).toBe(swing);
+      expect(adapter.capabilities[angleCapability]).toBe(true);
+      expect(adapter.capabilities[swingCapability]).toBe(true);
+      expect(adapter.capabilities[anglesCapability]).toEqual(
+        axis === "horizontal" ? [30, 60, 90, 120] : [30, 60, 90, 100],
+      );
+
+      if (axis === "horizontal") {
+        await adapter.setHorizontalAngle(targetAngle);
+      } else {
+        await adapter.setVerticalAngle(targetAngle);
+      }
+
+      expect(callService.mock.calls).toEqual(
+        swing
+          ? [["xiaomi_miot", "set_property", { entity_id: "fan.xiaomi_p76", field: angleField, value: targetAngle }]]
+          : [
+              ["xiaomi_miot", "set_property", { entity_id: "fan.xiaomi_p76", field: swingField, value: true }],
+              ["xiaomi_miot", "set_property", { entity_id: "fan.xiaomi_p76", field: angleField, value: targetAngle }],
+            ],
+      );
+    },
+  );
 
   it("rejects unsupported angles before starting either swing axis", async () => {
     const hass = xiaomiMiotP76InfoHass();

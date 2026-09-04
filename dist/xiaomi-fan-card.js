@@ -1656,11 +1656,10 @@ class XiaomiMiotFanAdapter extends StandardFanAdapter {
                 // An unavailable related entity must not erase a working property fallback.
                 const value = this.fanEntity?.attributes[this.properties[property]];
                 if (property === "horizontalSwing" || property === "verticalSwing") {
-                    if (typeof value === "boolean")
-                        this.state[property] = value;
+                    this.state[property] = booleanValue$1(value);
                 }
-                else if (typeof value === "number") {
-                    this.state[property] = value;
+                else {
+                    this.state[property] = numericLabel(value);
                 }
             }
         }

@@ -1,6 +1,7 @@
 import { StandardFanAdapter } from "./standard-fan";
 import { resolveMiotFanProperties, withMiotInfo } from "../state/miot-properties";
 import type { MiotFanProperties, MiotFanProperty } from "../state/miot-properties";
+import { booleanValue, numericLabel } from "../state/normalize-state";
 import type { HassLike, RelatedEntities, ServiceAvailability } from "../types";
 
 export class XiaomiMiotFanAdapter extends StandardFanAdapter {
@@ -26,9 +27,9 @@ export class XiaomiMiotFanAdapter extends StandardFanAdapter {
         // An unavailable related entity must not erase a working property fallback.
         const value = this.fanEntity?.attributes[this.properties[property]!];
         if (property === "horizontalSwing" || property === "verticalSwing") {
-          if (typeof value === "boolean") this.state[property] = value;
-        } else if (typeof value === "number") {
-          this.state[property] = value;
+          this.state[property] = booleanValue(value);
+        } else {
+          this.state[property] = numericLabel(value);
         }
       }
     }

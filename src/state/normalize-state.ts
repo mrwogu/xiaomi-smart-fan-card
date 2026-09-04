@@ -49,7 +49,7 @@ export const numericLabel = (value: unknown): number | undefined => {
   return match ? Number(match[1]) : undefined;
 };
 
-const booleanValue = (value: unknown): boolean | undefined => {
+export const booleanValue = (value: unknown): boolean | undefined => {
   if (typeof value === "boolean") {
     return value;
   }
