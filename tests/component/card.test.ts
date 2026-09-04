@@ -3,6 +3,7 @@
 import type { HomeAssistant } from "custom-card-helpers";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { XiaomiFanCard } from "../../src/card";
+import { getModelProfile } from "../../src/state/model-profiles";
 import type { FanCardConfig, HassEntity, HassLike } from "../../src/types";
 
 const services = {
@@ -280,7 +281,7 @@ describe("XiaomiFanCard", () => {
     const { card } = await renderCard({
       ...baseConfig,
       header: { show: true },
-      visual: { show: true, show_graphic: false, show_details: false },
+      visual: { show: true, show_graphic: false, show_details: true },
       controls: { ...baseConfig.controls, show_speed_levels: true },
       layout: { order: ["features", "visual", "header", "airflow", "position"] },
     });
@@ -448,10 +449,100 @@ describe("XiaomiFanCard", () => {
     expect(card.getCardSize()).toBeGreaterThan(4);
     expect(card.getGridOptions()).toEqual({
       columns: 12,
-      rows: card.getCardSize(),
+      rows: "auto",
       min_columns: 6,
-      min_rows: 2,
+      min_rows: 1,
     });
+  });
+
+  it("drops the header block when every header element is hidden", async () => {
+    const { card } = await renderCard({
+      ...baseConfig,
+      header: {
+        show: true,
+        show_eyebrow: false,
+        show_name: false,
+        show_status: false,
+        show_mode: false,
+        show_model: false,
+      },
+    });
+
+    expect(card.shadowRoot?.querySelector(".header")).toBeNull();
+    expect(card.shadowRoot?.querySelector(".title-button")).toBeNull();
+  });
+
+  it("renders a name-only header without an empty subtitle", async () => {
+    const { card } = await renderCard({
+      ...baseConfig,
+      header: {
+        show: true,
+        show_eyebrow: false,
+        show_name: true,
+        show_status: false,
+        show_mode: false,
+        show_model: false,
+      },
+    });
+
+    expect(card.shadowRoot?.querySelector(".title")?.textContent).toBe("Test fan");
+    expect(card.shadowRoot?.querySelector(".subtitle")).toBeNull();
+  });
+
+  it("falls back when a known profile has no model identifier", async () => {
+    const profile = getModelProfile("xiaomi.fan.p76");
+    const model = profile.model;
+    profile.model = undefined;
+
+    try {
+      const { card } = await renderCard({
+        ...baseConfig,
+        header: {
+          show: true,
+          show_eyebrow: false,
+          show_name: false,
+          show_status: false,
+          show_mode: false,
+          show_model: true,
+        },
+      });
+
+      expect(card.shadowRoot?.querySelector(".model-badge")?.textContent).toBe("XIAOMI");
+    } finally {
+      profile.model = model;
+    }
+  });
+
+  it("drops the visual block when the graphic and the details are hidden", async () => {
+    const { card } = await renderCard({
+      ...baseConfig,
+      visual: { show: true, show_graphic: false, show_details: true },
+      details: { show: false },
+    });
+
+    expect(card.shadowRoot?.querySelector(".visual-section")).toBeNull();
+  });
+
+  it("renders the graphic when details are disabled", async () => {
+    const { card } = await renderCard({
+      ...baseConfig,
+      visual: { show: true, show_graphic: true, show_details: false },
+    });
+
+    expect(card.shadowRoot?.querySelector(".visual-section.details-with-graphic")).toBeTruthy();
+    expect(card.shadowRoot?.querySelector(".visual-meta")).toBeNull();
+  });
+
+  it("keeps automatic section rows when features are disabled", async () => {
+    const { card } = await renderCard({
+      ...baseConfig,
+      header: { show: false },
+      visual: { show: false },
+      controls: { show: false },
+    });
+
+    // A hidden section must not reserve grid cells that stay empty below the card.
+    expect(card.getGridOptions().rows).toBe("auto");
   });
 
   const capabilityConfig: FanCardConfig = {

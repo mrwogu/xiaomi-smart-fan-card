@@ -288,9 +288,11 @@ for a fan that reports presets but exposes no actionable oscillation or angle
 entity.
 
 The card reports its own size to Home Assistant. Masonry dashboards use
-`getCardSize`, and sections dashboards use `getGridOptions` with a
-twelve-column default whose row count follows the enabled header variant,
-graphic, and control groups.
+`getCardSize`, whose estimate follows the enabled header variant, graphic, and
+control groups. Sections dashboards use `getGridOptions` with a twelve-column
+default and automatic rows, so the grid cell matches the rendered height
+instead of reserving space for hidden or unsupported controls. Set
+`grid_options.rows` in the card configuration to pin a fixed height.
 
 The visual editor uses Home Assistant's native form schema. The fan and related
 entity fields therefore use Home Assistant entity selectors with domain filters,
