@@ -89,19 +89,29 @@ related_entities:
 
 ## Integration action paths
 
-| `integration`     | Action path                                                                                    |
-| ----------------- | ---------------------------------------------------------------------------------------------- |
-| `auto`            | Standard Home Assistant fan actions and related entity discovery.                              |
-| `standard`        | Standard Home Assistant fan actions and related entity discovery.                              |
-| `xiaomi_miio`     | Standard fan actions plus related Xiaomi Home entities.                                        |
-| `xiaomi_miio_fan` | Standard fan actions plus registered `xiaomi_miio_fan.*` services for model-specific controls. |
-| `xiaomi_miot`     | Standard fan actions plus actionable related entities exposed by Xiaomi MIoT.                  |
+| `integration`     | Action path                                                                                     |
+| ----------------- | ----------------------------------------------------------------------------------------------- |
+| `auto`            | Standard Home Assistant fan actions and related entity discovery.                               |
+| `standard`        | Standard Home Assistant fan actions and related entity discovery.                               |
+| `xiaomi_miio`     | Standard fan actions plus related Xiaomi Home entities.                                         |
+| `xiaomi_miio_fan` | Standard fan actions plus registered `xiaomi_miio_fan.*` services for model-specific controls.  |
+| `xiaomi_miot`     | Standard actions, related entities, and verified P76 properties via `xiaomi_miot.set_property`. |
 
 The card never calls a Xiaomi device directly. `auto` does not guess a vendor
 adapter. Select `xiaomi_miio_fan` only when the service registry contains the
 custom services required by the configured controls. A registered service alone
 does not prove that a model supports it; optional controls also need device
 attributes, a verified model profile, or actionable related entities.
+
+Select `xiaomi_miot` explicitly for the P76 property fallback:
+
+```yaml
+type: custom:xiaomi-fan-card
+entity: fan.example
+integration: xiaomi_miot
+```
+
+`auto` and `standard` do not opt into Xiaomi Miot property services.
 
 ## Legacy top-level related-entity aliases
 
@@ -259,11 +269,25 @@ Angle `number` and `input_number` entities use their own `min`, `max`, and
 `step`. A range short enough for a dropdown becomes a preset list, and a wider
 range keeps a numeric input bounded by the same values.
 
-For Xiaomi MIOT, angle and vertical controls require an actionable related
-entity. A primary fan angle attribute alone is not displayed as a detail and
-does not authorize an angle action. Vertical swing accepts `switch`,
-`input_boolean`, or `select`; angle controls accept `number`, `input_number`,
-or numeric-option `select`.
+For Xiaomi Miot, actionable related entities take precedence. Vertical swing
+accepts `switch`, `input_boolean`, or `select`; angle controls accept `number`,
+`input_number`, or numeric-option `select`.
+
+With `integration: xiaomi_miot`, `xiaomi.fan.p76` can fall back to
+`xiaomi_miot.set_property` when the service is registered and the primary fan
+or its same-device Xiaomi Miot Info button exposes valid swing/angle values.
+Discovery identifies Info by its `button.info` attribute and registry
+integration, not its translated entity name. No extra configuration field
+is required, and an `unknown` Info button state does not block available metadata.
+
+Supported properties are `fan.horizontal_swing`, `fan.vertical_swing`,
+`horizontal_swing_included_angle-2-7`, and
+`vertical_swing_included_angle-2-9`. Fully qualified
+`fan.horizontal_swing_included_angle` and
+`fan.vertical_swing_included_angle` aliases are also accepted when exposed.
+The exact field name is sent to Home Assistant. Horizontal angle options are
+`30`, `60`, `90`, `120`; vertical options are `30`, `60`, `90`, `100`.
+The model or a visibility flag alone never authorizes a property write.
 
 When a standard fan exposes `supported_features`, the feature mask is the
 source of truth for power, percentage, preset, oscillation, and direction support.
@@ -330,9 +354,8 @@ service payload. An exposed related timer entity takes precedence and uses its
 own declared unit. See the [verified contracts](integration-contracts.md) for
 the pinned sources and unresolved upstream unit ambiguities.
 
-MIoT optional angle controls require discovered or configured related `select`,
-`number`, or `input_number` entities. Primary MIoT fan attributes alone are
-not treated as angle actions.
+MIoT optional angles use related entities or the verified P76 property
+fallback described above. Other raw model attributes do not authorize writes.
 
 For Xiaomi LED brightness controls, the custom Xiaomi service contract is
 `0` for bright, `1` for dim, and `2` for off. A related

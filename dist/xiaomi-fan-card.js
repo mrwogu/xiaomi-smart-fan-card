@@ -655,6 +655,67 @@ const detectCapabilities = (entity, services = { loaded: false, names: new Set()
     };
 };
 
+const MIOT_FAN_PROPERTY_ATTRIBUTES = {
+    horizontalSwing: ["fan.horizontal_swing"],
+    horizontalAngle: ["fan.horizontal_swing_included_angle", "horizontal_swing_included_angle-2-7"],
+    verticalSwing: ["fan.vertical_swing"],
+    verticalAngle: ["fan.vertical_swing_included_angle", "vertical_swing_included_angle-2-9"],
+};
+const entityModel = (entity) => entity.attributes["model"] ?? entity.attributes["model_name"] ?? entity.attributes["miot_model"];
+const withMiotInfo = (entity, info) => {
+    if (!entity ||
+        !info ||
+        info.state === "unavailable" ||
+        info.attributes["available"] === false ||
+        typeof info.attributes["button.info"] !== "string") {
+        return entity;
+    }
+    const primaryModel = entityModel(entity);
+    const infoModel = entityModel(info);
+    if (primaryModel !== undefined && primaryModel !== infoModel) {
+        return entity;
+    }
+    const attributes = { ...entity.attributes };
+    if (primaryModel === undefined && typeof infoModel === "string") {
+        attributes["model"] = infoModel;
+    }
+    // Info carries device diagnostics too; only copy the fan fields we use.
+    for (const keys of Object.values(MIOT_FAN_PROPERTY_ATTRIBUTES)) {
+        for (const key of keys) {
+            if (!Object.prototype.hasOwnProperty.call(attributes, key) && info.attributes[key] !== undefined) {
+                attributes[key] = info.attributes[key];
+            }
+        }
+    }
+    return { ...entity, attributes };
+};
+const resolveMiotFanProperties = (entity) => {
+    if (!entity) {
+        return {};
+    }
+    const model = entityModel(entity);
+    const profile = getModelProfile(typeof model === "string" ? model : undefined);
+    // P76's spec confirms these properties are writable; other models need their own evidence.
+    if (profile.model !== "xiaomi.fan.p76") {
+        return {};
+    }
+    const properties = {};
+    for (const property of Object.keys(MIOT_FAN_PROPERTY_ATTRIBUTES)) {
+        const field = MIOT_FAN_PROPERTY_ATTRIBUTES[property].find((key) => {
+            const value = entity.attributes[key];
+            if (property === "horizontalSwing" || property === "verticalSwing") {
+                return typeof value === "boolean";
+            }
+            const angles = property === "horizontalAngle" ? profile.horizontalAngles : profile.verticalAngles;
+            return typeof value === "number" && angles.includes(value);
+        });
+        if (field !== undefined) {
+            properties[property] = field;
+        }
+    }
+    return properties;
+};
+
 const parseTimerUnit = (value) => {
     if (typeof value === "string" && ["s", "sec", "second", "seconds"].includes(value.trim().toLowerCase())) {
         return "s";
@@ -818,15 +879,27 @@ const normalizeFanState = (entityId, entity) => {
             "horizontal_oscillating",
             "horizontal_oscillation",
             "swing_mode",
+            ...MIOT_FAN_PROPERTY_ATTRIBUTES.horizontalSwing,
         ]),
         horizontalAngle: firstAngle(attributes, [
             "horizontal_swing_angle",
             "horizontal_angle",
             "swing_mode_angle",
             "angle",
+            ...MIOT_FAN_PROPERTY_ATTRIBUTES.horizontalAngle,
         ]),
-        verticalSwing: firstBoolean(attributes, ["vertical_swing", "vertical_oscillate", "vertical_oscillation"]),
-        verticalAngle: firstAngle(attributes, ["vertical_swing_angle", "vertical_oscillation_angle", "vertical_angle"]),
+        verticalSwing: firstBoolean(attributes, [
+            "vertical_swing",
+            "vertical_oscillate",
+            "vertical_oscillation",
+            ...MIOT_FAN_PROPERTY_ATTRIBUTES.verticalSwing,
+        ]),
+        verticalAngle: firstAngle(attributes, [
+            "vertical_swing_angle",
+            "vertical_oscillation_angle",
+            "vertical_angle",
+            ...MIOT_FAN_PROPERTY_ATTRIBUTES.verticalAngle,
+        ]),
         timerMinutes: timerMinutes(attributes, profile.timerUnit),
         childLock: booleanValue$1(attributes["child_lock"]),
         led: ledState(attributes),
@@ -903,6 +976,7 @@ const selectOptions = (entity) => {
     return Array.isArray(options) ? options.map(String) : [];
 };
 const RELATED_ENTITY_DOMAINS$1 = {
+    miotInfo: ["button"],
     sleepMode: ["switch", "input_boolean", "select"],
     horizontalSwing: ["switch", "input_boolean", "select"],
     verticalSwing: ["switch", "input_boolean", "select"],
@@ -972,18 +1046,19 @@ const booleanSelectOption = (options, enabled) => enabled
     ? selectOptionFor(options, BOOLEAN_SELECT_LABELS.enabledExact, BOOLEAN_SELECT_LABELS.enabledHints)
     : selectOptionFor(options, BOOLEAN_SELECT_LABELS.disabledExact, BOOLEAN_SELECT_LABELS.disabledHints);
 class StandardFanAdapter {
-    constructor(hass, entityId, services, related = {}) {
+    constructor(hass, entityId, services, related = {}, fanEntity = hass.states[entityId]) {
         this.hass = hass;
         this.entityId = entityId;
         this.services = services;
         this.related = related;
+        this.fanEntity = fanEntity;
         const actionableRelated = this.actionableRelatedEntities();
         this.actionableRelated = actionableRelated;
         const timerSpec = this.readTimerSpec(actionableRelated.timer);
         const timerUnit = this.readTimerUnit(actionableRelated.timer);
         this.state = normalizeFanState(entityId, this.entityWithRelatedAttributes(this.stateRelatedEntities(actionableRelated), timerSpec, timerUnit));
         this.profile = getModelProfile(this.state.model);
-        const detectedCapabilities = detectCapabilities(hass.states[entityId], services, actionableRelated);
+        const detectedCapabilities = detectCapabilities(this.fanEntity, services, actionableRelated);
         this.capabilities = {
             ...detectedCapabilities,
             horizontalAngles: this.readAngleOptions(actionableRelated.horizontalAngle) ??
@@ -1108,13 +1183,19 @@ class StandardFanAdapter {
         return rawSteps(spec).map((value) => roundStep(timerValueToMinutes(value, spec.unit)));
     }
     entityWithRelatedAttributes(related, timerSpec, timerUnit) {
-        const entity = this.hass.states[this.entityId];
+        const entity = this.fanEntity;
         if (!entity) {
             return undefined;
         }
         const attributes = { ...entity.attributes };
         const attributeAliases = {
-            horizontalAngle: ["horizontal_swing_angle", "horizontal_angle", "swing_mode_angle", "angle"],
+            horizontalAngle: [
+                "horizontal_swing_angle",
+                "horizontal_angle",
+                "swing_mode_angle",
+                "angle",
+                ...MIOT_FAN_PROPERTY_ATTRIBUTES.horizontalAngle,
+            ],
             horizontalSwing: [
                 "oscillating",
                 "oscillate",
@@ -1122,10 +1203,21 @@ class StandardFanAdapter {
                 "horizontal_oscillating",
                 "horizontal_oscillation",
                 "swing_mode",
+                ...MIOT_FAN_PROPERTY_ATTRIBUTES.horizontalSwing,
             ],
             favoriteLevel: ["favorite_level", "favorite_speed"],
-            verticalAngle: ["vertical_swing_angle", "vertical_oscillation_angle", "vertical_angle"],
-            verticalSwing: ["vertical_swing", "vertical_oscillate", "vertical_oscillation"],
+            verticalAngle: [
+                "vertical_swing_angle",
+                "vertical_oscillation_angle",
+                "vertical_angle",
+                ...MIOT_FAN_PROPERTY_ATTRIBUTES.verticalAngle,
+            ],
+            verticalSwing: [
+                "vertical_swing",
+                "vertical_oscillate",
+                "vertical_oscillation",
+                ...MIOT_FAN_PROPERTY_ATTRIBUTES.verticalSwing,
+            ],
             timer: ["delay_off_countdown", "delay_time", "power_off_time", "timer", "timer_unit", "delay_time_unit"],
             led: ["led", "light", "led_brightness", "light_enum"],
             buzzer: ["buzzer", "notification_sound"],
@@ -1550,6 +1642,82 @@ class XiaomiMiioFanAdapter extends StandardFanAdapter {
     }
 }
 
+class XiaomiMiotFanAdapter extends StandardFanAdapter {
+    constructor(hass, entityId, services, related = {}) {
+        super(hass, entityId, services, related, withMiotInfo(hass.states[entityId], related.miotInfo ? hass.states[related.miotInfo] : undefined));
+        this.standardHorizontalSwing = this.capabilities.horizontalSwing;
+        this.properties =
+            this.state.available && services.loaded && services.names.has("xiaomi_miot.set_property")
+                ? resolveMiotFanProperties(this.fanEntity)
+                : {};
+        for (const property of Object.keys(this.properties)) {
+            this.capabilities[property] = true;
+            if (!this.actionableRelated[property] && this.state[property] === undefined) {
+                // An unavailable related entity must not erase a working property fallback.
+                const value = this.fanEntity?.attributes[this.properties[property]];
+                if (property === "horizontalSwing" || property === "verticalSwing") {
+                    if (typeof value === "boolean")
+                        this.state[property] = value;
+                }
+                else if (typeof value === "number") {
+                    this.state[property] = value;
+                }
+            }
+        }
+    }
+    async setHorizontalSwing(enabled) {
+        if (this.standardHorizontalSwing) {
+            await super.setHorizontalSwing(enabled);
+            return;
+        }
+        await this.setProperty("horizontalSwing", enabled);
+    }
+    async setVerticalSwing(enabled) {
+        if (this.actionableRelated.verticalSwing) {
+            await super.setVerticalSwing(enabled);
+            return;
+        }
+        await this.setProperty("verticalSwing", enabled);
+    }
+    async setHorizontalAngle(angle) {
+        if (this.actionableRelated.horizontalAngle) {
+            await super.setHorizontalAngle(angle);
+            return;
+        }
+        await this.setAngle("horizontal", angle);
+    }
+    async setVerticalAngle(angle) {
+        if (this.actionableRelated.verticalAngle) {
+            await super.setVerticalAngle(angle);
+            return;
+        }
+        await this.setAngle("vertical", angle);
+    }
+    propertyField(property) {
+        const field = this.properties[property];
+        if (field === undefined) {
+            throw new Error(`This fan does not expose a writable Xiaomi Miot ${property} property.`);
+        }
+        return field;
+    }
+    async setAngle(axis, angle) {
+        const property = axis === "horizontal" ? "horizontalAngle" : "verticalAngle";
+        this.propertyField(property);
+        const angles = axis === "horizontal" ? this.profile.horizontalAngles : this.profile.verticalAngles;
+        if (!angles.includes(angle)) {
+            throw new Error(`Unsupported Xiaomi Miot ${axis} angle.`);
+        }
+        await this.startSwing(axis);
+        await this.setProperty(property, angle);
+    }
+    async setProperty(property, value) {
+        const field = this.propertyField(property);
+        if (!(await this.dispatcher.custom("xiaomi_miot", "set_property", { field, value }))) {
+            throw new Error("xiaomi_miot.set_property is unavailable.");
+        }
+    }
+}
+
 const createFanAdapter = (hass, entityId, services, integration = "auto", related = {}) => {
     const useXiaomiAdapter = integration === "xiaomi_miio" || integration === "xiaomi_miio_fan";
     const scopedServices = integration === "xiaomi_miio_fan" || (integration === "auto" && useXiaomiAdapter)
@@ -1558,6 +1726,9 @@ const createFanAdapter = (hass, entityId, services, integration = "auto", relate
             loaded: services.loaded,
             names: new Set([...services.names].filter((name) => !name.startsWith("xiaomi_miio_fan."))),
         };
+    if (integration === "xiaomi_miot") {
+        return new XiaomiMiotFanAdapter(hass, entityId, scopedServices, related);
+    }
     return useXiaomiAdapter
         ? new XiaomiMiioFanAdapter(hass, entityId, scopedServices, related, integration === "xiaomi_miio")
         : new StandardFanAdapter(hass, entityId, scopedServices, related);
@@ -3031,6 +3202,7 @@ if (!customElements.get("xiaomi-fan-card-editor")) {
 }
 
 const suffixes = {
+    miotInfo: [],
     sleepMode: ["_sleep_mode"],
     horizontalSwing: ["_oscillating", "_oscillate", "_horizontal_swing", "_horizontal_oscillation", "_swing_mode"],
     verticalSwing: ["_vertical_swing", "_vertical_oscillate", "_vertical_oscillating", "_vertical_oscillation"],
@@ -3107,6 +3279,11 @@ const resolveRelatedEntities = async (hass, entityId) => {
         }
         const entries = registry.filter((entry) => entry.device_id === primary.device_id);
         const related = {};
+        if (primary.platform === "xiaomi_miot") {
+            related.miotInfo = entries.find((entry) => entry.platform === "xiaomi_miot" &&
+                entry.entity_id.startsWith("button.") &&
+                typeof hass.states[entry.entity_id]?.attributes["button.info"] === "string")?.entity_id;
+        }
         const numeric = ["number", "input_number"];
         const angle = [...numeric, "select"];
         const boolean = ["switch", "input_boolean"];

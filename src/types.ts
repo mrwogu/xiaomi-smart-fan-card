@@ -9,6 +9,7 @@ export interface HassEntity {
 }
 
 export interface RelatedEntities {
+  miotInfo?: string;
   sleepMode?: string;
   horizontalSwing?: string;
   verticalSwing?: string;

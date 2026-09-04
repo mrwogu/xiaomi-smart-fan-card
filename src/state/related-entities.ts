@@ -3,6 +3,7 @@ import type { HassLike, RelatedEntities } from "../types";
 interface RegistryEntity {
   entity_id: string;
   device_id?: string;
+  platform?: string;
   name?: string;
   original_name?: string;
   device_class?: string;
@@ -10,6 +11,7 @@ interface RegistryEntity {
 }
 
 const suffixes: Record<keyof RelatedEntities, string[]> = {
+  miotInfo: [],
   sleepMode: ["_sleep_mode"],
   horizontalSwing: ["_oscillating", "_oscillate", "_horizontal_swing", "_horizontal_oscillation", "_swing_mode"],
   verticalSwing: ["_vertical_swing", "_vertical_oscillate", "_vertical_oscillating", "_vertical_oscillation"],
@@ -107,6 +109,14 @@ export const resolveRelatedEntities = async (
     const entries = registry.filter((entry) => entry.device_id === primary.device_id);
 
     const related: RelatedEntities = {};
+    if (primary.platform === "xiaomi_miot") {
+      related.miotInfo = entries.find(
+        (entry) =>
+          entry.platform === "xiaomi_miot" &&
+          entry.entity_id.startsWith("button.") &&
+          typeof hass.states[entry.entity_id]?.attributes["button.info"] === "string",
+      )?.entity_id;
+    }
     const numeric = ["number", "input_number"];
     const angle = [...numeric, "select"];
     const boolean = ["switch", "input_boolean"];
