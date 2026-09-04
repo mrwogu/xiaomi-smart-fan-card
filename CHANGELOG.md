@@ -5,6 +5,14 @@ All notable changes to Xiaomi Fan Card will be documented in this file.
 This project follows [Semantic Versioning](https://semver.org/) and uses
 [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [1.1.3](https://github.com/mrwogu/xiaomi-smart-fan-card/compare/v1.1.2...v1.1.3) (2026-09-04)
+
+
+### Bug Fixes
+
+* **card:** size sections grid to the rendered card height ([#58](https://github.com/mrwogu/xiaomi-smart-fan-card/issues/58)) ([097af6f](https://github.com/mrwogu/xiaomi-smart-fan-card/commit/097af6fca9c9ebb4a8469340ecc7551f067b90ed))
+* show position pad from Xiaomi Home turn buttons ([#57](https://github.com/mrwogu/xiaomi-smart-fan-card/issues/57)) ([7a9aee2](https://github.com/mrwogu/xiaomi-smart-fan-card/commit/7a9aee2ab97a317534d61c2f88cce74cc67c761d))
+
 ## [1.1.2](https://github.com/mrwogu/xiaomi-smart-fan-card/compare/v1.1.1...v1.1.2) (2026-08-17)
 
 
