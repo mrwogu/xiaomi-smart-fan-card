@@ -6,6 +6,7 @@ import type {
   FanColumns,
   FanControlsConfig,
   FanDensity,
+  FanGraphicStyle,
   FanDetailsPosition,
   FanDetailsConfig,
   FanHeaderConfig,
@@ -92,6 +93,7 @@ export const DEFAULT_CONFIG = {
     animation: "auto",
     running_animation: "rotor",
     oscillation_animation: "orbit",
+    graphic_style: "blades",
   },
   controls: {
     show: true,
@@ -202,6 +204,7 @@ const normalizeVisual = (value: unknown): ResolvedFanVisualConfig => {
       ["orbit", "chevrons"],
       "orbit",
     ),
+    graphic_style: enumValue<FanGraphicStyle>(input.graphic_style, ["blades", "turbine", "minimal"], "blades"),
   };
 };
 

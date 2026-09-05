@@ -109,7 +109,9 @@ Two visual options change how motion reads without touching anything else.
 `visual.running_animation: gust` adds an air arc that chases itself around
 the speed ring, and `visual.oscillation_animation: chevrons` replaces the
 pulsing orbit with air markers that alternate sides along the live swing
-axis. Defaults stay untouched until you opt in.
+axis. `visual.graphic_style` redraws the fan head itself: four wide `blades`,
+a faster eight-blade `turbine`, or a `minimal` ring whose hub breathes
+instead of spinning. Defaults stay untouched until you opt in.
 
 <div align="center">
   <a href="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/animation-styles-compare.webp">
@@ -121,7 +123,16 @@ axis. Defaults stay untouched until you opt in.
 visual:
   running_animation: gust # rotor (default) | gust
   oscillation_animation: chevrons # orbit (default) | chevrons
+  graphic_style: turbine # blades (default) | turbine | minimal
 ```
+
+The three fan head designs, rendered against the production card:
+
+<div align="center">
+  <a href="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/graphic-styles.webp">
+    <img src="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/graphic-styles.webp" alt="Three cards side by side: the default four-blade head, the eight-blade turbine, and the minimal breathing ring" height="360">
+  </a>
+</div>
 
 <div align="center">
   <a href="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/animation-running-gust.webp">
@@ -539,6 +550,7 @@ Every option, default, and legacy alias is documented in
 | `visual.animation`             | `auto`, `enabled`, `disabled`                                       | `auto`        |
 | `visual.running_animation`     | `rotor`, `gust`                                                     | `rotor`       |
 | `visual.oscillation_animation` | `orbit`, `chevrons`                                                 | `orbit`       |
+| `visual.graphic_style`         | `blades`, `turbine`, `minimal`                                      | `blades`      |
 
 Nested groups (`header`, `visual`, `controls`, `details`, `layout`, `styles`,
 `related_entities`) take precedence over the legacy top-level flags, which

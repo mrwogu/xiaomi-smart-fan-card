@@ -1784,6 +1784,7 @@ const DEFAULT_CONFIG = {
         animation: "auto",
         running_animation: "rotor",
         oscillation_animation: "orbit",
+        graphic_style: "blades",
     },
     controls: {
         show: true,
@@ -1872,6 +1873,7 @@ const normalizeVisual = (value) => {
         animation: enumValue(input.animation, ["auto", "enabled", "disabled"], "auto"),
         running_animation: enumValue(input.running_animation, ["rotor", "gust"], "rotor"),
         oscillation_animation: enumValue(input.oscillation_animation, ["orbit", "chevrons"], "orbit"),
+        graphic_style: enumValue(input.graphic_style, ["blades", "turbine", "minimal"], "blades"),
     };
 };
 const normalizeControls = (value, legacy) => {
@@ -2113,6 +2115,7 @@ const getConfigForm = () => {
                 grid([
                     selectField("running_animation", ["rotor", "gust"], "show"),
                     selectField("oscillation_animation", ["orbit", "chevrons"], "show"),
+                    selectField("graphic_style", ["blades", "turbine", "minimal"], "show"),
                 ]),
                 grid([
                     booleanField("show_graphic", "show"),
@@ -2286,11 +2289,14 @@ const english = {
     details: "Details",
     animation: "Animation",
     runningAnimation: "Running animation",
+    graphicStyle: "Graphic style",
     oscillationAnimation: "Oscillation animation",
     enabled: "Enabled",
     disabled: "Disabled",
     rotor: "Rotor",
     gust: "Gust",
+    blades: "Blades",
+    turbine: "Turbine",
     orbit: "Orbit",
     chevrons: "Chevrons",
     controls: "Controls",
@@ -2449,11 +2455,14 @@ const TRANSLATIONS = {
         details: "Szczegóły",
         animation: "Animacja",
         runningAnimation: "Animacja pracy",
+        graphicStyle: "Styl grafiki",
         oscillationAnimation: "Animacja oscylacji",
         enabled: "Włączona",
         disabled: "Wyłączona",
         rotor: "Wirnik",
         gust: "Podmuch",
+        blades: "Łopatki",
+        turbine: "Turbina",
         orbit: "Orbita",
         chevrons: "Strzałki",
         controls: "Sterowanie",
@@ -2610,11 +2619,14 @@ const TRANSLATIONS = {
         details: "Detalles",
         animation: "Animación",
         runningAnimation: "Animación de funcionamiento",
+        graphicStyle: "Estilo del gráfico",
         oscillationAnimation: "Animación de oscilación",
         enabled: "Activada",
         disabled: "Desactivada",
         rotor: "Rotor",
         gust: "Ráfaga",
+        blades: "Aspas",
+        turbine: "Turbina",
         orbit: "Órbita",
         chevrons: "Chevrones",
         controls: "Controles",
@@ -2771,11 +2783,14 @@ const TRANSLATIONS = {
         details: "Détails",
         animation: "Animation",
         runningAnimation: "Animation de fonctionnement",
+        graphicStyle: "Style graphique",
         oscillationAnimation: "Animation d'oscillation",
         enabled: "Activée",
         disabled: "Désactivée",
         rotor: "Rotor",
         gust: "Bourrasque",
+        blades: "Pales",
+        turbine: "Turbine",
         orbit: "Orbite",
         chevrons: "Chevrons",
         controls: "Commandes",
@@ -2932,11 +2947,14 @@ const TRANSLATIONS = {
         details: "Dettagli",
         animation: "Animazione",
         runningAnimation: "Animazione di funzionamento",
+        graphicStyle: "Stile grafico",
         oscillationAnimation: "Animazione di oscillazione",
         enabled: "Abilitata",
         disabled: "Disabilitata",
         rotor: "Rotore",
         gust: "Raffica",
+        blades: "Pale",
+        turbine: "Turbina",
         orbit: "Orbita",
         chevrons: "Chevron",
         controls: "Controlli",
@@ -3073,6 +3091,7 @@ const FIELD_TRANSLATIONS = {
     animation: "animation",
     running_animation: "runningAnimation",
     oscillation_animation: "oscillationAnimation",
+    graphic_style: "graphicStyle",
     show_speed_slider: "slider",
     show_speed_levels: "levels",
     show_modes: "modes",
@@ -3156,6 +3175,9 @@ const OPTION_TRANSLATIONS = {
     "running_animation.gust": "gust",
     "oscillation_animation.orbit": "orbit",
     "oscillation_animation.chevrons": "chevrons",
+    "graphic_style.blades": "blades",
+    "graphic_style.turbine": "turbine",
+    "graphic_style.minimal": "minimal",
     "selection_mode.auto": "auto",
     "selection_mode.buttons": "buttons",
     "selection_mode.select": "select",
@@ -3727,6 +3749,7 @@ class XiaomiFanCard extends i$2 {
         const animationDisabled = this.config.disable_animation || this.config.visual.animation === "disabled";
         const runningAnimation = this.config.visual.running_animation;
         const oscillationAnimation = this.config.visual.oscillation_animation;
+        const graphicStyle = this.config.visual.graphic_style;
         const details = this.config.visual.show_details ? this.renderDetails(adapter) : "";
         // An empty section would still add a block gap to the card, so the visual
         // block disappears completely once the graphic and the details are gone.
@@ -3745,7 +3768,7 @@ class XiaomiFanCard extends i$2 {
         ${this.config.visual.show_graphic
             ? b `
                 <div
-                  class="airflow-visual axis-${axis} ${state.isOn ? "running" : ""} ${animationDisabled ? "no-motion" : ""} run-${runningAnimation} osc-${oscillationAnimation}"
+                  class="airflow-visual axis-${axis} ${state.isOn ? "running" : ""} ${animationDisabled ? "no-motion" : ""} run-${runningAnimation} osc-${oscillationAnimation} graphic-${graphicStyle}"
                   style=${style}
                 >
                   ${this.renderChevronGates(axis, oscillationAnimation)}
@@ -3755,13 +3778,7 @@ class XiaomiFanCard extends i$2 {
                   ${runningAnimation === "gust" ? b `<div class="gust" aria-hidden="true"></div>` : ""}
                   <div class="wind wind-horizontal"></div>
                   <div class="wind wind-vertical"></div>
-                  <div class="rotor" aria-hidden="true">
-                    <span class="blade blade-one"></span>
-                    <span class="blade blade-two"></span>
-                    <span class="blade blade-three"></span>
-                    <span class="blade blade-four"></span>
-                    <span class="hub"></span>
-                  </div>
+                  ${this.renderRotor(graphicStyle)}
                   ${this.config.visual.show_power && adapter.capabilities.power
                 ? b `
                           <button
@@ -3787,6 +3804,26 @@ class XiaomiFanCard extends i$2 {
             : ""}
         ${details}
       </section>
+    `;
+    }
+    /**
+     * Each graphic style pairs a distinct head with its own motion: four wide
+     * blades, eight slim turbine blades, or a thin ring whose hub breathes
+     * instead of spinning.
+     */
+    renderRotor(style) {
+        const hub = b `<span class="hub"></span>`;
+        if (style === "minimal") {
+            return b `<div class="rotor" aria-hidden="true">${hub}</div>`;
+        }
+        const count = style === "turbine" ? 8 : 4;
+        const step = 360 / count;
+        const base = style === "turbine" ? -22.5 : -10;
+        return b `
+      <div class="rotor" aria-hidden="true">
+        ${Array.from({ length: count }, (_, index) => b `<span class="blade" style="transform: translateY(-50%) rotate(${base + index * step}deg)"></span>`)}
+        ${hub}
+      </div>
     `;
     }
     /**
@@ -4860,20 +4897,36 @@ class XiaomiFanCard extends i$2 {
       opacity: 0.88;
     }
 
-    .blade-one {
-      transform: translateY(-50%) rotate(-10deg);
+    /* Graphic styles: each design pairs its head shape with matching motion.
+       Blade rotation comes from inline transforms, so these rules only shape
+       the blades and tune the per-style rhythm. */
+    .graphic-turbine .blade {
+      width: 44%;
+      height: 13%;
+      border-radius: 100% 4% 100% 4%;
+      opacity: 0.72;
     }
 
-    .blade-two {
-      transform: translateY(-50%) rotate(80deg);
+    .airflow-visual.running.graphic-turbine .rotor {
+      animation-duration: calc(var(--spin-duration) * 0.75);
     }
 
-    .blade-three {
-      transform: translateY(-50%) rotate(170deg);
+    .graphic-minimal .rotor {
+      border-width: 3px;
+      background: transparent;
+      box-shadow: inset 0 0 0 1px var(--fan-accent-soft);
     }
 
-    .blade-four {
-      transform: translateY(-50%) rotate(260deg);
+    .graphic-minimal .hub {
+      inset: 34%;
+    }
+
+    .airflow-visual.running.graphic-minimal .rotor {
+      animation: none;
+    }
+
+    .airflow-visual.running.graphic-minimal .hub {
+      animation: hub-breathe var(--spin-duration) ease-in-out infinite;
     }
 
     .hub {
@@ -5718,6 +5771,16 @@ class XiaomiFanCard extends i$2 {
     @keyframes gust-spin {
       to {
         transform: rotate(360deg);
+      }
+    }
+
+    @keyframes hub-breathe {
+      0%,
+      100% {
+        transform: scale(1);
+      }
+      50% {
+        transform: scale(1.12);
       }
     }
 

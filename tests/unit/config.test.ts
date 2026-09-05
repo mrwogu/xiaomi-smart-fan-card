@@ -71,20 +71,31 @@ describe("normalizeCardConfig", () => {
 
     expect(normalizeCardConfig(base).visual.running_animation).toBe("rotor");
     expect(normalizeCardConfig(base).visual.oscillation_animation).toBe("orbit");
+    expect(normalizeCardConfig(base).visual.graphic_style).toBe("blades");
 
     const config = normalizeCardConfig({
       ...base,
-      visual: { running_animation: "gust", oscillation_animation: "chevrons" },
+      visual: {
+        running_animation: "gust",
+        oscillation_animation: "chevrons",
+        graphic_style: "turbine",
+      },
     });
     expect(config.visual.running_animation).toBe("gust");
     expect(config.visual.oscillation_animation).toBe("chevrons");
+    expect(config.visual.graphic_style).toBe("turbine");
 
     const invalid = normalizeCardConfig({
       ...base,
-      visual: { running_animation: "waves" as never, oscillation_animation: "beam" as never },
+      visual: {
+        running_animation: "waves" as never,
+        oscillation_animation: "beam" as never,
+        graphic_style: "propeller" as never,
+      },
     });
     expect(invalid.visual.running_animation).toBe("rotor");
     expect(invalid.visual.oscillation_animation).toBe("orbit");
+    expect(invalid.visual.graphic_style).toBe("blades");
   });
 
   it("gives nested visibility settings precedence over legacy fields", () => {

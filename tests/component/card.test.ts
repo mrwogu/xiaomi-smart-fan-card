@@ -1174,6 +1174,37 @@ describe("XiaomiFanCard", () => {
     expect(plain.shadowRoot?.querySelector(".gust")).toBeNull();
   });
 
+  it("renders each graphic style head with its own blade count", async () => {
+    const renderWithStyle = async (graphic_style?: "turbine" | "minimal") => {
+      const { card } = await renderCard({
+        ...baseConfig,
+        visual: {
+          show: true,
+          show_graphic: true,
+          show_power: false,
+          show_speed: false,
+          ...(graphic_style ? { graphic_style } : {}),
+        },
+      });
+      return card.shadowRoot;
+    };
+
+    const plain = await renderWithStyle();
+    expect(plain?.querySelector(".airflow-visual")?.classList.contains("graphic-blades")).toBe(true);
+    expect(plain?.querySelectorAll(".rotor .blade").length).toBe(4);
+    expect(plain?.querySelector(".rotor .blade")?.getAttribute("style")).toContain("rotate(-10deg)");
+
+    const turbine = await renderWithStyle("turbine");
+    expect(turbine?.querySelector(".airflow-visual")?.classList.contains("graphic-turbine")).toBe(true);
+    expect(turbine?.querySelectorAll(".rotor .blade").length).toBe(8);
+    expect(turbine?.querySelectorAll(".rotor .blade")[7]?.getAttribute("style")).toContain("rotate(292.5deg)");
+
+    const minimal = await renderWithStyle("minimal");
+    expect(minimal?.querySelector(".airflow-visual")?.classList.contains("graphic-minimal")).toBe(true);
+    expect(minimal?.querySelectorAll(".rotor .blade").length).toBe(0);
+    expect(minimal?.querySelector(".rotor .hub")).not.toBeNull();
+  });
+
   it("renders oscillation chevrons for each active swing axis", async () => {
     const renderWithSwing = async (attributes: Record<string, unknown>): Promise<ShadowRoot | null | undefined> => {
       const { hass } = createHass();

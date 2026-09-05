@@ -21,6 +21,7 @@ import type {
   FanAdapter,
   FanCardConfig,
   FanBlock,
+  FanGraphicStyle,
   FanOscillationAnimation,
   HassLike,
   NumberSpec,
@@ -451,6 +452,7 @@ export class XiaomiFanCard extends LitElement {
     const animationDisabled = this.config.disable_animation || this.config.visual.animation === "disabled";
     const runningAnimation = this.config.visual.running_animation;
     const oscillationAnimation = this.config.visual.oscillation_animation;
+    const graphicStyle = this.config.visual.graphic_style;
     const details = this.config.visual.show_details ? this.renderDetails(adapter) : "";
 
     // An empty section would still add a block gap to the card, so the visual
@@ -476,7 +478,7 @@ export class XiaomiFanCard extends LitElement {
                 <div
                   class="airflow-visual axis-${axis} ${state.isOn ? "running" : ""} ${
                     animationDisabled ? "no-motion" : ""
-                  } run-${runningAnimation} osc-${oscillationAnimation}"
+                  } run-${runningAnimation} osc-${oscillationAnimation} graphic-${graphicStyle}"
                   style=${style}
                 >
                   ${this.renderChevronGates(axis, oscillationAnimation)}
@@ -486,13 +488,7 @@ export class XiaomiFanCard extends LitElement {
                   ${runningAnimation === "gust" ? html`<div class="gust" aria-hidden="true"></div>` : ""}
                   <div class="wind wind-horizontal"></div>
                   <div class="wind wind-vertical"></div>
-                  <div class="rotor" aria-hidden="true">
-                    <span class="blade blade-one"></span>
-                    <span class="blade blade-two"></span>
-                    <span class="blade blade-three"></span>
-                    <span class="blade blade-four"></span>
-                    <span class="hub"></span>
-                  </div>
+                  ${this.renderRotor(graphicStyle)}
                   ${
                     this.config.visual.show_power && adapter.capabilities.power
                       ? html`
@@ -523,6 +519,30 @@ export class XiaomiFanCard extends LitElement {
         }
         ${details}
       </section>
+    `;
+  }
+
+  /**
+   * Each graphic style pairs a distinct head with its own motion: four wide
+   * blades, eight slim turbine blades, or a thin ring whose hub breathes
+   * instead of spinning.
+   */
+  private renderRotor(style: FanGraphicStyle): TemplateResult {
+    const hub = html`<span class="hub"></span>`;
+
+    if (style === "minimal") {
+      return html`<div class="rotor" aria-hidden="true">${hub}</div>`;
+    }
+
+    const count = style === "turbine" ? 8 : 4;
+    const step = 360 / count;
+    const base = style === "turbine" ? -22.5 : -10;
+
+    return html`
+      <div class="rotor" aria-hidden="true">
+        ${Array.from({ length: count }, (_, index) => html`<span class="blade" style="transform: translateY(-50%) rotate(${base + index * step}deg)"></span>`)}
+        ${hub}
+      </div>
     `;
   }
 
@@ -1786,20 +1806,36 @@ export class XiaomiFanCard extends LitElement {
       opacity: 0.88;
     }
 
-    .blade-one {
-      transform: translateY(-50%) rotate(-10deg);
+    /* Graphic styles: each design pairs its head shape with matching motion.
+       Blade rotation comes from inline transforms, so these rules only shape
+       the blades and tune the per-style rhythm. */
+    .graphic-turbine .blade {
+      width: 44%;
+      height: 13%;
+      border-radius: 100% 4% 100% 4%;
+      opacity: 0.72;
     }
 
-    .blade-two {
-      transform: translateY(-50%) rotate(80deg);
+    .airflow-visual.running.graphic-turbine .rotor {
+      animation-duration: calc(var(--spin-duration) * 0.75);
     }
 
-    .blade-three {
-      transform: translateY(-50%) rotate(170deg);
+    .graphic-minimal .rotor {
+      border-width: 3px;
+      background: transparent;
+      box-shadow: inset 0 0 0 1px var(--fan-accent-soft);
     }
 
-    .blade-four {
-      transform: translateY(-50%) rotate(260deg);
+    .graphic-minimal .hub {
+      inset: 34%;
+    }
+
+    .airflow-visual.running.graphic-minimal .rotor {
+      animation: none;
+    }
+
+    .airflow-visual.running.graphic-minimal .hub {
+      animation: hub-breathe var(--spin-duration) ease-in-out infinite;
     }
 
     .hub {
@@ -2644,6 +2680,16 @@ export class XiaomiFanCard extends LitElement {
     @keyframes gust-spin {
       to {
         transform: rotate(360deg);
+      }
+    }
+
+    @keyframes hub-breathe {
+      0%,
+      100% {
+        transform: scale(1);
+      }
+      50% {
+        transform: scale(1.12);
       }
     }
 
