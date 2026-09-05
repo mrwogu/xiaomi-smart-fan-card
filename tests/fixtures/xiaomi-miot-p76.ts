@@ -73,7 +73,8 @@ export const xiaomiMiotP76InfoHass = (): HassLike => ({
       state: "on",
       attributes: {
         friendly_name: "Test fan",
-        supported_features: 11,
+        // SET_SPEED | OSCILLATE | PRESET_MODE | TURN_OFF | TURN_ON
+        supported_features: 59,
         percentage: 100,
         percentage_step: 1,
         preset_mode: "Straight Wind",

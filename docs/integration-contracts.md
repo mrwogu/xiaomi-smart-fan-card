@@ -240,8 +240,11 @@ The integration exposes global raw services:
 - `set_miot_property`: `{siid, piid, value}`
 
 Their existence is not writable-property evidence. Card behavior stays behind
-discovered or configured related entities and does not add a raw MIoT fallback.
-Automatic discovery is restricted to the primary fan's device.
+discovered or configured related entities, with one documented exception: the
+verified `xiaomi.fan.p76` swing and angle property fallback behind
+`xiaomi_miot.set_property` in explicit `integration: xiaomi_miot` mode (see
+[compatibility](compatibility.md)). Automatic discovery is restricted to the
+primary fan's device.
 
 Evidence:
 
