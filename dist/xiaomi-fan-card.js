@@ -1782,6 +1782,8 @@ const DEFAULT_CONFIG = {
         show_speed: true,
         show_details: true,
         animation: "auto",
+        running_animation: "rotor",
+        oscillation_animation: "orbit",
     },
     controls: {
         show: true,
@@ -1868,6 +1870,8 @@ const normalizeVisual = (value) => {
         show_speed: booleanValue(input.show_speed, true),
         show_details: booleanValue(input.show_details, true),
         animation: enumValue(input.animation, ["auto", "enabled", "disabled"], "auto"),
+        running_animation: enumValue(input.running_animation, ["rotor", "gust"], "rotor"),
+        oscillation_animation: enumValue(input.oscillation_animation, ["orbit", "chevrons"], "orbit"),
     };
 };
 const normalizeControls = (value, legacy) => {
@@ -2107,6 +2111,10 @@ const getConfigForm = () => {
                 }, ["show", "show_graphic"]),
                 selectField("animation", ["auto", "enabled", "disabled"], "show"),
                 grid([
+                    selectField("running_animation", ["rotor", "gust"], "show"),
+                    selectField("oscillation_animation", ["orbit", "chevrons"], "show"),
+                ]),
+                grid([
                     booleanField("show_graphic", "show"),
                     booleanField("show_power", ["show", "show_graphic"]),
                     booleanField("show_speed", ["show", "show_graphic"]),
@@ -2277,8 +2285,14 @@ const english = {
     speed: "Speed",
     details: "Details",
     animation: "Animation",
+    runningAnimation: "Running animation",
+    oscillationAnimation: "Oscillation animation",
     enabled: "Enabled",
     disabled: "Disabled",
+    rotor: "Rotor",
+    gust: "Gust",
+    orbit: "Orbit",
+    chevrons: "Chevrons",
     controls: "Controls",
     slider: "Slider",
     levels: "Levels",
@@ -2434,8 +2448,14 @@ const TRANSLATIONS = {
         speed: "Prędkość",
         details: "Szczegóły",
         animation: "Animacja",
+        runningAnimation: "Animacja pracy",
+        oscillationAnimation: "Animacja oscylacji",
         enabled: "Włączona",
         disabled: "Wyłączona",
+        rotor: "Wirnik",
+        gust: "Podmuch",
+        orbit: "Orbita",
+        chevrons: "Strzałki",
         controls: "Sterowanie",
         slider: "Suwak",
         levels: "Poziomy",
@@ -2589,8 +2609,14 @@ const TRANSLATIONS = {
         speed: "Velocidad",
         details: "Detalles",
         animation: "Animación",
+        runningAnimation: "Animación de funcionamiento",
+        oscillationAnimation: "Animación de oscilación",
         enabled: "Activada",
         disabled: "Desactivada",
+        rotor: "Rotor",
+        gust: "Ráfaga",
+        orbit: "Órbita",
+        chevrons: "Chevrones",
         controls: "Controles",
         slider: "Deslizador",
         levels: "Niveles",
@@ -2744,8 +2770,14 @@ const TRANSLATIONS = {
         speed: "Vitesse",
         details: "Détails",
         animation: "Animation",
+        runningAnimation: "Animation de fonctionnement",
+        oscillationAnimation: "Animation d'oscillation",
         enabled: "Activée",
         disabled: "Désactivée",
+        rotor: "Rotor",
+        gust: "Bourrasque",
+        orbit: "Orbite",
+        chevrons: "Chevrons",
         controls: "Commandes",
         slider: "Curseur",
         levels: "Niveaux",
@@ -2899,8 +2931,14 @@ const TRANSLATIONS = {
         speed: "Velocità",
         details: "Dettagli",
         animation: "Animazione",
+        runningAnimation: "Animazione di funzionamento",
+        oscillationAnimation: "Animazione di oscillazione",
         enabled: "Abilitata",
         disabled: "Disabilitata",
+        rotor: "Rotore",
+        gust: "Raffica",
+        orbit: "Orbita",
+        chevrons: "Chevron",
         controls: "Controlli",
         slider: "Cursore",
         levels: "Livelli",
@@ -3033,6 +3071,8 @@ const FIELD_TRANSLATIONS = {
     show_speed: "speed",
     show_details: "details",
     animation: "animation",
+    running_animation: "runningAnimation",
+    oscillation_animation: "oscillationAnimation",
     show_speed_slider: "slider",
     show_speed_levels: "levels",
     show_modes: "modes",
@@ -3112,6 +3152,10 @@ const OPTION_TRANSLATIONS = {
     "animation.auto": "auto",
     "animation.enabled": "enabled",
     "animation.disabled": "disabled",
+    "running_animation.rotor": "rotor",
+    "running_animation.gust": "gust",
+    "oscillation_animation.orbit": "orbit",
+    "oscillation_animation.chevrons": "chevrons",
     "selection_mode.auto": "auto",
     "selection_mode.buttons": "buttons",
     "selection_mode.select": "select",
@@ -3681,6 +3725,8 @@ class XiaomiFanCard extends i$2 {
         const style = `--speed:${speed}; --spin-duration:${Math.max(1.8, 12 - speed / 11)}s;`;
         const axis = getAirflowAxis(state.horizontalSwing, state.verticalSwing);
         const animationDisabled = this.config.disable_animation || this.config.visual.animation === "disabled";
+        const runningAnimation = this.config.visual.running_animation;
+        const oscillationAnimation = this.config.visual.oscillation_animation;
         const details = this.config.visual.show_details ? this.renderDetails(adapter) : "";
         // An empty section would still add a block gap to the card, so the visual
         // block disappears completely once the graphic and the details are gone.
@@ -3699,12 +3745,14 @@ class XiaomiFanCard extends i$2 {
         ${this.config.visual.show_graphic
             ? b `
                 <div
-                  class="airflow-visual axis-${axis} ${state.isOn ? "running" : ""} ${animationDisabled ? "no-motion" : ""}"
+                  class="airflow-visual axis-${axis} ${state.isOn ? "running" : ""} ${animationDisabled ? "no-motion" : ""} run-${runningAnimation} osc-${oscillationAnimation}"
                   style=${style}
                 >
+                  ${this.renderChevronGates(axis, oscillationAnimation)}
                   <div class="orbit orbit-one"></div>
                   <div class="orbit orbit-two"></div>
                   <div class="speed-ring" aria-hidden="true"></div>
+                  ${runningAnimation === "gust" ? b `<div class="gust" aria-hidden="true"></div>` : ""}
                   <div class="wind wind-horizontal"></div>
                   <div class="wind wind-vertical"></div>
                   <div class="rotor" aria-hidden="true">
@@ -3739,6 +3787,31 @@ class XiaomiFanCard extends i$2 {
             : ""}
         ${details}
       </section>
+    `;
+    }
+    /**
+     * Chevron gates only make sense while a swing axis is active, and each axis
+     * renders its own pair so "dual" shows all four directions at once.
+     */
+    renderChevronGates(axis, mode) {
+        if (mode !== "chevrons" || axis === "still") {
+            return "";
+        }
+        const gate = (direction, alternatePhase) => {
+            const suffix = { right: "r", left: "l", down: "d", up: "u" }[direction];
+            return b `
+        <div class="gate gate-${direction} ${alternatePhase ? "gate-alt" : ""}" aria-hidden="true">
+          <span class="chev ${direction} chev-${suffix}1"></span>
+          <span class="chev ${direction} chev-${suffix}2"></span>
+          <span class="chev ${direction} chev-${suffix}3"></span>
+        </div>
+      `;
+        };
+        const horizontal = axis === "horizontal" || axis === "dual";
+        const vertical = axis === "vertical" || axis === "dual";
+        return b `
+      ${horizontal ? gate("right", false) : ""} ${horizontal ? gate("left", true) : ""}
+      ${vertical ? gate("down", false) : ""} ${vertical ? gate("up", true) : ""}
     `;
     }
     renderDetails(adapter) {
@@ -4517,6 +4590,9 @@ class XiaomiFanCard extends i$2 {
       aspect-ratio: 1;
       margin: 0 auto;
       isolation: isolate;
+      /* Chevron offsets are authored for a 250px visual, so every other size
+         scales them through this unit instead of re-deriving px positions. */
+      --chev-unit: calc(var(--fan-visual-size) / 250);
     }
 
     .airflow-visual::before {
@@ -4603,6 +4679,152 @@ class XiaomiFanCard extends i$2 {
     .axis-dual.running .wind-vertical {
       animation: wind-vertical-flow calc(var(--spin-duration) * 1.2) ease-in-out infinite;
       animation-delay: -0.7s;
+    }
+
+    /* Gust comet: an air jet chasing itself around the speed ring track. */
+    .gust {
+      position: absolute;
+      inset: 6%;
+      z-index: 1;
+      border-radius: 50%;
+      background: conic-gradient(from 0deg, transparent 0 55%, var(--fan-accent) 100%);
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 9px), #000 calc(100% - 8px));
+      mask: radial-gradient(farthest-side, transparent calc(100% - 9px), #000 calc(100% - 8px));
+      opacity: 0;
+      transition: opacity var(--fan-transition);
+    }
+
+    .running .gust {
+      opacity: 0.9;
+      animation: gust-spin calc(var(--spin-duration) * 0.35) linear infinite;
+    }
+
+    /* Direction chevrons: air markers that alternate sides along the live
+       oscillation axis, gated per half of the swing period. */
+    .gate {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      animation: gate 8s linear infinite;
+    }
+
+    .gate-alt {
+      animation-delay: -4s;
+    }
+
+    .chev {
+      position: absolute;
+      width: calc(18px * var(--chev-unit));
+      height: calc(28px * var(--chev-unit));
+      background: var(--fan-accent);
+      opacity: 0;
+      animation: chev-h 2s ease-out infinite;
+    }
+
+    .chev.right {
+      clip-path: polygon(0 0, 100% 50%, 0 100%, 30% 50%);
+    }
+
+    .chev.left {
+      clip-path: polygon(100% 0, 0 50%, 100% 100%, 70% 50%);
+    }
+
+    .chev.down {
+      clip-path: polygon(0 0, 50% 100%, 100% 0, 50% 30%);
+      animation-name: chev-v;
+    }
+
+    .chev.up {
+      clip-path: polygon(0 100%, 50% 0, 100% 100%, 50% 70%);
+      animation-name: chev-v;
+    }
+
+    .chev-r1,
+    .chev-l1 {
+      top: 50%;
+      margin-top: calc(-14px * var(--chev-unit));
+    }
+
+    .chev-r2,
+    .chev-l2 {
+      top: 50%;
+      margin-top: calc(-14px * var(--chev-unit));
+    }
+
+    .chev-r3,
+    .chev-l3 {
+      top: 50%;
+      margin-top: calc(-14px * var(--chev-unit));
+    }
+
+    .chev-r1 {
+      left: calc(50% + 74px * var(--chev-unit));
+      animation-delay: -0.1s;
+    }
+
+    .chev-r2 {
+      left: calc(50% + 94px * var(--chev-unit));
+      animation-delay: -0.6s;
+    }
+
+    .chev-r3 {
+      left: calc(50% + 114px * var(--chev-unit));
+      animation-delay: -1.1s;
+    }
+
+    .chev-l1 {
+      left: calc(50% - 92px * var(--chev-unit));
+      animation-delay: -0.1s;
+    }
+
+    .chev-l2 {
+      left: calc(50% - 112px * var(--chev-unit));
+      animation-delay: -0.6s;
+    }
+
+    .chev-l3 {
+      left: calc(50% - 132px * var(--chev-unit));
+      animation-delay: -1.1s;
+    }
+
+    .chev-d1,
+    .chev-d2,
+    .chev-d3,
+    .chev-u1,
+    .chev-u2,
+    .chev-u3 {
+      left: 50%;
+      margin-left: calc(-9px * var(--chev-unit));
+    }
+
+    .chev-d1 {
+      top: calc(50% + 74px * var(--chev-unit));
+      animation-delay: -0.1s;
+    }
+
+    .chev-d2 {
+      top: calc(50% + 94px * var(--chev-unit));
+      animation-delay: -0.6s;
+    }
+
+    .chev-d3 {
+      top: calc(50% + 114px * var(--chev-unit));
+      animation-delay: -1.1s;
+    }
+
+    .chev-u1 {
+      top: calc(50% - 102px * var(--chev-unit));
+      animation-delay: -0.1s;
+    }
+
+    .chev-u2 {
+      top: calc(50% - 122px * var(--chev-unit));
+      animation-delay: -0.6s;
+    }
+
+    .chev-u3 {
+      top: calc(50% - 142px * var(--chev-unit));
+      animation-delay: -1.1s;
     }
 
     .rotor {
@@ -5490,6 +5712,53 @@ class XiaomiFanCard extends i$2 {
       }
       50% {
         transform: rotate(-26deg) scaleY(0.7);
+      }
+    }
+
+    @keyframes gust-spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @keyframes gate {
+      0%,
+      40% {
+        opacity: 1;
+      }
+      60%,
+      100% {
+        opacity: 0;
+      }
+    }
+
+    @keyframes chev-h {
+      0% {
+        opacity: 0;
+        transform: translateX(0);
+      }
+      25% {
+        opacity: 0.85;
+      }
+      70%,
+      100% {
+        opacity: 0;
+        transform: translateX(calc(28px * var(--chev-unit)));
+      }
+    }
+
+    @keyframes chev-v {
+      0% {
+        opacity: 0;
+        transform: translateY(0);
+      }
+      25% {
+        opacity: 0.85;
+      }
+      70%,
+      100% {
+        opacity: 0;
+        transform: translateY(calc(28px * var(--chev-unit)));
       }
     }
 

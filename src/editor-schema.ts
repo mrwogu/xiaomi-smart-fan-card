@@ -90,6 +90,10 @@ export const getConfigForm = () => {
           ["show", "show_graphic"],
         ),
         selectField("animation", ["auto", "enabled", "disabled"], "show"),
+        grid([
+          selectField("running_animation", ["rotor", "gust"], "show"),
+          selectField("oscillation_animation", ["orbit", "chevrons"], "show"),
+        ]),
         grid(
           [
             booleanField("show_graphic", "show"),

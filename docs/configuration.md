@@ -34,6 +34,8 @@ visual:
   show_speed: true
   show_details: true
   animation: auto
+  running_animation: rotor
+  oscillation_animation: orbit
 controls:
   show: true
   selection_mode: auto
@@ -148,15 +150,17 @@ These keys are still accepted for older YAML configurations. The nested
 
 ## `visual`
 
-| Parameter             | Default | Description                                                        |
-| --------------------- | ------- | ------------------------------------------------------------------ |
-| `visual.show`         | `true`  | Show the visual status section.                                    |
-| `visual.show_graphic` | `true`  | Show the animated fan graphic.                                     |
-| `visual.size`         | `300`   | Fan graphic diameter in pixels. Values are clamped to `120`-`480`. |
-| `visual.show_power`   | `true`  | Show the central power button.                                     |
-| `visual.show_speed`   | `true`  | Show the percentage readout.                                       |
-| `visual.show_details` | `true`  | Show angles, timer, temperature, and humidity.                     |
-| `visual.animation`    | `auto`  | `auto`, `enabled`, or `disabled`.                                  |
+| Parameter                      | Default | Description                                                                                              |
+| ------------------------------ | ------- | -------------------------------------------------------------------------------------------------------- |
+| `visual.show`                  | `true`  | Show the visual status section.                                                                          |
+| `visual.show_graphic`          | `true`  | Show the animated fan graphic.                                                                           |
+| `visual.size`                  | `300`   | Fan graphic diameter in pixels. Values are clamped to `120`-`480`.                                       |
+| `visual.show_power`            | `true`  | Show the central power button.                                                                           |
+| `visual.show_speed`            | `true`  | Show the percentage readout.                                                                             |
+| `visual.show_details`          | `true`  | Show angles, timer, temperature, and humidity.                                                           |
+| `visual.animation`             | `auto`  | `auto`, `enabled`, or `disabled`.                                                                        |
+| `visual.running_animation`     | `rotor` | `rotor` spins the blades, `gust` adds an air jet arc around the speed ring.                              |
+| `visual.oscillation_animation` | `orbit` | `orbit` pulses the orbit ellipses, `chevrons` shows air markers alternating along the active swing axis. |
 
 ## `controls`
 

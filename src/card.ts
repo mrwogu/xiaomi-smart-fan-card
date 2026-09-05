@@ -15,12 +15,13 @@ import { loadServiceAvailability } from "./services/service-dispatcher";
 import { percentageForSpeedLevel, percentageStepDefinesLevels, speedLevelForPercentage } from "./state/model-profiles";
 import { numericLabel } from "./state/normalize-state";
 import { resolveRelatedEntities } from "./state/related-entities";
-import { getAirflowAxis } from "./state/visual-state";
+import { getAirflowAxis, type AirflowAxis } from "./state/visual-state";
 import { createTranslator, type TranslationKey, type TranslationValues, type Translator } from "./translations";
 import type {
   FanAdapter,
   FanCardConfig,
   FanBlock,
+  FanOscillationAnimation,
   HassLike,
   NumberSpec,
   RelatedEntities,
@@ -448,6 +449,8 @@ export class XiaomiFanCard extends LitElement {
     const style = `--speed:${speed}; --spin-duration:${Math.max(1.8, 12 - speed / 11)}s;`;
     const axis = getAirflowAxis(state.horizontalSwing, state.verticalSwing);
     const animationDisabled = this.config.disable_animation || this.config.visual.animation === "disabled";
+    const runningAnimation = this.config.visual.running_animation;
+    const oscillationAnimation = this.config.visual.oscillation_animation;
     const details = this.config.visual.show_details ? this.renderDetails(adapter) : "";
 
     // An empty section would still add a block gap to the card, so the visual
@@ -473,12 +476,14 @@ export class XiaomiFanCard extends LitElement {
                 <div
                   class="airflow-visual axis-${axis} ${state.isOn ? "running" : ""} ${
                     animationDisabled ? "no-motion" : ""
-                  }"
+                  } run-${runningAnimation} osc-${oscillationAnimation}"
                   style=${style}
                 >
+                  ${this.renderChevronGates(axis, oscillationAnimation)}
                   <div class="orbit orbit-one"></div>
                   <div class="orbit orbit-two"></div>
                   <div class="speed-ring" aria-hidden="true"></div>
+                  ${runningAnimation === "gust" ? html`<div class="gust" aria-hidden="true"></div>` : ""}
                   <div class="wind wind-horizontal"></div>
                   <div class="wind wind-vertical"></div>
                   <div class="rotor" aria-hidden="true">
@@ -518,6 +523,35 @@ export class XiaomiFanCard extends LitElement {
         }
         ${details}
       </section>
+    `;
+  }
+
+  /**
+   * Chevron gates only make sense while a swing axis is active, and each axis
+   * renders its own pair so "dual" shows all four directions at once.
+   */
+  private renderChevronGates(axis: AirflowAxis, mode: FanOscillationAnimation): TemplateResult | "" {
+    if (mode !== "chevrons" || axis === "still") {
+      return "";
+    }
+
+    const gate = (direction: "right" | "left" | "down" | "up", alternatePhase: boolean): TemplateResult => {
+      const suffix = { right: "r", left: "l", down: "d", up: "u" }[direction];
+      return html`
+        <div class="gate gate-${direction} ${alternatePhase ? "gate-alt" : ""}" aria-hidden="true">
+          <span class="chev ${direction} chev-${suffix}1"></span>
+          <span class="chev ${direction} chev-${suffix}2"></span>
+          <span class="chev ${direction} chev-${suffix}3"></span>
+        </div>
+      `;
+    };
+
+    const horizontal = axis === "horizontal" || axis === "dual";
+    const vertical = axis === "vertical" || axis === "dual";
+
+    return html`
+      ${horizontal ? gate("right", false) : ""} ${horizontal ? gate("left", true) : ""}
+      ${vertical ? gate("down", false) : ""} ${vertical ? gate("up", true) : ""}
     `;
   }
 
@@ -1482,6 +1516,9 @@ export class XiaomiFanCard extends LitElement {
       aspect-ratio: 1;
       margin: 0 auto;
       isolation: isolate;
+      /* Chevron offsets are authored for a 250px visual, so every other size
+         scales them through this unit instead of re-deriving px positions. */
+      --chev-unit: calc(var(--fan-visual-size) / 250);
     }
 
     .airflow-visual::before {
@@ -1568,6 +1605,152 @@ export class XiaomiFanCard extends LitElement {
     .axis-dual.running .wind-vertical {
       animation: wind-vertical-flow calc(var(--spin-duration) * 1.2) ease-in-out infinite;
       animation-delay: -0.7s;
+    }
+
+    /* Gust comet: an air jet chasing itself around the speed ring track. */
+    .gust {
+      position: absolute;
+      inset: 6%;
+      z-index: 1;
+      border-radius: 50%;
+      background: conic-gradient(from 0deg, transparent 0 55%, var(--fan-accent) 100%);
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 9px), #000 calc(100% - 8px));
+      mask: radial-gradient(farthest-side, transparent calc(100% - 9px), #000 calc(100% - 8px));
+      opacity: 0;
+      transition: opacity var(--fan-transition);
+    }
+
+    .running .gust {
+      opacity: 0.9;
+      animation: gust-spin calc(var(--spin-duration) * 0.35) linear infinite;
+    }
+
+    /* Direction chevrons: air markers that alternate sides along the live
+       oscillation axis, gated per half of the swing period. */
+    .gate {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      animation: gate 8s linear infinite;
+    }
+
+    .gate-alt {
+      animation-delay: -4s;
+    }
+
+    .chev {
+      position: absolute;
+      width: calc(18px * var(--chev-unit));
+      height: calc(28px * var(--chev-unit));
+      background: var(--fan-accent);
+      opacity: 0;
+      animation: chev-h 2s ease-out infinite;
+    }
+
+    .chev.right {
+      clip-path: polygon(0 0, 100% 50%, 0 100%, 30% 50%);
+    }
+
+    .chev.left {
+      clip-path: polygon(100% 0, 0 50%, 100% 100%, 70% 50%);
+    }
+
+    .chev.down {
+      clip-path: polygon(0 0, 50% 100%, 100% 0, 50% 30%);
+      animation-name: chev-v;
+    }
+
+    .chev.up {
+      clip-path: polygon(0 100%, 50% 0, 100% 100%, 50% 70%);
+      animation-name: chev-v;
+    }
+
+    .chev-r1,
+    .chev-l1 {
+      top: 50%;
+      margin-top: calc(-14px * var(--chev-unit));
+    }
+
+    .chev-r2,
+    .chev-l2 {
+      top: 50%;
+      margin-top: calc(-14px * var(--chev-unit));
+    }
+
+    .chev-r3,
+    .chev-l3 {
+      top: 50%;
+      margin-top: calc(-14px * var(--chev-unit));
+    }
+
+    .chev-r1 {
+      left: calc(50% + 74px * var(--chev-unit));
+      animation-delay: -0.1s;
+    }
+
+    .chev-r2 {
+      left: calc(50% + 94px * var(--chev-unit));
+      animation-delay: -0.6s;
+    }
+
+    .chev-r3 {
+      left: calc(50% + 114px * var(--chev-unit));
+      animation-delay: -1.1s;
+    }
+
+    .chev-l1 {
+      left: calc(50% - 92px * var(--chev-unit));
+      animation-delay: -0.1s;
+    }
+
+    .chev-l2 {
+      left: calc(50% - 112px * var(--chev-unit));
+      animation-delay: -0.6s;
+    }
+
+    .chev-l3 {
+      left: calc(50% - 132px * var(--chev-unit));
+      animation-delay: -1.1s;
+    }
+
+    .chev-d1,
+    .chev-d2,
+    .chev-d3,
+    .chev-u1,
+    .chev-u2,
+    .chev-u3 {
+      left: 50%;
+      margin-left: calc(-9px * var(--chev-unit));
+    }
+
+    .chev-d1 {
+      top: calc(50% + 74px * var(--chev-unit));
+      animation-delay: -0.1s;
+    }
+
+    .chev-d2 {
+      top: calc(50% + 94px * var(--chev-unit));
+      animation-delay: -0.6s;
+    }
+
+    .chev-d3 {
+      top: calc(50% + 114px * var(--chev-unit));
+      animation-delay: -1.1s;
+    }
+
+    .chev-u1 {
+      top: calc(50% - 102px * var(--chev-unit));
+      animation-delay: -0.1s;
+    }
+
+    .chev-u2 {
+      top: calc(50% - 122px * var(--chev-unit));
+      animation-delay: -0.6s;
+    }
+
+    .chev-u3 {
+      top: calc(50% - 142px * var(--chev-unit));
+      animation-delay: -1.1s;
     }
 
     .rotor {
@@ -2455,6 +2638,53 @@ export class XiaomiFanCard extends LitElement {
       }
       50% {
         transform: rotate(-26deg) scaleY(0.7);
+      }
+    }
+
+    @keyframes gust-spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @keyframes gate {
+      0%,
+      40% {
+        opacity: 1;
+      }
+      60%,
+      100% {
+        opacity: 0;
+      }
+    }
+
+    @keyframes chev-h {
+      0% {
+        opacity: 0;
+        transform: translateX(0);
+      }
+      25% {
+        opacity: 0.85;
+      }
+      70%,
+      100% {
+        opacity: 0;
+        transform: translateX(calc(28px * var(--chev-unit)));
+      }
+    }
+
+    @keyframes chev-v {
+      0% {
+        opacity: 0;
+        transform: translateY(0);
+      }
+      25% {
+        opacity: 0.85;
+      }
+      70%,
+      100% {
+        opacity: 0;
+        transform: translateY(calc(28px * var(--chev-unit)));
       }
     }
 

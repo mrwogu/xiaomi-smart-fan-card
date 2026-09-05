@@ -1155,4 +1155,62 @@ describe("XiaomiFanCard", () => {
     expect(editor.computeHelper({ name: "styles" })).toContain("CSS");
     expect(editor.computeHelper({ name: "show_led" })).toBeUndefined();
   });
+
+  it("renders the gust comet only when the running animation is gust", async () => {
+    const { card } = await renderCard({
+      ...baseConfig,
+      visual: { show: true, show_graphic: true, show_power: false, show_speed: false, running_animation: "gust" },
+    });
+    const root = card.shadowRoot;
+
+    expect(root?.querySelector(".airflow-visual")?.classList.contains("run-gust")).toBe(true);
+    expect(root?.querySelector(".gust")).not.toBeNull();
+
+    const { card: plain } = await renderCard({
+      ...baseConfig,
+      visual: { show: true, show_graphic: true, show_power: false, show_speed: false },
+    });
+    expect(plain.shadowRoot?.querySelector(".airflow-visual")?.classList.contains("run-rotor")).toBe(true);
+    expect(plain.shadowRoot?.querySelector(".gust")).toBeNull();
+  });
+
+  it("renders oscillation chevrons for each active swing axis", async () => {
+    const renderWithSwing = async (attributes: Record<string, unknown>): Promise<ShadowRoot | null | undefined> => {
+      const { hass } = createHass();
+      const entity = hass.states["fan.p76"]!;
+      hass.states["fan.p76"] = { ...entity, attributes: { ...entity.attributes, ...attributes } };
+      const card = new XiaomiFanCard();
+      card.hass = hass as unknown as HomeAssistant;
+      card.setConfig({
+        ...baseConfig,
+        visual: {
+          show: true,
+          show_graphic: true,
+          show_power: false,
+          show_speed: false,
+          oscillation_animation: "chevrons",
+        },
+      });
+      document.body.append(card);
+      await settle(card);
+      return card.shadowRoot;
+    };
+
+    const horizontal = await renderWithSwing({ oscillating: true });
+    expect(horizontal?.querySelector(".airflow-visual.axis-horizontal")).not.toBeNull();
+    expect(horizontal?.querySelectorAll(".gate").length).toBe(2);
+    expect(horizontal?.querySelectorAll(".chev").length).toBe(6);
+    expect(horizontal?.querySelector(".gate-right .chev.right")).not.toBeNull();
+    expect(horizontal?.querySelector(".gate-left .chev.left")).not.toBeNull();
+    expect(horizontal?.querySelector(".gate-down")).toBeNull();
+
+    const dual = await renderWithSwing({ oscillating: true, vertical_swing: true });
+    expect(dual?.querySelector(".airflow-visual.axis-dual")).not.toBeNull();
+    expect(dual?.querySelectorAll(".gate").length).toBe(4);
+    expect(dual?.querySelectorAll(".chev").length).toBe(12);
+
+    const still = await renderWithSwing({});
+    expect(still?.querySelector(".airflow-visual.axis-still")).not.toBeNull();
+    expect(still?.querySelectorAll(".gate").length).toBe(0);
+  });
 });

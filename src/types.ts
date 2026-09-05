@@ -135,6 +135,8 @@ export type FanSelectionMode = "auto" | "buttons" | "select";
 export type FanTimerMode = "cycle" | "select";
 export type FanAngleMode = "cycle" | "select";
 export type FanAnimationMode = "auto" | "enabled" | "disabled";
+export type FanRunningAnimation = "rotor" | "gust";
+export type FanOscillationAnimation = "orbit" | "chevrons";
 export type FanDetailsPosition = "below" | "side";
 export type FanBlock = "header" | "visual" | "airflow" | "position" | "features";
 
@@ -178,6 +180,8 @@ export interface FanVisualConfig {
   show_speed?: boolean;
   show_details?: boolean;
   animation?: FanAnimationMode;
+  running_animation?: FanRunningAnimation;
+  oscillation_animation?: FanOscillationAnimation;
 }
 
 export type ResolvedFanVisualConfig = Omit<Required<FanVisualConfig>, "size"> & {

@@ -66,6 +66,27 @@ describe("normalizeCardConfig", () => {
     ).toBe(300);
   });
 
+  it("defaults the animation styles and rejects unknown values", () => {
+    const base = { type: "custom:xiaomi-fan-card", entity: "fan.example" };
+
+    expect(normalizeCardConfig(base).visual.running_animation).toBe("rotor");
+    expect(normalizeCardConfig(base).visual.oscillation_animation).toBe("orbit");
+
+    const config = normalizeCardConfig({
+      ...base,
+      visual: { running_animation: "gust", oscillation_animation: "chevrons" },
+    });
+    expect(config.visual.running_animation).toBe("gust");
+    expect(config.visual.oscillation_animation).toBe("chevrons");
+
+    const invalid = normalizeCardConfig({
+      ...base,
+      visual: { running_animation: "waves" as never, oscillation_animation: "beam" as never },
+    });
+    expect(invalid.visual.running_animation).toBe("rotor");
+    expect(invalid.visual.oscillation_animation).toBe("orbit");
+  });
+
   it("gives nested visibility settings precedence over legacy fields", () => {
     const config = normalizeCardConfig({
       type: "custom:xiaomi-fan-card",
