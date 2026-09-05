@@ -5,9 +5,25 @@ import { loadServiceAvailability } from "../../src/services/service-dispatcher";
 import { resolveRelatedEntities } from "../../src/state/related-entities";
 import type { HassLike } from "../../src/types";
 import { airPurifier4ProHass } from "../fixtures/air-purifier-4-pro";
-import { xiaomiMiotP76Hass } from "../fixtures/xiaomi-miot-p76";
+import { xiaomiMiotP76Hass, xiaomiMiotP76InfoHass } from "../fixtures/xiaomi-miot-p76";
 
 describe("integration regression fixtures", () => {
+  it.each([
+    ["MIoT", xiaomiMiotP76Hass],
+    ["MIoT Info", xiaomiMiotP76InfoHass],
+  ] as const)("keeps %s fixture defaults usable", async (_name, createHass) => {
+    const hass = createHass();
+    const originalStates = structuredClone(hass.states);
+
+    await expect(hass.callWS!({ type: "unknown" })).resolves.toEqual({});
+
+    const services = await loadServiceAvailability(hass);
+    const adapter = createFanAdapter(hass, "fan.xiaomi_p76", services, "xiaomi_miot");
+    await adapter.togglePower();
+
+    expect(hass.states).toEqual(originalStates);
+  });
+
   it("discovers MIoT P76 controls and dispatches standard and select services", async () => {
     const hass = xiaomiMiotP76Hass();
     const services = await loadServiceAvailability(hass);

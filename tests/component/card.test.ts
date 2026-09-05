@@ -6,6 +6,7 @@ import { XiaomiFanCard } from "../../src/card";
 import { getModelProfile } from "../../src/state/model-profiles";
 import type { FanCardConfig, HassEntity, HassLike } from "../../src/types";
 import { standardPowerContracts } from "../fixtures/integration-contracts";
+import { xiaomiMiotP76InfoHass } from "../fixtures/xiaomi-miot-p76";
 
 const services = {
   xiaomi_miio_fan: {
@@ -148,6 +149,53 @@ afterEach(() => {
 });
 
 describe("XiaomiFanCard", () => {
+  it("renders and updates Xiaomi Miot angle controls from same-device Info properties", async () => {
+    const hass = xiaomiMiotP76InfoHass();
+    const callService = vi.fn();
+    hass.callService = callService;
+    const card = new XiaomiFanCard();
+    card.hass = hass as unknown as HomeAssistant;
+    card.setConfig({
+      ...baseConfig,
+      entity: "fan.xiaomi_p76",
+      integration: "xiaomi_miot",
+      related_entities: {},
+      controls: { ...baseConfig.controls, show_vertical_swing: true, show_nudge: false, show_timer: false },
+    });
+    document.body.append(card);
+    await settle(card);
+
+    const selects = card.shadowRoot!.querySelectorAll<HTMLSelectElement>(".angle-controls select");
+    expect(selects).toHaveLength(2);
+    expect([...selects].map((select) => select.value)).toEqual(["30", "30"]);
+    expect(card.shadowRoot!.querySelector(".chip-row")).not.toBeNull();
+
+    selects[1]!.value = "60";
+    selects[1]!.dispatchEvent(new Event("change", { bubbles: true }));
+    await settle(card);
+
+    expect(callService).toHaveBeenCalledWith("xiaomi_miot", "set_property", {
+      entity_id: "fan.xiaomi_p76",
+      field: "vertical_swing_included_angle-2-9",
+      value: 60,
+    });
+
+    const info = hass.states["button.xiaomi_p76_info"]!;
+    card.hass = {
+      ...hass,
+      states: {
+        ...hass.states,
+        "button.xiaomi_p76_info": {
+          ...info,
+          attributes: { ...info.attributes, "vertical_swing_included_angle-2-9": 90 },
+        },
+      },
+    } as unknown as HomeAssistant;
+    await settle(card);
+
+    expect(card.shadowRoot!.querySelectorAll<HTMLSelectElement>(".angle-controls select")[1]!.value).toBe("90");
+  });
+
   it("renders active timer and angle selectors in separate columns", async () => {
     const { card } = await renderCard(baseConfig);
     const root = card.shadowRoot;

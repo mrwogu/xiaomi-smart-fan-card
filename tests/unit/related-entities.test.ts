@@ -1,8 +1,47 @@
 import { describe, expect, it } from "vitest";
 import { resolveRelatedEntities } from "../../src/state/related-entities";
 import type { HassLike } from "../../src/types";
+import { xiaomiMiotP76InfoHass } from "../fixtures/xiaomi-miot-p76";
 
 describe("resolveRelatedEntities", () => {
+  it("discovers Xiaomi Miot Info by its marker, not its translated entity name", async () => {
+    const hass = xiaomiMiotP76InfoHass();
+    hass.states["button.localized_information"] = hass.states["button.xiaomi_p76_info"]!;
+    hass.callWS = async <T>() =>
+      [
+        { entity_id: "fan.xiaomi_p76", device_id: "device-1", platform: "xiaomi_miot" },
+        { entity_id: "button.localized_information", device_id: "device-1", platform: "xiaomi_miot" },
+      ] as T;
+
+    await expect(resolveRelatedEntities(hass, "fan.xiaomi_p76")).resolves.toMatchObject({
+      miotInfo: "button.localized_information",
+      verticalSwing: undefined,
+      horizontalAngle: undefined,
+      verticalAngle: undefined,
+    });
+  });
+
+  it.each([
+    ["xiaomi_miio", "xiaomi_miot"],
+    ["xiaomi_miot", "xiaomi_miio"],
+  ])("does not share Info between %s and %s integrations", async (primaryPlatform, infoPlatform) => {
+    const hass = xiaomiMiotP76InfoHass();
+    hass.callWS = async <T>() =>
+      [
+        { entity_id: "fan.xiaomi_p76", device_id: "device-1", platform: primaryPlatform },
+        { entity_id: "button.xiaomi_p76_info", device_id: "device-1", platform: infoPlatform },
+      ] as T;
+
+    expect((await resolveRelatedEntities(hass, "fan.xiaomi_p76"))?.miotInfo).toBeUndefined();
+  });
+
+  it("does not assume every same-device button is an Info entity", async () => {
+    const hass = xiaomiMiotP76InfoHass();
+    delete hass.states["button.xiaomi_p76_info"]!.attributes["button.info"];
+
+    expect((await resolveRelatedEntities(hass, "fan.xiaomi_p76"))?.miotInfo).toBeUndefined();
+  });
+
   it("discovers optional controls across supported entity domains", async () => {
     const hass: HassLike = {
       states: {

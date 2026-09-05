@@ -1,5 +1,6 @@
 import { detectCapabilities } from "../state/capabilities";
 import { getModelProfile } from "../state/model-profiles";
+import { MIOT_FAN_PROPERTY_ATTRIBUTES } from "../state/miot-properties";
 import {
   minutesToTimerValue,
   normalizeFanState,
@@ -56,6 +57,7 @@ const selectOptions = (entity: HassEntity | undefined): string[] => {
 };
 
 const RELATED_ENTITY_DOMAINS: Record<keyof RelatedEntities, readonly string[]> = {
+  miotInfo: ["button"],
   sleepMode: ["switch", "input_boolean", "select"],
   horizontalSwing: ["switch", "input_boolean", "select"],
   verticalSwing: ["switch", "input_boolean", "select"],
@@ -148,13 +150,14 @@ export class StandardFanAdapter implements FanAdapter {
   public readonly capabilities: FanCapabilities;
 
   protected readonly dispatcher: ServiceDispatcher;
-  private readonly actionableRelated: RelatedEntities;
+  protected readonly actionableRelated: RelatedEntities;
 
   constructor(
     protected readonly hass: HassLike,
     protected readonly entityId: string,
     protected readonly services: ServiceAvailability,
     protected readonly related: RelatedEntities = {},
+    protected readonly fanEntity: HassEntity | undefined = hass.states[entityId],
   ) {
     const actionableRelated = this.actionableRelatedEntities();
     this.actionableRelated = actionableRelated;
@@ -165,7 +168,7 @@ export class StandardFanAdapter implements FanAdapter {
       this.entityWithRelatedAttributes(this.stateRelatedEntities(actionableRelated), timerSpec, timerUnit),
     );
     this.profile = getModelProfile(this.state.model);
-    const detectedCapabilities = detectCapabilities(hass.states[entityId], services, actionableRelated);
+    const detectedCapabilities = detectCapabilities(this.fanEntity, services, actionableRelated);
     this.capabilities = {
       ...detectedCapabilities,
       horizontalAngles:
@@ -322,14 +325,20 @@ export class StandardFanAdapter implements FanAdapter {
     timerSpec: TimerSpec | undefined,
     timerUnit: TimerSpec["unit"],
   ): HassEntity | undefined {
-    const entity = this.hass.states[this.entityId];
+    const entity = this.fanEntity;
     if (!entity) {
       return undefined;
     }
 
     const attributes = { ...entity.attributes };
     const attributeAliases: Partial<Record<keyof RelatedEntities, readonly string[]>> = {
-      horizontalAngle: ["horizontal_swing_angle", "horizontal_angle", "swing_mode_angle", "angle"],
+      horizontalAngle: [
+        "horizontal_swing_angle",
+        "horizontal_angle",
+        "swing_mode_angle",
+        "angle",
+        ...MIOT_FAN_PROPERTY_ATTRIBUTES.horizontalAngle,
+      ],
       horizontalSwing: [
         "oscillating",
         "oscillate",
@@ -337,10 +346,21 @@ export class StandardFanAdapter implements FanAdapter {
         "horizontal_oscillating",
         "horizontal_oscillation",
         "swing_mode",
+        ...MIOT_FAN_PROPERTY_ATTRIBUTES.horizontalSwing,
       ],
       favoriteLevel: ["favorite_level", "favorite_speed"],
-      verticalAngle: ["vertical_swing_angle", "vertical_oscillation_angle", "vertical_angle"],
-      verticalSwing: ["vertical_swing", "vertical_oscillate", "vertical_oscillation"],
+      verticalAngle: [
+        "vertical_swing_angle",
+        "vertical_oscillation_angle",
+        "vertical_angle",
+        ...MIOT_FAN_PROPERTY_ATTRIBUTES.verticalAngle,
+      ],
+      verticalSwing: [
+        "vertical_swing",
+        "vertical_oscillate",
+        "vertical_oscillation",
+        ...MIOT_FAN_PROPERTY_ATTRIBUTES.verticalSwing,
+      ],
       timer: ["delay_off_countdown", "delay_time", "power_off_time", "timer", "timer_unit", "delay_time_unit"],
       led: ["led", "light", "led_brightness", "light_enum"],
       buzzer: ["buzzer", "notification_sound"],
@@ -583,7 +603,7 @@ export class StandardFanAdapter implements FanAdapter {
    * An angle only takes effect on a sweeping axis, so selecting one implies
    * starting that axis. An unknown swing state is left alone.
    */
-  private async startSwing(axis: "horizontal" | "vertical"): Promise<void> {
+  protected async startSwing(axis: "horizontal" | "vertical"): Promise<void> {
     if (axis === "horizontal") {
       if (this.capabilities.horizontalSwing && this.state.horizontalSwing === false) {
         await this.setHorizontalSwing(true);

@@ -1,5 +1,6 @@
 import type { FanMode, HassEntity, NormalizedFanState } from "../types";
 import { getModelProfile, resolveSpeedLevels, speedLevelForPercentage } from "./model-profiles";
+import { MIOT_FAN_PROPERTY_ATTRIBUTES } from "./miot-properties";
 import type { TimerUnit } from "../types";
 
 export const parseTimerUnit = (value: unknown): TimerUnit => {
@@ -48,7 +49,7 @@ export const numericLabel = (value: unknown): number | undefined => {
   return match ? Number(match[1]) : undefined;
 };
 
-const booleanValue = (value: unknown): boolean | undefined => {
+export const booleanValue = (value: unknown): boolean | undefined => {
   if (typeof value === "boolean") {
     return value;
   }
@@ -208,15 +209,27 @@ export const normalizeFanState = (entityId: string, entity?: HassEntity): Normal
       "horizontal_oscillating",
       "horizontal_oscillation",
       "swing_mode",
+      ...MIOT_FAN_PROPERTY_ATTRIBUTES.horizontalSwing,
     ]),
     horizontalAngle: firstAngle(attributes, [
       "horizontal_swing_angle",
       "horizontal_angle",
       "swing_mode_angle",
       "angle",
+      ...MIOT_FAN_PROPERTY_ATTRIBUTES.horizontalAngle,
     ]),
-    verticalSwing: firstBoolean(attributes, ["vertical_swing", "vertical_oscillate", "vertical_oscillation"]),
-    verticalAngle: firstAngle(attributes, ["vertical_swing_angle", "vertical_oscillation_angle", "vertical_angle"]),
+    verticalSwing: firstBoolean(attributes, [
+      "vertical_swing",
+      "vertical_oscillate",
+      "vertical_oscillation",
+      ...MIOT_FAN_PROPERTY_ATTRIBUTES.verticalSwing,
+    ]),
+    verticalAngle: firstAngle(attributes, [
+      "vertical_swing_angle",
+      "vertical_oscillation_angle",
+      "vertical_angle",
+      ...MIOT_FAN_PROPERTY_ATTRIBUTES.verticalAngle,
+    ]),
     timerMinutes: timerMinutes(attributes, profile.timerUnit),
     childLock: booleanValue(attributes["child_lock"]),
     led: ledState(attributes),

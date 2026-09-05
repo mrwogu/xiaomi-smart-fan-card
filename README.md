@@ -235,7 +235,7 @@ styles:
 | Auto detection   | `auto`             | Standard fan actions and related entity discovery. Vendor services are never guessed.                                                   |
 | Xiaomi Home      | `xiaomi_miio`      | Standard fan actions plus related switch, number, select, and sensor entities.                                                          |
 | syssi/xiaomi_fan | `xiaomi_miio_fan`  | Xiaomi services for angle, vertical oscillation, nudge, timer, LED, buzzer, child lock, and ionizer when supported by the target model. |
-| Xiaomi MIOT      | `xiaomi_miot`      | Standard fan actions plus actionable related entities exposed by Xiaomi MIoT.                                                           |
+| Xiaomi MIOT      | `xiaomi_miot`      | Standard actions, related entities, and verified P76 swing/angle properties via Xiaomi Miot services.                                   |
 | Any HA `fan`     | `standard`         | Percentage, presets, oscillation, direction, and whatever related entities exist.                                                       |
 
 `auto` and `standard` use public Home Assistant fan actions. Select
@@ -258,9 +258,10 @@ integration:
 - `xiaomi_miio_fan`: angle, vertical oscillation, nudge, timer, LED, buzzer,
   and child lock actions need both device support and registered
   `xiaomi_miio_fan.*` services. Service registration alone is not device support.
-- `xiaomi_miot`: angle and vertical controls appear only when Xiaomi MIoT
-  exposes actionable same-device related entities. Angle `select` entities
-  must provide numeric options such as `30`, `60°`, or `90 degrees`.
+- `xiaomi_miot`: actionable same-device related entities take precedence.
+  Angle `select` entities must provide numeric options such as `30`, `60°`,
+  or `90 degrees`. For `xiaomi.fan.p76`, exposed swing and angle properties
+  can also use the registered `xiaomi_miot.set_property` service.
 - `auto` and `standard`: the card uses standard fan actions and related
   entities. Primary angle attributes without a matching action remain hidden
   and do not create dead controls or details.
@@ -271,10 +272,30 @@ switches, input booleans, and selects can provide an optional control when the
 fan integration exposes it as a separate entity. The power button requires
 `TURN_OFF` while running and `TURN_ON` while stopped.
 
+For a P76 whose Xiaomi Miot integration puts these properties on its Info
+button instead of separate controls, select the integration explicitly:
+
+```yaml
+type: custom:xiaomi-fan-card
+entity: fan.example
+integration: xiaomi_miot
+```
+
+The card reads `fan.vertical_swing`, `horizontal_swing_included_angle-2-7`,
+and `vertical_swing_included_angle-2-9` from the primary fan or its same-device
+Xiaomi Miot Info entity. It writes the exact exposed field name through Home
+Assistant. No extra angle or vertical-swing entities are required when that
+service and valid property values exist. An Info button's `unknown` state
+does not make its available metadata unusable.
+
 The card does not connect directly to Xiaomi devices and does not invent
-MIoT property or service names. If MIoT exposes only read-only fan attributes,
-configure writable related entities in the integration or keep those controls
-hidden. Changing the card's integration setting does not create device actions.
+MIoT property or service names. A model name or `controls.show_*: true` alone
+cannot unlock controls. This property fallback is limited to the verified
+P76 model and explicit `xiaomi_miot` mode; `auto` and `standard` keep their
+standard action paths. If MIoT exposes only read-only fan attributes,
+configure writable related entities in the integration or keep those
+controls hidden. Changing the card's integration setting does not create
+device actions.
 
 ### Capability safety
 
@@ -524,7 +545,11 @@ intentionally hides that control. See
 [docs/compatibility.md](docs/compatibility.md).
 
 For `xiaomi_miot`, verify that the related entity exists, belongs to the same
-device, is available, and exposes the expected domain and options. Include the
+device, is available, and exposes the expected domain and options. For the P76
+property fallback, check `integration: xiaomi_miot`, the registered
+`xiaomi_miot.set_property` action, and valid properties on the fan or its
+same-device Xiaomi Miot Info entity. Include only the relevant redacted Info
+properties, not its full diagnostic attributes. Include the
 integration name, Home Assistant and HACS versions, browser, redacted primary
 entity state and attributes, redacted related entity domains, states, and
 options, registered service names, card configuration, console error, and exact

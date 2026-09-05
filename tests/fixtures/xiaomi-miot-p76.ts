@@ -66,3 +66,53 @@ export const xiaomiMiotP76Hass = (): HassLike => ({
     return {} as T;
   },
 });
+
+export const xiaomiMiotP76InfoHass = (): HassLike => ({
+  states: {
+    "fan.xiaomi_p76": {
+      state: "on",
+      attributes: {
+        friendly_name: "Test fan",
+        // SET_SPEED | OSCILLATE | PRESET_MODE | TURN_OFF | TURN_ON
+        supported_features: 59,
+        percentage: 100,
+        percentage_step: 1,
+        preset_mode: "Straight Wind",
+        preset_modes: ["Straight Wind", "Natural Wind"],
+        oscillating: true,
+      },
+    },
+    "button.xiaomi_p76_info": {
+      state: "unknown",
+      attributes: {
+        "button.info": "Xiaomi Fan",
+        model: "xiaomi.fan.p76",
+        miot_type: "urn:miot-spec-v2:device:fan:0000A005:xiaomi-p76:1:0000D062",
+        available: true,
+        "fan.on": true,
+        "fan.horizontal_swing": true,
+        "horizontal_swing_included_angle-2-7": 30,
+        "fan.vertical_swing": true,
+        "vertical_swing_included_angle-2-9": 30,
+      },
+    },
+  },
+  callService: () => undefined,
+  callWS: async <T>(message: Record<string, unknown>) => {
+    if (message.type === "config/entity_registry/list") {
+      return [
+        { entity_id: "fan.xiaomi_p76", device_id: "device-miot-p76", platform: "xiaomi_miot" },
+        { entity_id: "button.xiaomi_p76_info", device_id: "device-miot-p76", platform: "xiaomi_miot" },
+      ] as T;
+    }
+
+    if (message.type === "get_services") {
+      return {
+        fan: services.fan,
+        xiaomi_miot: { set_property: {} },
+      } as T;
+    }
+
+    return {} as T;
+  },
+});

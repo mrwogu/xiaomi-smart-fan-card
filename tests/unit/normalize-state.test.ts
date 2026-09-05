@@ -114,4 +114,34 @@ describe("normalizeFanState", () => {
 
     expect(state.timerMinutes).toBe(2);
   });
+
+  it("reads Xiaomi Miot swing properties and ID-suffixed angle attributes", () => {
+    const state = normalizeFanState("fan.miot", {
+      state: "on",
+      attributes: {
+        "fan.horizontal_swing": false,
+        "fan.vertical_swing": true,
+        "horizontal_swing_included_angle-2-7": 60,
+        "vertical_swing_included_angle-2-9": 100,
+      },
+    });
+
+    expect(state.horizontalSwing).toBe(false);
+    expect(state.verticalSwing).toBe(true);
+    expect(state.horizontalAngle).toBe(60);
+    expect(state.verticalAngle).toBe(100);
+  });
+
+  it("reads fully qualified Xiaomi Miot angle names", () => {
+    const state = normalizeFanState("fan.miot", {
+      state: "on",
+      attributes: {
+        "fan.horizontal_swing_included_angle": 90,
+        "fan.vertical_swing_included_angle": 30,
+      },
+    });
+
+    expect(state.horizontalAngle).toBe(90);
+    expect(state.verticalAngle).toBe(30);
+  });
 });
