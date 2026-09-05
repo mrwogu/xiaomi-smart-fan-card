@@ -5,6 +5,14 @@ All notable changes to Xiaomi Fan Card will be documented in this file.
 This project follows [Semantic Versioning](https://semver.org/) and uses
 [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [1.1.4](https://github.com/mrwogu/xiaomi-smart-fan-card/compare/v1.1.3...v1.1.4) (2026-09-05)
+
+
+### Bug Fixes
+
+* honor verified fan integration contracts ([#61](https://github.com/mrwogu/xiaomi-smart-fan-card/issues/61)) ([8cb9b6b](https://github.com/mrwogu/xiaomi-smart-fan-card/commit/8cb9b6b986b06f2bfb1e21e72ab8694fbf741f72))
+* support P76 Miot property controls ([#60](https://github.com/mrwogu/xiaomi-smart-fan-card/issues/60)) ([b21119d](https://github.com/mrwogu/xiaomi-smart-fan-card/commit/b21119db4e0f17fa30b62046959436ed8ae8fd5d))
+
 ## [1.1.3](https://github.com/mrwogu/xiaomi-smart-fan-card/compare/v1.1.2...v1.1.3) (2026-09-04)
 
 
