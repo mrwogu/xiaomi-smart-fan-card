@@ -99,7 +99,9 @@ related_entities:
 
 The card never calls a Xiaomi device directly. `auto` does not guess a vendor
 adapter. Select `xiaomi_miio_fan` only when the service registry contains the
-custom services required by the configured controls.
+custom services required by the configured controls. A registered service alone
+does not prove that a model supports it; optional controls also need device
+attributes, a verified model profile, or actionable related entities.
 
 ## Legacy top-level related-entity aliases
 
@@ -116,7 +118,7 @@ These keys are still accepted for older YAML configurations. The nested
 | `sleep_mode_entity`       | automatic | Related sleep mode `switch`, `input_boolean`, or `select`.             |
 | `timer_entity`            | automatic | Related timer `number` or `input_number` entity.                       |
 | `child_lock_entity`       | automatic | Related child lock `switch`, `input_boolean`, or `select`.             |
-| `led_entity`              | automatic | Related LED switch, select, or numeric entity.                         |
+| `led_entity`              | automatic | Related LED light, switch, select, or numeric entity.                  |
 | `buzzer_entity`           | automatic | Related buzzer `switch`, `input_boolean`, or `select`.                 |
 | `ionizer_entity`          | automatic | Related ionizer `switch`, `input_boolean`, or `select`.                |
 | `temperature_entity`      | automatic | Related temperature `sensor` entity.                                   |
@@ -231,7 +233,7 @@ Tokens compose with `layout.theme`: the theme sets the base design tokens and
 | `related_entities.sleep_mode_entity`       | automatic | `switch`, `input_boolean`, or `select` for sleep mode.                               |
 | `related_entities.timer_entity`            | automatic | `number` or `input_number` for the timer.                                            |
 | `related_entities.child_lock_entity`       | automatic | `switch`, `input_boolean`, or `select` for child lock.                               |
-| `related_entities.led_entity`              | automatic | LED `switch`, `input_boolean`, `select`, or numeric entity.                          |
+| `related_entities.led_entity`              | automatic | LED `light`, `switch`, `input_boolean`, `select`, or numeric entity.                 |
 | `related_entities.buzzer_entity`           | automatic | `switch`, `input_boolean`, or `select` for the buzzer.                               |
 | `related_entities.ionizer_entity`          | automatic | `switch`, `input_boolean`, or `select` for the ionizer.                              |
 | `related_entities.temperature_entity`      | automatic | `sensor` for temperature.                                                            |
@@ -243,6 +245,10 @@ and humidity resolve from the sensor `device_class` first, so a translated Home
 Assistant install works without an English entity name. Use explicit related
 entity fields when an integration uses a different name or does not assign the
 entities to the same device.
+
+Related nudge buttons need a complete opposing pair and the registered
+`button.press` service. A left/right pair enables horizontal nudge without
+requiring up/down buttons. The pad only shows supported directions.
 
 Angle `select` entities are supported when their options contain numeric
 values, written as `30`, `30°`, or `30 degrees`. Non-numeric select options are
@@ -260,9 +266,11 @@ does not authorize an angle action. Vertical swing accepts `switch`,
 or numeric-option `select`.
 
 When a standard fan exposes `supported_features`, the feature mask is the
-source of truth for percentage, preset, oscillation, and direction support.
+source of truth for power, percentage, preset, oscillation, and direction support.
 Live attributes are used for those controls only when the integration does not
 provide a feature mask. This avoids rendering actions for stale attributes.
+The power button needs `TURN_OFF` while the fan is on or `TURN_ON` while it is
+off. With no feature mask, the legacy power action remains available.
 
 ## Behavior notes
 
@@ -314,10 +322,13 @@ Timer controls use minutes. Related numeric timer entities with
 to and from minutes. Other or missing units are treated as minutes. The card
 preserves a live timer value that is not one of the configured steps.
 
-The custom `xiaomi_miio_fan` timer for `zhimi.fan.za5` uses seconds at the
-device protocol boundary. The card converts that model's custom service value
-to seconds while keeping the card UI in minutes. An exposed related timer
-entity takes precedence and uses its own declared unit.
+The custom `xiaomi_miio_fan.fan_set_delay_off` service always accepts minutes.
+The integration handles conversion to device protocol units. Some models,
+including `zhimi.fan.za5` and legacy zhimi fans, report the countdown in seconds;
+their model profiles convert that readback to minutes without changing the
+service payload. An exposed related timer entity takes precedence and uses its
+own declared unit. See the [verified contracts](integration-contracts.md) for
+the pinned sources and unresolved upstream unit ambiguities.
 
 MIoT optional angle controls require discovered or configured related `select`,
 `number`, or `input_number` entities. Primary MIoT fan attributes alone are
@@ -328,8 +339,8 @@ For Xiaomi LED brightness controls, the custom Xiaomi service contract is
 `*_led_brightness` number with a `0..2` range uses the same mapping, and
 numeric LED brightness select options use it as well. A named LED select is
 matched on its labels: turning the LED off picks an explicit off option rather
-than a dim option, and a dimmed LED still reads as on. Switch and plain number
-entities use their exposed Home Assistant contract.
+than a dim option, and a dimmed LED still reads as on. Light, switch, and plain
+number entities use their exposed Home Assistant contract.
 
 ## Configuration compatibility
 

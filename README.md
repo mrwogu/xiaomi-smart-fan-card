@@ -230,18 +230,25 @@ styles:
 
 ## Works with what you already have
 
-| Integration      | Set `integration:` | What you get                                                                                         |
-| ---------------- | ------------------ | ---------------------------------------------------------------------------------------------------- |
-| Auto detection   | `auto`             | Standard fan actions and related entity discovery. Vendor services are never guessed.                |
-| Xiaomi Home      | `xiaomi_miio`      | Standard fan actions plus related switch, number, select, and sensor entities.                       |
-| syssi/xiaomi_fan | `xiaomi_miio_fan`  | Xiaomi services for angle, vertical oscillation, nudge, timer, LED, buzzer, child lock, and ionizer. |
-| Xiaomi MIOT      | `xiaomi_miot`      | Standard fan actions plus actionable related entities exposed by Xiaomi MIoT.                        |
-| Any HA `fan`     | `standard`         | Percentage, presets, oscillation, direction, and whatever related entities exist.                    |
+| Integration      | Set `integration:` | What you get                                                                                                                            |
+| ---------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Auto detection   | `auto`             | Standard fan actions and related entity discovery. Vendor services are never guessed.                                                   |
+| Xiaomi Home      | `xiaomi_miio`      | Standard fan actions plus related switch, number, select, and sensor entities.                                                          |
+| syssi/xiaomi_fan | `xiaomi_miio_fan`  | Xiaomi services for angle, vertical oscillation, nudge, timer, LED, buzzer, child lock, and ionizer when supported by the target model. |
+| Xiaomi MIOT      | `xiaomi_miot`      | Standard fan actions plus actionable related entities exposed by Xiaomi MIoT.                                                           |
+| Any HA `fan`     | `standard`         | Percentage, presets, oscillation, direction, and whatever related entities exist.                                                       |
 
 `auto` and `standard` use public Home Assistant fan actions. Select
 `xiaomi_miio_fan` only when its custom services are registered in Home
-Assistant. `xiaomi_miio` and `xiaomi_miot` use standard fan actions and
-related entities instead of assuming `xiaomi_miio_fan` services.
+Assistant and the target model exposes matching actions. `xiaomi_miio` is
+Home Assistant's Xiaomi Home integration, distinct from `xiaomi_miot` and
+`xiaomi_home`. `xiaomi_miio` and `xiaomi_miot` use standard fan actions and
+related entities instead of assuming syssi custom services.
+
+The [integration contract evidence](docs/integration-contracts.md) records
+pinned upstream sources, fixtures for all 26 syssi and 14 native pedestal model
+IDs, MIoT entity examples, and known limitations. This verifies integration
+contracts, not every physical device or firmware.
 
 ### One fan, different integrations
 
@@ -249,7 +256,8 @@ The same physical fan can expose different capabilities depending on the
 integration:
 
 - `xiaomi_miio_fan`: angle, vertical oscillation, nudge, timer, LED, buzzer,
-  and child lock actions use registered `xiaomi_miio_fan.*` services.
+  and child lock actions need both device support and registered
+  `xiaomi_miio_fan.*` services. Service registration alone is not device support.
 - `xiaomi_miot`: angle and vertical controls appear only when Xiaomi MIoT
   exposes actionable same-device related entities. Angle `select` entities
   must provide numeric options such as `30`, `60°`, or `90 degrees`.
@@ -258,14 +266,15 @@ integration:
   and do not create dead controls or details.
 
 When a standard fan exposes `supported_features`, that feature mask is
-authoritative for percentage, presets, oscillation, and direction. Related
+authoritative for power, percentage, presets, oscillation, and direction. Related
 switches, input booleans, and selects can provide an optional control when the
-fan integration exposes it as a separate entity.
+fan integration exposes it as a separate entity. The power button requires
+`TURN_OFF` while running and `TURN_ON` while stopped.
 
 The card does not connect directly to Xiaomi devices and does not invent
-MIoT property or service names. If the MIoT integration exposes only primary
-fan attributes, use `xiaomi_miio_fan` for its vendor-specific controls or keep
-those controls hidden.
+MIoT property or service names. If MIoT exposes only read-only fan attributes,
+configure writable related entities in the integration or keep those controls
+hidden. Changing the card's integration setting does not create device actions.
 
 ### Capability safety
 
@@ -301,13 +310,18 @@ what it can._
 Nudge arrows are hidden by default when angle controls exist, because both
 target the same fan position. Set `controls.show_nudge_with_angles: true` to
 show both, as in the position block above. The pad also appears for Xiaomi Home
-devices that expose `turn_left`, `turn_right`, `turn_upward`, and
-`turn_downward` buttons: the card discovers them on the same device and presses
-them instead of calling vendor services.
+and MIoT devices with a complete `turn_left`/`turn_right` or
+`turn_upward`/`turn_downward` button pair and the `button.press` service.
+The card discovers buttons on the same device and renders only supported axes.
+Vendor P76/P70 profiles support all four directions; Xiaomi P30/P43/P45/P85
+support left/right only. A related LED may also be a Home Assistant `light`.
 
-Timer values are shown in minutes. The custom `xiaomi_miio_fan` integration
-uses seconds for `zhimi.fan.za5`; the card converts that model-specific
-service value while keeping related timer entities in their declared unit.
+Timer values are shown in minutes. The custom
+`xiaomi_miio_fan.fan_set_delay_off` service takes minutes for every model,
+including `zhimi.fan.za5`. Some models report seconds, which the card converts
+for display without changing the service input unit. Related timer entities
+use their declared unit. See the evidence ledger for device limits and
+upstream timer inconsistencies.
 
 ## Install
 

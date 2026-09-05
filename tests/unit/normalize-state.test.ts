@@ -37,6 +37,20 @@ describe("normalizeFanState", () => {
     expect(state.percentage).toBe(75);
   });
 
+  it("reads legacy natural-speed state without overriding an explicit operation mode", () => {
+    const attributes = {
+      model: "zhimi.fan.v2",
+      preset_mode: "Level 2",
+      percentage: 50,
+      direct_speed: 0,
+      natural_speed: 50,
+    };
+    expect(normalizeFanState("fan.contract", { state: "on", attributes }).mode).toBe("natural");
+    expect(normalizeFanState("fan.contract", { state: "on", attributes: { ...attributes, mode: "Normal" } }).mode).toBe(
+      "normal",
+    );
+  });
+
   it("derives speed level count from live attributes", () => {
     const state = normalizeFanState("fan.three-level", {
       state: "on",

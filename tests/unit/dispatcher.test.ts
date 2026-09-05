@@ -35,4 +35,14 @@ describe("ServiceDispatcher", () => {
     await expect(dispatcher.custom("xiaomi_miio_fan", "fan_turn", { direction: "up" })).resolves.toBe(false);
     expect(called).toBe(false);
   });
+
+  it("does not guess custom service availability before the registry loads", async () => {
+    const hass = p76Hass();
+    const dispatcher = new ServiceDispatcher(hass, "fan.xiaomi_p76", {
+      loaded: false,
+      names: new Set(["xiaomi_miio_fan.fan_turn"]),
+    });
+
+    await expect(dispatcher.custom("xiaomi_miio_fan", "fan_turn", { direction: "up" })).resolves.toBe(false);
+  });
 });

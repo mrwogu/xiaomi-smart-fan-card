@@ -35,7 +35,7 @@ export class ServiceDispatcher {
   ) {}
 
   public canCallCustom(domain: string, service: string): boolean {
-    return !this.availability.loaded || this.availability.names.has(serviceName(domain, service));
+    return this.availability.loaded && this.availability.names.has(serviceName(domain, service));
   }
 
   public async standard(service: string, data: Record<string, unknown> = {}): Promise<void> {

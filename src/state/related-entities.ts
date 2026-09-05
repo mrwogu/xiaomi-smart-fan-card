@@ -13,13 +13,24 @@ const suffixes: Record<keyof RelatedEntities, string[]> = {
   sleepMode: ["_sleep_mode"],
   horizontalSwing: ["_oscillating", "_oscillate", "_horizontal_swing", "_horizontal_oscillation", "_swing_mode"],
   verticalSwing: ["_vertical_swing", "_vertical_oscillate", "_vertical_oscillating", "_vertical_oscillation"],
-  horizontalAngle: ["_oscillation_angle", "_horizontal_swing_angle", "_swing_mode_angle", "_horizontal_angle"],
-  verticalAngle: ["_vertical_oscillation_angle", "_vertical_swing_angle", "_vertical_angle"],
+  horizontalAngle: [
+    "_oscillation_angle",
+    "_horizontal_swing_angle",
+    "_horizontal_swing_included_angle",
+    "_swing_mode_angle",
+    "_horizontal_angle",
+  ],
+  verticalAngle: [
+    "_vertical_oscillation_angle",
+    "_vertical_swing_angle",
+    "_vertical_swing_included_angle",
+    "_vertical_angle",
+  ],
   favoriteLevel: ["_favorite_level", "_favorite_speed"],
-  timer: ["_delay_off_countdown", "_delay_time", "_power_off_time", "_timer"],
-  childLock: ["_child_lock"],
-  led: ["_led", "_led_brightness", "_light"],
-  buzzer: ["_buzzer", "_notification_sound"],
+  timer: ["_delay_off_countdown", "_delay_time", "_off_delay_time", "_off_delay", "_power_off_time", "_timer"],
+  childLock: ["_child_lock", "_physical_controls_locked"],
+  led: ["_led", "_led_brightness", "_indicator_light", "_light", "_brightness"],
+  buzzer: ["_buzzer", "_notification_sound", "_alarm"],
   ionizer: ["_anion", "_ionizer"],
   nudgeLeft: ["_turn_left", "_move_left"],
   nudgeRight: ["_turn_right", "_move_right"],
@@ -116,7 +127,7 @@ export const resolveRelatedEntities = async (
     related.favoriteLevel = findBySuffix(entries, numeric, suffixes.favoriteLevel);
     related.timer = findBySuffix(entries, numeric, suffixes.timer);
     related.childLock = findBySuffix(entries, [...boolean, ...select], suffixes.childLock);
-    related.led = findBySuffix(entries, [...boolean, ...select, ...numeric], suffixes.led);
+    related.led = findBySuffix(entries, [...boolean, ...select, ...numeric, "light"], suffixes.led);
     related.buzzer = findBySuffix(entries, [...boolean, ...select], suffixes.buzzer);
     related.ionizer = findBySuffix(entries, [...boolean, ...select], suffixes.ionizer);
     // Xiaomi Home exposes the position pad as momentary buttons whose ids end

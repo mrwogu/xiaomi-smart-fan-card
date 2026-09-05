@@ -29,7 +29,7 @@ describe("native Xiaomi Home P76", () => {
     expect(capabilities.directionNudge).toBe(true);
   });
 
-  it("keeps the pad hidden when only some directions exist", async () => {
+  it("keeps unverified button services hidden before the registry loads", async () => {
     const hass = xiaomiHomeP76Hass();
     const related = await resolveRelatedEntities(hass, "fan.xiaomi_sg_000000000000_p76_s_2_fan");
     const capabilities = detectCapabilities(hass.states["fan.xiaomi_sg_000000000000_p76_s_2_fan"], undefined, {
@@ -38,6 +38,19 @@ describe("native Xiaomi Home P76", () => {
     });
 
     expect(capabilities.directionNudge).toBe(false);
+  });
+
+  it("keeps a complete horizontal pair when the vertical pair is incomplete", async () => {
+    const hass = xiaomiHomeP76Hass();
+    const related = await resolveRelatedEntities(hass, "fan.xiaomi_sg_000000000000_p76_s_2_fan");
+    const services = readServiceAvailability({ button: { press: {} } });
+    const capabilities = detectCapabilities(hass.states["fan.xiaomi_sg_000000000000_p76_s_2_fan"], services, {
+      ...related,
+      nudgeDown: undefined,
+    });
+
+    expect(capabilities.directionNudge).toBe(true);
+    expect(capabilities.nudgeDirections).toEqual(["left", "right"]);
   });
 
   it("presses the matching button instead of a vendor service", async () => {
