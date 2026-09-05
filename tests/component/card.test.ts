@@ -1175,7 +1175,7 @@ describe("XiaomiFanCard", () => {
   });
 
   it("renders each graphic style head with its own blade count", async () => {
-    const renderWithStyle = async (graphic_style?: "turbine" | "minimal") => {
+    const renderWithStyle = async (graphic_style?: "prop" | "turbine" | "minimal") => {
       const { card } = await renderCard({
         ...baseConfig,
         visual: {
@@ -1193,11 +1193,18 @@ describe("XiaomiFanCard", () => {
     expect(plain?.querySelector(".airflow-visual")?.classList.contains("graphic-blades")).toBe(true);
     expect(plain?.querySelectorAll(".rotor .blade").length).toBe(4);
     expect(plain?.querySelector(".rotor .blade")?.getAttribute("style")).toContain("rotate(-10deg)");
+    expect(plain?.querySelector(".rotor .cage")).toBeNull();
+
+    const prop = await renderWithStyle("prop");
+    expect(prop?.querySelector(".airflow-visual")?.classList.contains("graphic-prop")).toBe(true);
+    expect(prop?.querySelectorAll(".rotor .blade").length).toBe(3);
+    expect(prop?.querySelector(".rotor .cage")).not.toBeNull();
+    expect(prop?.querySelectorAll(".rotor .blade")[2]?.getAttribute("style")).toContain("rotate(240deg)");
 
     const turbine = await renderWithStyle("turbine");
     expect(turbine?.querySelector(".airflow-visual")?.classList.contains("graphic-turbine")).toBe(true);
-    expect(turbine?.querySelectorAll(".rotor .blade").length).toBe(8);
-    expect(turbine?.querySelectorAll(".rotor .blade")[7]?.getAttribute("style")).toContain("rotate(292.5deg)");
+    expect(turbine?.querySelectorAll(".rotor .blade").length).toBe(9);
+    expect(turbine?.querySelectorAll(".rotor .blade")[8]?.getAttribute("style")).toContain("rotate(300deg)");
 
     const minimal = await renderWithStyle("minimal");
     expect(minimal?.querySelector(".airflow-visual")?.classList.contains("graphic-minimal")).toBe(true);

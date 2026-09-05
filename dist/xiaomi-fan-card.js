@@ -1873,7 +1873,7 @@ const normalizeVisual = (value) => {
         animation: enumValue(input.animation, ["auto", "enabled", "disabled"], "auto"),
         running_animation: enumValue(input.running_animation, ["rotor", "gust"], "rotor"),
         oscillation_animation: enumValue(input.oscillation_animation, ["orbit", "chevrons"], "orbit"),
-        graphic_style: enumValue(input.graphic_style, ["blades", "turbine", "minimal"], "blades"),
+        graphic_style: enumValue(input.graphic_style, ["blades", "prop", "turbine", "minimal"], "blades"),
     };
 };
 const normalizeControls = (value, legacy) => {
@@ -2115,7 +2115,7 @@ const getConfigForm = () => {
                 grid([
                     selectField("running_animation", ["rotor", "gust"], "show"),
                     selectField("oscillation_animation", ["orbit", "chevrons"], "show"),
-                    selectField("graphic_style", ["blades", "turbine", "minimal"], "show"),
+                    selectField("graphic_style", ["blades", "prop", "turbine", "minimal"], "show"),
                 ]),
                 grid([
                     booleanField("show_graphic", "show"),
@@ -2296,6 +2296,7 @@ const english = {
     rotor: "Rotor",
     gust: "Gust",
     blades: "Blades",
+    prop: "Prop",
     turbine: "Turbine",
     orbit: "Orbit",
     chevrons: "Chevrons",
@@ -2462,6 +2463,7 @@ const TRANSLATIONS = {
         rotor: "Wirnik",
         gust: "Podmuch",
         blades: "Łopatki",
+        prop: "Śmigło",
         turbine: "Turbina",
         orbit: "Orbita",
         chevrons: "Strzałki",
@@ -2626,6 +2628,7 @@ const TRANSLATIONS = {
         rotor: "Rotor",
         gust: "Ráfaga",
         blades: "Aspas",
+        prop: "Hélice",
         turbine: "Turbina",
         orbit: "Órbita",
         chevrons: "Chevrones",
@@ -2790,6 +2793,7 @@ const TRANSLATIONS = {
         rotor: "Rotor",
         gust: "Bourrasque",
         blades: "Pales",
+        prop: "Hélice",
         turbine: "Turbine",
         orbit: "Orbite",
         chevrons: "Chevrons",
@@ -2954,6 +2958,7 @@ const TRANSLATIONS = {
         rotor: "Rotore",
         gust: "Raffica",
         blades: "Pale",
+        prop: "Elica",
         turbine: "Turbina",
         orbit: "Orbita",
         chevrons: "Chevron",
@@ -3176,6 +3181,7 @@ const OPTION_TRANSLATIONS = {
     "oscillation_animation.orbit": "orbit",
     "oscillation_animation.chevrons": "chevrons",
     "graphic_style.blades": "blades",
+    "graphic_style.prop": "prop",
     "graphic_style.turbine": "turbine",
     "graphic_style.minimal": "minimal",
     "selection_mode.auto": "auto",
@@ -3807,22 +3813,26 @@ class XiaomiFanCard extends i$2 {
     `;
     }
     /**
-     * Each graphic style pairs a distinct head with its own motion: four wide
-     * blades, eight slim turbine blades, or a thin ring whose hub breathes
-     * instead of spinning.
+     * Each graphic style pairs a distinct head with its own motion: wide
+     * blades, a caged three-blade prop, a dense turbine wheel, or a bare hub
+     * that breathes instead of spinning. The rotor stays static as a mount;
+     * only the blade disc rotates so per-style overlays like the prop cage
+     * do not spin with the blades.
      */
     renderRotor(style) {
         const hub = b `<span class="hub"></span>`;
         if (style === "minimal") {
             return b `<div class="rotor" aria-hidden="true">${hub}</div>`;
         }
-        const count = style === "turbine" ? 8 : 4;
+        const count = style === "turbine" ? 9 : style === "prop" ? 3 : 4;
         const step = 360 / count;
-        const base = style === "turbine" ? -22.5 : -10;
+        const base = style === "turbine" ? -20 : style === "prop" ? 0 : -10;
         return b `
       <div class="rotor" aria-hidden="true">
-        ${Array.from({ length: count }, (_, index) => b `<span class="blade" style="transform: translateY(-50%) rotate(${base + index * step}deg)"></span>`)}
-        ${hub}
+        <div class="blade-disc">
+          ${Array.from({ length: count }, (_, index) => b `<span class="blade" style="transform: translateY(-50%) rotate(${base + index * step}deg)"></span>`)}
+        </div>
+        ${style === "prop" ? b `<div class="cage"></div>` : ""} ${hub}
       </div>
     `;
     }
@@ -4877,7 +4887,14 @@ class XiaomiFanCard extends i$2 {
         0 16px 36px rgb(0 0 0 / 16%);
     }
 
-    .running .rotor {
+    /* The rotor is the static mount; only the blade disc rotates so overlays
+       like the prop cage stay still while the blades spin. */
+    .blade-disc {
+      position: absolute;
+      inset: 0;
+    }
+
+    .running .blade-disc {
       animation: rotor-spin var(--spin-duration) linear infinite;
     }
 
@@ -4898,31 +4915,57 @@ class XiaomiFanCard extends i$2 {
     }
 
     /* Graphic styles: each design pairs its head shape with matching motion.
-       Blade rotation comes from inline transforms, so these rules only shape
-       the blades and tune the per-style rhythm. */
+       Blade rotation comes from inline transforms, so these rules shape the
+       blades, add overlays, and tune the per-style rhythm. */
+    .graphic-prop .rotor {
+      border-width: 2px;
+    }
+
+    .graphic-prop .blade {
+      width: 42%;
+      height: 9%;
+      border-radius: 50% 10% 50% 10%;
+      opacity: 0.92;
+    }
+
+    .graphic-prop .cage {
+      position: absolute;
+      inset: -7%;
+      border-radius: 50%;
+      background: repeating-conic-gradient(
+        color-mix(in srgb, var(--fan-accent) 30%, transparent) 0 1.4deg,
+        transparent 1.4deg 22.5deg
+      );
+      -webkit-mask: radial-gradient(farthest-side, transparent 58%, #000 59%, #000 94%, transparent 95%);
+      mask: radial-gradient(farthest-side, transparent 58%, #000 59%, #000 94%, transparent 95%);
+    }
+
     .graphic-turbine .blade {
       width: 44%;
-      height: 13%;
+      height: 12%;
       border-radius: 100% 4% 100% 4%;
       opacity: 0.72;
     }
 
-    .airflow-visual.running.graphic-turbine .rotor {
-      animation-duration: calc(var(--spin-duration) * 0.75);
+    .graphic-turbine .hub {
+      inset: 42%;
+    }
+
+    .airflow-visual.running.graphic-turbine .blade-disc {
+      animation-duration: calc(var(--spin-duration) * 0.6);
     }
 
     .graphic-minimal .rotor {
-      border-width: 3px;
+      border: none;
       background: transparent;
-      box-shadow: inset 0 0 0 1px var(--fan-accent-soft);
+      box-shadow: none;
     }
 
     .graphic-minimal .hub {
-      inset: 34%;
-    }
-
-    .airflow-visual.running.graphic-minimal .rotor {
-      animation: none;
+      inset: 40%;
+      box-shadow:
+        0 0 0 8px var(--fan-accent-soft),
+        0 0 26px color-mix(in srgb, var(--fan-accent) 45%, transparent);
     }
 
     .airflow-visual.running.graphic-minimal .hub {

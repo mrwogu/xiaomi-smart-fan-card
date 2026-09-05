@@ -93,7 +93,7 @@ export const getConfigForm = () => {
         grid([
           selectField("running_animation", ["rotor", "gust"], "show"),
           selectField("oscillation_animation", ["orbit", "chevrons"], "show"),
-          selectField("graphic_style", ["blades", "turbine", "minimal"], "show"),
+          selectField("graphic_style", ["blades", "prop", "turbine", "minimal"], "show"),
         ]),
         grid(
           [

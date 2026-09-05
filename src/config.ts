@@ -204,7 +204,7 @@ const normalizeVisual = (value: unknown): ResolvedFanVisualConfig => {
       ["orbit", "chevrons"],
       "orbit",
     ),
-    graphic_style: enumValue<FanGraphicStyle>(input.graphic_style, ["blades", "turbine", "minimal"], "blades"),
+    graphic_style: enumValue<FanGraphicStyle>(input.graphic_style, ["blades", "prop", "turbine", "minimal"], "blades"),
   };
 };
 

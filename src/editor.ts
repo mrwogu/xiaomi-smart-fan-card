@@ -125,6 +125,7 @@ const OPTION_TRANSLATIONS: Record<string, TranslationKey> = {
   "oscillation_animation.orbit": "orbit",
   "oscillation_animation.chevrons": "chevrons",
   "graphic_style.blades": "blades",
+  "graphic_style.prop": "prop",
   "graphic_style.turbine": "turbine",
   "graphic_style.minimal": "minimal",
   "selection_mode.auto": "auto",

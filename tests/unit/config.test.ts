@@ -78,12 +78,12 @@ describe("normalizeCardConfig", () => {
       visual: {
         running_animation: "gust",
         oscillation_animation: "chevrons",
-        graphic_style: "turbine",
+        graphic_style: "prop",
       },
     });
     expect(config.visual.running_animation).toBe("gust");
     expect(config.visual.oscillation_animation).toBe("chevrons");
-    expect(config.visual.graphic_style).toBe("turbine");
+    expect(config.visual.graphic_style).toBe("prop");
 
     const invalid = normalizeCardConfig({
       ...base,

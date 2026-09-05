@@ -151,18 +151,18 @@ These keys are still accepted for older YAML configurations. The nested
 
 ## `visual`
 
-| Parameter                      | Default  | Description                                                                                                                                    |
-| ------------------------------ | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `visual.show`                  | `true`   | Show the visual status section.                                                                                                                |
-| `visual.show_graphic`          | `true`   | Show the animated fan graphic.                                                                                                                 |
-| `visual.size`                  | `300`    | Fan graphic diameter in pixels. Values are clamped to `120`-`480`.                                                                             |
-| `visual.show_power`            | `true`   | Show the central power button.                                                                                                                 |
-| `visual.show_speed`            | `true`   | Show the percentage readout.                                                                                                                   |
-| `visual.show_details`          | `true`   | Show angles, timer, temperature, and humidity.                                                                                                 |
-| `visual.animation`             | `auto`   | `auto`, `enabled`, or `disabled`.                                                                                                              |
-| `visual.running_animation`     | `rotor`  | `rotor` spins the blades, `gust` adds an air jet arc around the speed ring.                                                                    |
-| `visual.oscillation_animation` | `orbit`  | `orbit` pulses the orbit ellipses, `chevrons` shows air markers alternating along the active swing axis.                                       |
-| `visual.graphic_style`         | `blades` | `blades` draws four wide blades, `turbine` eight slim blades with a faster spin, `minimal` a thin ring whose hub breathes instead of spinning. |
+| Parameter                      | Default  | Description                                                                                                                                                   |
+| ------------------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `visual.show`                  | `true`   | Show the visual status section.                                                                                                                               |
+| `visual.show_graphic`          | `true`   | Show the animated fan graphic.                                                                                                                                |
+| `visual.size`                  | `300`    | Fan graphic diameter in pixels. Values are clamped to `120`-`480`.                                                                                            |
+| `visual.show_power`            | `true`   | Show the central power button.                                                                                                                                |
+| `visual.show_speed`            | `true`   | Show the percentage readout.                                                                                                                                  |
+| `visual.show_details`          | `true`   | Show angles, timer, temperature, and humidity.                                                                                                                |
+| `visual.animation`             | `auto`   | `auto`, `enabled`, or `disabled`.                                                                                                                             |
+| `visual.running_animation`     | `rotor`  | `rotor` spins the blades, `gust` adds an air jet arc around the speed ring.                                                                                   |
+| `visual.oscillation_animation` | `orbit`  | `orbit` pulses the orbit ellipses, `chevrons` shows air markers alternating along the active swing axis.                                                      |
+| `visual.graphic_style`         | `blades` | `blades` draws four wide blades, `prop` a caged three-blade propeller, `turbine` a dense nine-blade wheel with a faster spin, `minimal` a bare breathing hub. |
 
 ## `controls`
 
