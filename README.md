@@ -131,7 +131,7 @@ The three fan head designs, rendered against the production card:
 
 <div align="center">
   <a href="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/graphic-styles.webp">
-    <img src="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/graphic-styles.webp" alt="Three cards side by side: the default four-blade head, the eight-blade turbine, and the minimal breathing ring" height="360">
+    <img src="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/graphic-styles.webp" alt="Three cards side by side: the default four-blade head, the nine-blade turbine, and the minimal breathing ring" height="360">
   </a>
 </div>
 

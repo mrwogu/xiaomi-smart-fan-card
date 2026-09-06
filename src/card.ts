@@ -482,8 +482,12 @@ export class XiaomiFanCard extends LitElement {
                   style=${style}
                 >
                   ${this.renderChevronGates(axis, oscillationAnimation)}
-                  <div class="orbit orbit-one"></div>
-                  <div class="orbit orbit-two"></div>
+                  ${
+                    oscillationAnimation === "orbit"
+                      ? html`<div class="orbit orbit-one"></div>
+                          <div class="orbit orbit-two"></div>`
+                      : ""
+                  }
                   <div class="speed-ring" aria-hidden="true"></div>
                   ${runningAnimation === "gust" ? html`<div class="gust" aria-hidden="true"></div>` : ""}
                   <div class="wind wind-horizontal"></div>
@@ -1541,8 +1545,10 @@ export class XiaomiFanCard extends LitElement {
       margin: 0 auto;
       isolation: isolate;
       /* Chevron offsets are authored for a 250px visual, so every other size
-         scales them through this unit instead of re-deriving px positions. */
-      --chev-unit: calc(var(--fan-visual-size) / 250);
+         scales them through this unit instead of re-deriving px positions.
+         Dividing by 250px keeps the ratio unitless, because calc() cannot
+         multiply two lengths. */
+      --chev-unit: calc(var(--fan-visual-size) / 250px);
     }
 
     .airflow-visual::before {
@@ -1677,6 +1683,7 @@ export class XiaomiFanCard extends LitElement {
 
     .chev.left {
       clip-path: polygon(100% 0, 0 50%, 100% 100%, 70% 50%);
+      animation-name: chev-h-rev;
     }
 
     .chev.down {
@@ -1686,7 +1693,7 @@ export class XiaomiFanCard extends LitElement {
 
     .chev.up {
       clip-path: polygon(0 100%, 50% 0, 100% 100%, 50% 70%);
-      animation-name: chev-v;
+      animation-name: chev-v-rev;
     }
 
     .chev-r1,
@@ -2768,6 +2775,38 @@ export class XiaomiFanCard extends LitElement {
       100% {
         opacity: 0;
         transform: translateY(calc(28px * var(--chev-unit)));
+      }
+    }
+
+    /* Reverse variants: left and up markers must travel along their own
+       arrow direction, not toward the fan center. */
+    @keyframes chev-h-rev {
+      0% {
+        opacity: 0;
+        transform: translateX(0);
+      }
+      25% {
+        opacity: 0.85;
+      }
+      70%,
+      100% {
+        opacity: 0;
+        transform: translateX(calc(-28px * var(--chev-unit)));
+      }
+    }
+
+    @keyframes chev-v-rev {
+      0% {
+        opacity: 0;
+        transform: translateY(0);
+      }
+      25% {
+        opacity: 0.85;
+      }
+      70%,
+      100% {
+        opacity: 0;
+        transform: translateY(calc(-28px * var(--chev-unit)));
       }
     }
 

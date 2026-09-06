@@ -1238,6 +1238,7 @@ describe("XiaomiFanCard", () => {
     expect(horizontal?.querySelector(".airflow-visual.axis-horizontal")).not.toBeNull();
     expect(horizontal?.querySelectorAll(".gate").length).toBe(2);
     expect(horizontal?.querySelectorAll(".chev").length).toBe(6);
+    expect(horizontal?.querySelectorAll(".orbit").length).toBe(0);
     expect(horizontal?.querySelector(".gate-right .chev.right")).not.toBeNull();
     expect(horizontal?.querySelector(".gate-left .chev.left")).not.toBeNull();
     expect(horizontal?.querySelector(".gate-down")).toBeNull();
