@@ -120,7 +120,7 @@ in.
 
 <div align="center">
   <a href="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/animation-styles-compare.webp">
-    <img src="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/animation-styles-compare.webp" alt="Four cards side by side: the default rotor and orbit animations next to the gust arc and the oscillation chevrons" height="360">
+    <img src="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/animation-styles-compare.webp" alt="The production card cycling through rotor, gust, orbit, and chevron animation styles" height="360">
   </a>
 </div>
 
@@ -131,11 +131,11 @@ visual:
   graphic_style: turbine # blades (default) | prop | turbine | minimal | stream | drift | bars | plume
 ```
 
-The three fan head designs, rendered against the production card:
+The graphic styles, cycling on the production card:
 
 <div align="center">
   <a href="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/graphic-styles.webp">
-    <img src="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/graphic-styles.webp" alt="Three cards side by side: the default four-blade head, the nine-blade turbine, and the minimal breathing ring" height="360">
+    <img src="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/graphic-styles.webp" alt="The production card cycling through blades, prop, turbine, minimal, stream, drift, bars, and plume graphic styles" height="360">
   </a>
 </div>
 
