@@ -49,6 +49,12 @@ mode.
 
 ![The four named themes shown side by side: mushroom, minimal, glass, and industrial](https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/themes-gallery.webp)
 
+<div align="center">
+  <a href="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/themes-cycle.webp">
+    <img src="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/themes-cycle.webp" alt="The production card looping auto, mushroom, minimal, glass, and industrial themes in dark mode while the rotor spins" height="360">
+  </a>
+</div>
+
 | Theme      | `layout.theme` | What changes                                                     |
 | ---------- | -------------- | ---------------------------------------------------------------- |
 | Mushroom   | `mushroom`     | Soft tinted panels and pill controls                             |
@@ -120,7 +126,7 @@ in.
 
 <div align="center">
   <a href="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/animation-styles-compare.webp">
-    <img src="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/animation-styles-compare.webp" alt="The production card cycling through rotor, gust, orbit, and chevron animation styles" height="360">
+    <img src="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/animation-styles-compare.webp" alt="The production card looping rotor, gust, orbit, and chevron animation styles at live speed" height="360">
   </a>
 </div>
 
@@ -135,7 +141,7 @@ The graphic styles, cycling on the production card:
 
 <div align="center">
   <a href="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/graphic-styles.webp">
-    <img src="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/graphic-styles.webp" alt="The production card cycling through blades, prop, turbine, minimal, stream, drift, bars, and plume graphic styles" height="360">
+    <img src="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/graphic-styles.webp" alt="The production card looping blades, prop, turbine, minimal, stream, drift, bars, and plume graphic styles at live speed" height="360">
   </a>
 </div>
 
@@ -160,7 +166,7 @@ the same entity:
 
 <div align="center">
   <a href="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/styles-cycle.webp">
-    <img src="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/styles-cycle.webp" alt="The same card styled as neon night, paper, cockpit, frost, ink, and sunset" height="360">
+    <img src="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/styles-cycle.webp" alt="The same card looping neon night, paper, cockpit, frost, ink, and sunset styles while the rotor spins" height="360">
   </a>
 </div>
 

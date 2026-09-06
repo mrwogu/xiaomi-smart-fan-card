@@ -234,7 +234,7 @@ Tokens compose with `layout.theme`: the theme sets the base design tokens and
 [Style it your way](../README.md#style-it-your-way).
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/styles-cycle.webp" alt="The same card styled as neon night, paper, cockpit, frost, ink, and sunset" width="360">
+  <img src="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/styles-cycle.webp" alt="The same card looping neon night, paper, cockpit, frost, ink, and sunset styles while the rotor spins" width="360">
 </div>
 
 ## `related_entities`
