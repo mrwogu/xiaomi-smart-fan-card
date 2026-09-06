@@ -112,7 +112,11 @@ pulsing orbit with air markers that alternate sides along the live swing
 axis. `visual.graphic_style` redraws the fan head itself: four wide
 `blades`, a caged three-blade `prop`, a dense nine-blade `turbine` with a
 faster spin, or a `minimal` bare hub that breathes instead of spinning.
-Defaults stay untouched until you opt in.
+Four ambient styles drop the rotor completely: `stream` flows a wind field
+of lines, `drift` carries particles that join one by one as speed rises,
+`bars` grows an airflow equalizer whose peak travels with the swing, and
+`plume` rises a soft thermal column. Defaults stay untouched until you opt
+in.
 
 <div align="center">
   <a href="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/animation-styles-compare.webp">

@@ -85,6 +85,11 @@ describe("normalizeCardConfig", () => {
     expect(config.visual.oscillation_animation).toBe("chevrons");
     expect(config.visual.graphic_style).toBe("prop");
 
+    for (const style of ["stream", "drift", "bars", "plume"] as const) {
+      const ambient = normalizeCardConfig({ ...base, visual: { graphic_style: style } });
+      expect(ambient.visual.graphic_style).toBe(style);
+    }
+
     const invalid = normalizeCardConfig({
       ...base,
       visual: {

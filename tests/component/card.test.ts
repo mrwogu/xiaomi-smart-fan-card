@@ -1212,6 +1212,39 @@ describe("XiaomiFanCard", () => {
     expect(minimal?.querySelector(".rotor .hub")).not.toBeNull();
   });
 
+  it("renders ambient graphic styles without the rotor", async () => {
+    const renderWithStyle = async (graphic_style: "stream" | "drift" | "bars" | "plume") => {
+      const { card } = await renderCard({
+        ...baseConfig,
+        visual: {
+          show: true,
+          show_graphic: true,
+          show_power: false,
+          show_speed: false,
+          graphic_style,
+        },
+      });
+      return card.shadowRoot;
+    };
+
+    const stream = await renderWithStyle("stream");
+    expect(stream?.querySelector(".airflow-visual")?.classList.contains("graphic-stream")).toBe(true);
+    expect(stream?.querySelectorAll(".stream .stream-line").length).toBe(4);
+    expect(stream?.querySelector(".rotor")).toBeNull();
+
+    const drift = await renderWithStyle("drift");
+    expect(drift?.querySelectorAll(".drift .mote").length).toBe(8);
+    expect(drift?.querySelector(".rotor")).toBeNull();
+
+    const bars = await renderWithStyle("bars");
+    expect(bars?.querySelectorAll(".bars .bar").length).toBe(12);
+    expect(bars?.querySelector(".rotor")).toBeNull();
+
+    const plume = await renderWithStyle("plume");
+    expect(plume?.querySelectorAll(".plume .puff").length).toBe(5);
+    expect(plume?.querySelector(".rotor")).toBeNull();
+  });
+
   it("renders oscillation chevrons for each active swing axis", async () => {
     const renderWithSwing = async (attributes: Record<string, unknown>): Promise<ShadowRoot | null | undefined> => {
       const { hass } = createHass();

@@ -137,7 +137,7 @@ export type FanAngleMode = "cycle" | "select";
 export type FanAnimationMode = "auto" | "enabled" | "disabled";
 export type FanRunningAnimation = "rotor" | "gust";
 export type FanOscillationAnimation = "orbit" | "chevrons";
-export type FanGraphicStyle = "blades" | "prop" | "turbine" | "minimal";
+export type FanGraphicStyle = "blades" | "prop" | "turbine" | "minimal" | "stream" | "drift" | "bars" | "plume";
 export type FanDetailsPosition = "below" | "side";
 export type FanBlock = "header" | "visual" | "airflow" | "position" | "features";
 

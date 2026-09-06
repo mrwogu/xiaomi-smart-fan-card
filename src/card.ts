@@ -492,7 +492,7 @@ export class XiaomiFanCard extends LitElement {
                   ${runningAnimation === "gust" ? html`<div class="gust" aria-hidden="true"></div>` : ""}
                   <div class="wind wind-horizontal"></div>
                   <div class="wind wind-vertical"></div>
-                  ${this.renderRotor(graphicStyle)}
+                  ${this.renderGraphic(graphicStyle)}
                   ${
                     this.config.visual.show_power && adapter.capabilities.power
                       ? html`
@@ -550,6 +550,68 @@ export class XiaomiFanCard extends LitElement {
           ${Array.from({ length: count }, (_, index) => html`<span class="blade" style="transform: translateY(-50%) rotate(${base + index * step}deg)"></span>`)}
         </div>
         ${style === "prop" ? html`<div class="cage"></div>` : ""} ${hub}
+      </div>
+    `;
+  }
+
+  /**
+   * The graphic slot hosts two families: mechanical rotor heads (blades,
+   * prop, turbine, minimal) and ambient styles that drop the rotor metaphor
+   * entirely (stream, drift, bars, plume). Dispatch keeps the rotor logic
+   * untouched while ambient styles render their own markup.
+   */
+  private renderGraphic(style: FanGraphicStyle): TemplateResult {
+    switch (style) {
+      case "stream":
+        return this.renderStream();
+      case "drift":
+        return this.renderDrift();
+      case "bars":
+        return this.renderBars();
+      case "plume":
+        return this.renderPlume();
+      default:
+        return this.renderRotor(style);
+    }
+  }
+
+  /** Wind field: layered streamlines flowing along the blow direction. */
+  private renderStream(): TemplateResult {
+    return html`
+      <div class="graphic stream" aria-hidden="true">
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none">
+          <path class="stream-line" d="M -5 28 Q 25 22, 50 28 T 105 28" />
+          <path class="stream-line" d="M -5 44 Q 25 38, 50 44 T 105 44" />
+          <path class="stream-line" d="M -5 60 Q 25 54, 50 60 T 105 60" />
+          <path class="stream-line" d="M -5 76 Q 25 70, 50 76 T 105 76" />
+        </svg>
+      </div>
+    `;
+  }
+
+  /** Particle carry: motes appear one by one as speed rises. */
+  private renderDrift(): TemplateResult {
+    return html`
+      <div class="graphic drift" aria-hidden="true">
+        ${Array.from({ length: 8 }, (_, index) => html`<span class="mote" style="--i:${index}"></span>`)}
+      </div>
+    `;
+  }
+
+  /** Airflow equalizer: bar height follows speed, swing moves the peak. */
+  private renderBars(): TemplateResult {
+    return html`
+      <div class="graphic bars" aria-hidden="true">
+        ${Array.from({ length: 12 }, (_, index) => html`<span class="bar" style="--i:${index}"></span>`)}
+      </div>
+    `;
+  }
+
+  /** Thermal plume: soft puffs rise faster and denser with speed. */
+  private renderPlume(): TemplateResult {
+    return html`
+      <div class="graphic plume" aria-hidden="true">
+        ${Array.from({ length: 5 }, (_, index) => html`<span class="puff" style="--i:${index}"></span>`)}
       </div>
     `;
   }
@@ -1890,6 +1952,155 @@ export class XiaomiFanCard extends LitElement {
       box-shadow: 0 0 0 5px var(--fan-accent-soft);
     }
 
+    /* Ambient graphic styles: no rotor, the whole visual square carries the
+       motion. Each style reads speed from --speed and the swing axis from
+       the axis classes; .no-motion freezes them through the global rule. */
+    .graphic {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    .stream svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .stream-line {
+      fill: none;
+      stroke: var(--fan-accent);
+      stroke-width: 2.5;
+      stroke-linecap: round;
+      stroke-dasharray: 14 22;
+      opacity: 0.18;
+      transition: opacity var(--fan-transition);
+    }
+
+    .running .stream-line {
+      opacity: 0.75;
+      animation: stream-flow var(--spin-duration) linear infinite;
+    }
+
+    .running .stream-line:nth-child(2) {
+      animation-duration: calc(var(--spin-duration) * 0.85);
+    }
+
+    .running .stream-line:nth-child(3) {
+      animation-duration: calc(var(--spin-duration) * 1.15);
+    }
+
+    .running .stream-line:nth-child(4) {
+      animation-duration: calc(var(--spin-duration) * 0.95);
+    }
+
+    .axis-horizontal .stream svg {
+      animation: stream-sway 8s ease-in-out infinite;
+    }
+
+    .axis-vertical .stream svg {
+      animation: stream-bob 8s ease-in-out infinite;
+    }
+
+    .axis-dual .stream svg {
+      animation: stream-dual 8s ease-in-out infinite;
+    }
+
+    .mote {
+      position: absolute;
+      left: -4%;
+      top: calc(14% + var(--i) * 9%);
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--fan-accent);
+      opacity: 0;
+      /* Motes join one by one as speed climbs: mote i appears past i*11%. */
+      --gate: min(1, max(0, (var(--speed, 0) - var(--i) * 11) / 12));
+    }
+
+    .running .mote {
+      animation: drift-carry calc(var(--spin-duration) * 1.6) linear infinite;
+      animation-delay: calc(var(--i) * -0.7s);
+    }
+
+    .axis-horizontal .drift {
+      animation: drift-pan 8s ease-in-out infinite;
+    }
+
+    .axis-vertical .drift {
+      animation: drift-lift 8s ease-in-out infinite;
+    }
+
+    .axis-dual .drift {
+      animation: drift-dual 8s ease-in-out infinite;
+    }
+
+    .bars {
+      inset: 14% 10%;
+      display: flex;
+      align-items: flex-end;
+      gap: 4%;
+    }
+
+    .bar {
+      flex: 1;
+      height: calc(10% + var(--speed, 0) * 0.7%);
+      border-radius: 3px 3px 0 0;
+      background: linear-gradient(180deg, var(--fan-accent), color-mix(in srgb, var(--fan-accent) 35%, transparent));
+      opacity: 0.35;
+      transform-origin: bottom;
+      transition: height var(--fan-transition);
+    }
+
+    .running .bar {
+      opacity: 0.85;
+      animation: bars-pulse 1.6s ease-in-out infinite;
+      animation-delay: calc(var(--i) * -0.13s);
+    }
+
+    /* Horizontal swing turns the uniform pulse into a travelling peak.
+       Negative delays distribute the phase so the sweep loops seamlessly. */
+    .running.axis-horizontal .bar,
+    .running.axis-dual .bar {
+      animation: bars-peak 8s ease-in-out infinite;
+      animation-delay: calc(var(--i) * -0.66s);
+    }
+
+    .running.axis-vertical .bars {
+      transform-origin: bottom;
+      animation: bars-breathe 4s ease-in-out infinite;
+    }
+
+    .puff {
+      position: absolute;
+      left: 50%;
+      bottom: 16%;
+      width: 16%;
+      aspect-ratio: 1;
+      margin-left: -8%;
+      border-radius: 50%;
+      background: radial-gradient(circle, color-mix(in srgb, var(--fan-accent) 55%, transparent), transparent 70%);
+      filter: blur(2px);
+      opacity: 0;
+    }
+
+    .running .puff {
+      animation: plume-rise calc(var(--spin-duration) * 1.4) ease-out infinite;
+      animation-delay: calc(var(--i) * var(--spin-duration) * -0.28);
+    }
+
+    .axis-horizontal .plume,
+    .axis-dual .plume {
+      animation: plume-drift 8s ease-in-out infinite;
+    }
+
+    /* Vertical swing is the plume's native direction: it just runs denser. */
+    .running.axis-vertical .puff,
+    .running.axis-dual .puff {
+      animation-duration: var(--spin-duration);
+    }
+
     .airflow-visual.no-motion *,
     .airflow-visual.no-motion::before {
       animation: none !important;
@@ -2807,6 +3018,151 @@ export class XiaomiFanCard extends LitElement {
       100% {
         opacity: 0;
         transform: translateY(calc(-28px * var(--chev-unit)));
+      }
+    }
+
+    /* Ambient graphic style keyframes. Dash segment is 36 (14 + 22), so a
+       -72 offset loops seamlessly. */
+    @keyframes stream-flow {
+      to {
+        stroke-dashoffset: -72;
+      }
+    }
+
+    @keyframes stream-sway {
+      0%,
+      100% {
+        transform: translateX(-2%) skewY(-2deg);
+      }
+      50% {
+        transform: translateX(2%) skewY(2deg);
+      }
+    }
+
+    @keyframes stream-bob {
+      0%,
+      100% {
+        transform: translateY(-3%);
+      }
+      50% {
+        transform: translateY(3%);
+      }
+    }
+
+    @keyframes stream-dual {
+      0%,
+      100% {
+        transform: translate(-2%, -3%) skewY(-2deg);
+      }
+      50% {
+        transform: translate(2%, 3%) skewY(2deg);
+      }
+    }
+
+    @keyframes drift-carry {
+      0% {
+        opacity: 0;
+        transform: translate(0, 0) scale(0.6);
+      }
+      15% {
+        opacity: calc(0.85 * var(--gate));
+      }
+      80% {
+        opacity: calc(0.85 * var(--gate));
+      }
+      100% {
+        opacity: 0;
+        transform: translate(calc(var(--fan-visual-size) * 1.12), -12px) scale(1);
+      }
+    }
+
+    @keyframes drift-pan {
+      0%,
+      100% {
+        transform: translateX(-6%);
+      }
+      50% {
+        transform: translateX(6%);
+      }
+    }
+
+    @keyframes drift-lift {
+      0%,
+      100% {
+        transform: translateY(-5%);
+      }
+      50% {
+        transform: translateY(5%);
+      }
+    }
+
+    @keyframes drift-dual {
+      0%,
+      100% {
+        transform: translate(-6%, -5%);
+      }
+      50% {
+        transform: translate(6%, 5%);
+      }
+    }
+
+    @keyframes bars-pulse {
+      0%,
+      100% {
+        transform: scaleY(0.82);
+      }
+      50% {
+        transform: scaleY(1);
+      }
+    }
+
+    @keyframes bars-peak {
+      0%,
+      100% {
+        transform: scaleY(0.72);
+      }
+      25% {
+        transform: scaleY(1.06);
+      }
+      50% {
+        transform: scaleY(0.9);
+      }
+      75% {
+        transform: scaleY(1);
+      }
+    }
+
+    @keyframes bars-breathe {
+      0%,
+      100% {
+        transform: scaleY(0.94);
+      }
+      50% {
+        transform: scaleY(1.02);
+      }
+    }
+
+    @keyframes plume-rise {
+      0% {
+        opacity: 0;
+        transform: translateY(0) scale(0.5);
+      }
+      20% {
+        opacity: calc(0.35 + var(--speed, 0) * 0.004);
+      }
+      100% {
+        opacity: 0;
+        transform: translateY(calc(var(--fan-visual-size) * -0.55)) scale(1.7);
+      }
+    }
+
+    @keyframes plume-drift {
+      0%,
+      100% {
+        transform: translateX(-8%);
+      }
+      50% {
+        transform: translateX(8%);
       }
     }
 
