@@ -4960,6 +4960,16 @@ class XiaomiFanCard extends i$2 {
       animation-delay: -1.1s;
     }
 
+    /* Frozen-motion pose: keyframes own opacity while they run, so
+       animation: none (no-motion / prefers-reduced-motion) still leaves
+       the lead marker of each gate visible. */
+    .chev-r1,
+    .chev-l1,
+    .chev-d1,
+    .chev-u1 {
+      opacity: 0.85;
+    }
+
     .rotor {
       position: relative;
       z-index: 2;
@@ -5134,6 +5144,8 @@ class XiaomiFanCard extends i$2 {
     }
 
     .running .mote {
+      /* Static opacity so reduced-motion / no-motion still shows the field. */
+      opacity: calc(0.85 * var(--gate));
       animation: drift-carry calc(var(--spin-duration) * 1.6) linear infinite;
       animation-delay: calc(var(--i) * -0.7s);
     }
@@ -5200,6 +5212,8 @@ class XiaomiFanCard extends i$2 {
     }
 
     .running .puff {
+      /* Static opacity so reduced-motion / no-motion still shows the column. */
+      opacity: calc(0.35 + var(--speed, 0) * 0.004);
       animation: plume-rise calc(var(--spin-duration) * 1.4) ease-out infinite;
       animation-delay: calc(var(--i) * var(--spin-duration) * -0.28);
     }

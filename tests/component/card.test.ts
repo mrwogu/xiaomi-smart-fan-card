@@ -1245,6 +1245,50 @@ describe("XiaomiFanCard", () => {
     expect(plume?.querySelector(".rotor")).toBeNull();
   });
 
+  it("keeps drift, plume, and chevron markers visible when animation is disabled", async () => {
+    const frozenVisual = {
+      show: true,
+      show_graphic: true,
+      show_power: false,
+      show_speed: false,
+      animation: "disabled" as const,
+    };
+
+    const { card: driftCard } = await renderCard({
+      ...baseConfig,
+      visual: { ...frozenVisual, graphic_style: "drift" },
+    });
+    const driftRoot = driftCard.shadowRoot;
+    expect(driftRoot?.querySelector(".airflow-visual")?.classList.contains("no-motion")).toBe(true);
+    expect(driftRoot?.querySelectorAll(".drift .mote").length).toBe(8);
+
+    const { card: plumeCard } = await renderCard({
+      ...baseConfig,
+      visual: { ...frozenVisual, graphic_style: "plume" },
+    });
+    expect(plumeCard.shadowRoot?.querySelector(".airflow-visual")?.classList.contains("no-motion")).toBe(true);
+    expect(plumeCard.shadowRoot?.querySelectorAll(".plume .puff").length).toBe(5);
+
+    const { hass } = createHass();
+    const entity = hass.states["fan.p76"]!;
+    hass.states["fan.p76"] = { ...entity, attributes: { ...entity.attributes, oscillating: true } };
+    const chevronCard = new XiaomiFanCard();
+    chevronCard.hass = hass as unknown as HomeAssistant;
+    chevronCard.setConfig({
+      ...baseConfig,
+      visual: { ...frozenVisual, oscillation_animation: "chevrons" },
+    });
+    document.body.append(chevronCard);
+    await settle(chevronCard);
+    expect(chevronCard.shadowRoot?.querySelector(".airflow-visual")?.classList.contains("no-motion")).toBe(true);
+    expect(chevronCard.shadowRoot?.querySelector(".chev-r1")).not.toBeNull();
+
+    const styles = XiaomiFanCard.styles as { cssText: string };
+    expect(styles.cssText).toContain("opacity: calc(0.85 * var(--gate))");
+    expect(styles.cssText).toContain("opacity: calc(0.35 + var(--speed, 0) * 0.004)");
+    expect(styles.cssText).toMatch(/\.chev-r1,\s*\.chev-l1,\s*\.chev-d1,\s*\.chev-u1\s*\{\s*opacity:\s*0\.85;/);
+  });
+
   it("renders oscillation chevrons for each active swing axis", async () => {
     const renderWithSwing = async (attributes: Record<string, unknown>): Promise<ShadowRoot | null | undefined> => {
       const { hass } = createHass();

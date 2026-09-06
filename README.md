@@ -128,7 +128,7 @@ in.
 visual:
   running_animation: gust # rotor (default) | gust
   oscillation_animation: chevrons # orbit (default) | chevrons
-  graphic_style: turbine # blades (default) | prop | turbine | minimal
+  graphic_style: turbine # blades (default) | prop | turbine | minimal | stream | drift | bars | plume
 ```
 
 The three fan head designs, rendered against the production card:
@@ -539,23 +539,23 @@ an advanced CSS value.
 Every option, default, and legacy alias is documented in
 **[docs/configuration.md](docs/configuration.md)**. The most useful ones:
 
-| Option                         | Values                                                              | Default       |
-| ------------------------------ | ------------------------------------------------------------------- | ------------- |
-| `integration`                  | `auto`, `standard`, `xiaomi_miio`, `xiaomi_miio_fan`, `xiaomi_miot` | `auto`        |
-| `layout.theme`                 | `auto`, `mushroom`, `minimal`, `glass`, `industrial`                | `auto`        |
-| `layout.density`               | `comfortable`, `compact`                                            | `comfortable` |
-| `layout.columns`               | `auto`, `one`, `two`                                                | `auto`        |
-| `layout.order`                 | any order of `header`, `visual`, `airflow`, `position`, `features`  | default order |
-| `header.variant`               | `full`, `compact`                                                   | `full`        |
-| `visual.size`                  | `120`-`480` px                                                      | `300`         |
-| `details.position`             | `below`, `side`                                                     | `below`       |
-| `controls.selection_mode`      | `auto`, `buttons`, `select`                                         | `auto`        |
-| `controls.timer_mode`          | `cycle`, `select`                                                   | `cycle`       |
-| `controls.angle_mode`          | `cycle`, `select`                                                   | `cycle`       |
-| `visual.animation`             | `auto`, `enabled`, `disabled`                                       | `auto`        |
-| `visual.running_animation`     | `rotor`, `gust`                                                     | `rotor`       |
-| `visual.oscillation_animation` | `orbit`, `chevrons`                                                 | `orbit`       |
-| `visual.graphic_style`         | `blades`, `prop`, `turbine`, `minimal`                              | `blades`      |
+| Option                         | Values                                                                     | Default       |
+| ------------------------------ | -------------------------------------------------------------------------- | ------------- |
+| `integration`                  | `auto`, `standard`, `xiaomi_miio`, `xiaomi_miio_fan`, `xiaomi_miot`        | `auto`        |
+| `layout.theme`                 | `auto`, `mushroom`, `minimal`, `glass`, `industrial`                       | `auto`        |
+| `layout.density`               | `comfortable`, `compact`                                                   | `comfortable` |
+| `layout.columns`               | `auto`, `one`, `two`                                                       | `auto`        |
+| `layout.order`                 | any order of `header`, `visual`, `airflow`, `position`, `features`         | default order |
+| `header.variant`               | `full`, `compact`                                                          | `full`        |
+| `visual.size`                  | `120`-`480` px                                                             | `300`         |
+| `details.position`             | `below`, `side`                                                            | `below`       |
+| `controls.selection_mode`      | `auto`, `buttons`, `select`                                                | `auto`        |
+| `controls.timer_mode`          | `cycle`, `select`                                                          | `cycle`       |
+| `controls.angle_mode`          | `cycle`, `select`                                                          | `cycle`       |
+| `visual.animation`             | `auto`, `enabled`, `disabled`                                              | `auto`        |
+| `visual.running_animation`     | `rotor`, `gust`                                                            | `rotor`       |
+| `visual.oscillation_animation` | `orbit`, `chevrons`                                                        | `orbit`       |
+| `visual.graphic_style`         | `blades`, `prop`, `turbine`, `minimal`, `stream`, `drift`, `bars`, `plume` | `blades`      |
 
 Nested groups (`header`, `visual`, `controls`, `details`, `layout`, `styles`,
 `related_entities`) take precedence over the legacy top-level flags, which
