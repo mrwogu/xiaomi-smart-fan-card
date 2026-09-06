@@ -1155,4 +1155,178 @@ describe("XiaomiFanCard", () => {
     expect(editor.computeHelper({ name: "styles" })).toContain("CSS");
     expect(editor.computeHelper({ name: "show_led" })).toBeUndefined();
   });
+
+  it("renders the gust comet only when the running animation is gust", async () => {
+    const { card } = await renderCard({
+      ...baseConfig,
+      visual: { show: true, show_graphic: true, show_power: false, show_speed: false, running_animation: "gust" },
+    });
+    const root = card.shadowRoot;
+
+    expect(root?.querySelector(".airflow-visual")?.classList.contains("run-gust")).toBe(true);
+    expect(root?.querySelector(".gust")).not.toBeNull();
+
+    const { card: plain } = await renderCard({
+      ...baseConfig,
+      visual: { show: true, show_graphic: true, show_power: false, show_speed: false },
+    });
+    expect(plain.shadowRoot?.querySelector(".airflow-visual")?.classList.contains("run-rotor")).toBe(true);
+    expect(plain.shadowRoot?.querySelector(".gust")).toBeNull();
+  });
+
+  it("renders each graphic style head with its own blade count", async () => {
+    const renderWithStyle = async (graphic_style?: "prop" | "turbine" | "minimal") => {
+      const { card } = await renderCard({
+        ...baseConfig,
+        visual: {
+          show: true,
+          show_graphic: true,
+          show_power: false,
+          show_speed: false,
+          ...(graphic_style ? { graphic_style } : {}),
+        },
+      });
+      return card.shadowRoot;
+    };
+
+    const plain = await renderWithStyle();
+    expect(plain?.querySelector(".airflow-visual")?.classList.contains("graphic-blades")).toBe(true);
+    expect(plain?.querySelectorAll(".rotor .blade").length).toBe(4);
+    expect(plain?.querySelector(".rotor .blade")?.getAttribute("style")).toContain("rotate(-10deg)");
+    expect(plain?.querySelector(".rotor .cage")).toBeNull();
+
+    const prop = await renderWithStyle("prop");
+    expect(prop?.querySelector(".airflow-visual")?.classList.contains("graphic-prop")).toBe(true);
+    expect(prop?.querySelectorAll(".rotor .blade").length).toBe(3);
+    expect(prop?.querySelector(".rotor .cage")).not.toBeNull();
+    expect(prop?.querySelectorAll(".rotor .blade")[2]?.getAttribute("style")).toContain("rotate(240deg)");
+
+    const turbine = await renderWithStyle("turbine");
+    expect(turbine?.querySelector(".airflow-visual")?.classList.contains("graphic-turbine")).toBe(true);
+    expect(turbine?.querySelectorAll(".rotor .blade").length).toBe(9);
+    expect(turbine?.querySelectorAll(".rotor .blade")[8]?.getAttribute("style")).toContain("rotate(300deg)");
+
+    const minimal = await renderWithStyle("minimal");
+    expect(minimal?.querySelector(".airflow-visual")?.classList.contains("graphic-minimal")).toBe(true);
+    expect(minimal?.querySelectorAll(".rotor .blade").length).toBe(0);
+    expect(minimal?.querySelector(".rotor .hub")).not.toBeNull();
+  });
+
+  it("renders ambient graphic styles without the rotor", async () => {
+    const renderWithStyle = async (graphic_style: "stream" | "drift" | "bars" | "plume") => {
+      const { card } = await renderCard({
+        ...baseConfig,
+        visual: {
+          show: true,
+          show_graphic: true,
+          show_power: false,
+          show_speed: false,
+          graphic_style,
+        },
+      });
+      return card.shadowRoot;
+    };
+
+    const stream = await renderWithStyle("stream");
+    expect(stream?.querySelector(".airflow-visual")?.classList.contains("graphic-stream")).toBe(true);
+    expect(stream?.querySelectorAll(".stream .stream-line").length).toBe(4);
+    expect(stream?.querySelector(".rotor")).toBeNull();
+
+    const drift = await renderWithStyle("drift");
+    expect(drift?.querySelectorAll(".drift .mote").length).toBe(8);
+    expect(drift?.querySelector(".rotor")).toBeNull();
+
+    const bars = await renderWithStyle("bars");
+    expect(bars?.querySelectorAll(".bars .bar").length).toBe(12);
+    expect(bars?.querySelector(".rotor")).toBeNull();
+
+    const plume = await renderWithStyle("plume");
+    expect(plume?.querySelectorAll(".plume .puff").length).toBe(5);
+    expect(plume?.querySelector(".rotor")).toBeNull();
+  });
+
+  it("keeps drift, plume, and chevron markers visible when animation is disabled", async () => {
+    const frozenVisual = {
+      show: true,
+      show_graphic: true,
+      show_power: false,
+      show_speed: false,
+      animation: "disabled" as const,
+    };
+
+    const { card: driftCard } = await renderCard({
+      ...baseConfig,
+      visual: { ...frozenVisual, graphic_style: "drift" },
+    });
+    const driftRoot = driftCard.shadowRoot;
+    expect(driftRoot?.querySelector(".airflow-visual")?.classList.contains("no-motion")).toBe(true);
+    expect(driftRoot?.querySelectorAll(".drift .mote").length).toBe(8);
+
+    const { card: plumeCard } = await renderCard({
+      ...baseConfig,
+      visual: { ...frozenVisual, graphic_style: "plume" },
+    });
+    expect(plumeCard.shadowRoot?.querySelector(".airflow-visual")?.classList.contains("no-motion")).toBe(true);
+    expect(plumeCard.shadowRoot?.querySelectorAll(".plume .puff").length).toBe(5);
+
+    const { hass } = createHass();
+    const entity = hass.states["fan.p76"]!;
+    hass.states["fan.p76"] = { ...entity, attributes: { ...entity.attributes, oscillating: true } };
+    const chevronCard = new XiaomiFanCard();
+    chevronCard.hass = hass as unknown as HomeAssistant;
+    chevronCard.setConfig({
+      ...baseConfig,
+      visual: { ...frozenVisual, oscillation_animation: "chevrons" },
+    });
+    document.body.append(chevronCard);
+    await settle(chevronCard);
+    expect(chevronCard.shadowRoot?.querySelector(".airflow-visual")?.classList.contains("no-motion")).toBe(true);
+    expect(chevronCard.shadowRoot?.querySelector(".chev-r1")).not.toBeNull();
+
+    const styles = XiaomiFanCard.styles as { cssText: string };
+    expect(styles.cssText).toContain("opacity: calc(0.85 * var(--gate))");
+    expect(styles.cssText).toContain("opacity: calc(0.35 + var(--speed, 0) * 0.004)");
+    expect(styles.cssText).toMatch(/\.chev-r1,\s*\.chev-l1,\s*\.chev-d1,\s*\.chev-u1\s*\{\s*opacity:\s*0\.85;/);
+  });
+
+  it("renders oscillation chevrons for each active swing axis", async () => {
+    const renderWithSwing = async (attributes: Record<string, unknown>): Promise<ShadowRoot | null | undefined> => {
+      const { hass } = createHass();
+      const entity = hass.states["fan.p76"]!;
+      hass.states["fan.p76"] = { ...entity, attributes: { ...entity.attributes, ...attributes } };
+      const card = new XiaomiFanCard();
+      card.hass = hass as unknown as HomeAssistant;
+      card.setConfig({
+        ...baseConfig,
+        visual: {
+          show: true,
+          show_graphic: true,
+          show_power: false,
+          show_speed: false,
+          oscillation_animation: "chevrons",
+        },
+      });
+      document.body.append(card);
+      await settle(card);
+      return card.shadowRoot;
+    };
+
+    const horizontal = await renderWithSwing({ oscillating: true });
+    expect(horizontal?.querySelector(".airflow-visual.axis-horizontal")).not.toBeNull();
+    expect(horizontal?.querySelectorAll(".gate").length).toBe(2);
+    expect(horizontal?.querySelectorAll(".chev").length).toBe(6);
+    expect(horizontal?.querySelectorAll(".orbit").length).toBe(0);
+    expect(horizontal?.querySelector(".gate-right .chev.right")).not.toBeNull();
+    expect(horizontal?.querySelector(".gate-left .chev.left")).not.toBeNull();
+    expect(horizontal?.querySelector(".gate-down")).toBeNull();
+
+    const dual = await renderWithSwing({ oscillating: true, vertical_swing: true });
+    expect(dual?.querySelector(".airflow-visual.axis-dual")).not.toBeNull();
+    expect(dual?.querySelectorAll(".gate").length).toBe(4);
+    expect(dual?.querySelectorAll(".chev").length).toBe(12);
+
+    const still = await renderWithSwing({});
+    expect(still?.querySelector(".airflow-visual.axis-still")).not.toBeNull();
+    expect(still?.querySelectorAll(".gate").length).toBe(0);
+  });
 });

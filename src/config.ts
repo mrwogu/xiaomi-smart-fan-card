@@ -6,11 +6,14 @@ import type {
   FanColumns,
   FanControlsConfig,
   FanDensity,
+  FanGraphicStyle,
   FanDetailsPosition,
   FanDetailsConfig,
   FanHeaderConfig,
   FanHeaderVariant,
   FanLayoutConfig,
+  FanOscillationAnimation,
+  FanRunningAnimation,
   FanSelectionMode,
   FanStyleBlock,
   FanStylesConfig,
@@ -88,6 +91,9 @@ export const DEFAULT_CONFIG = {
     show_speed: true,
     show_details: true,
     animation: "auto",
+    running_animation: "rotor",
+    oscillation_animation: "orbit",
+    graphic_style: "blades",
   },
   controls: {
     show: true,
@@ -192,6 +198,17 @@ const normalizeVisual = (value: unknown): ResolvedFanVisualConfig => {
     show_speed: booleanValue(input.show_speed, true),
     show_details: booleanValue(input.show_details, true),
     animation: enumValue<FanAnimationMode>(input.animation, ["auto", "enabled", "disabled"], "auto"),
+    running_animation: enumValue<FanRunningAnimation>(input.running_animation, ["rotor", "gust"], "rotor"),
+    oscillation_animation: enumValue<FanOscillationAnimation>(
+      input.oscillation_animation,
+      ["orbit", "chevrons"],
+      "orbit",
+    ),
+    graphic_style: enumValue<FanGraphicStyle>(
+      input.graphic_style,
+      ["blades", "prop", "turbine", "minimal", "stream", "drift", "bars", "plume"],
+      "blades",
+    ),
   };
 };
 

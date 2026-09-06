@@ -15,12 +15,14 @@ import { loadServiceAvailability } from "./services/service-dispatcher";
 import { percentageForSpeedLevel, percentageStepDefinesLevels, speedLevelForPercentage } from "./state/model-profiles";
 import { numericLabel } from "./state/normalize-state";
 import { resolveRelatedEntities } from "./state/related-entities";
-import { getAirflowAxis } from "./state/visual-state";
+import { getAirflowAxis, type AirflowAxis } from "./state/visual-state";
 import { createTranslator, type TranslationKey, type TranslationValues, type Translator } from "./translations";
 import type {
   FanAdapter,
   FanCardConfig,
   FanBlock,
+  FanGraphicStyle,
+  FanOscillationAnimation,
   HassLike,
   NumberSpec,
   RelatedEntities,
@@ -448,6 +450,9 @@ export class XiaomiFanCard extends LitElement {
     const style = `--speed:${speed}; --spin-duration:${Math.max(1.8, 12 - speed / 11)}s;`;
     const axis = getAirflowAxis(state.horizontalSwing, state.verticalSwing);
     const animationDisabled = this.config.disable_animation || this.config.visual.animation === "disabled";
+    const runningAnimation = this.config.visual.running_animation;
+    const oscillationAnimation = this.config.visual.oscillation_animation;
+    const graphicStyle = this.config.visual.graphic_style;
     const details = this.config.visual.show_details ? this.renderDetails(adapter) : "";
 
     // An empty section would still add a block gap to the card, so the visual
@@ -473,21 +478,21 @@ export class XiaomiFanCard extends LitElement {
                 <div
                   class="airflow-visual axis-${axis} ${state.isOn ? "running" : ""} ${
                     animationDisabled ? "no-motion" : ""
-                  }"
+                  } run-${runningAnimation} osc-${oscillationAnimation} graphic-${graphicStyle}"
                   style=${style}
                 >
-                  <div class="orbit orbit-one"></div>
-                  <div class="orbit orbit-two"></div>
+                  ${this.renderChevronGates(axis, oscillationAnimation)}
+                  ${
+                    oscillationAnimation === "orbit"
+                      ? html`<div class="orbit orbit-one"></div>
+                          <div class="orbit orbit-two"></div>`
+                      : ""
+                  }
                   <div class="speed-ring" aria-hidden="true"></div>
+                  ${runningAnimation === "gust" ? html`<div class="gust" aria-hidden="true"></div>` : ""}
                   <div class="wind wind-horizontal"></div>
                   <div class="wind wind-vertical"></div>
-                  <div class="rotor" aria-hidden="true">
-                    <span class="blade blade-one"></span>
-                    <span class="blade blade-two"></span>
-                    <span class="blade blade-three"></span>
-                    <span class="blade blade-four"></span>
-                    <span class="hub"></span>
-                  </div>
+                  ${this.renderGraphic(graphicStyle)}
                   ${
                     this.config.visual.show_power && adapter.capabilities.power
                       ? html`
@@ -518,6 +523,125 @@ export class XiaomiFanCard extends LitElement {
         }
         ${details}
       </section>
+    `;
+  }
+
+  /**
+   * Each graphic style pairs a distinct head with its own motion: wide
+   * blades, a caged three-blade prop, a dense turbine wheel, or a bare hub
+   * that breathes instead of spinning. The rotor stays static as a mount;
+   * only the blade disc rotates so per-style overlays like the prop cage
+   * do not spin with the blades.
+   */
+  private renderRotor(style: FanGraphicStyle): TemplateResult {
+    const hub = html`<span class="hub"></span>`;
+
+    if (style === "minimal") {
+      return html`<div class="rotor" aria-hidden="true">${hub}</div>`;
+    }
+
+    const count = style === "turbine" ? 9 : style === "prop" ? 3 : 4;
+    const step = 360 / count;
+    const base = style === "turbine" ? -20 : style === "prop" ? 0 : -10;
+
+    return html`
+      <div class="rotor" aria-hidden="true">
+        <div class="blade-disc">
+          ${Array.from({ length: count }, (_, index) => html`<span class="blade" style="transform: translateY(-50%) rotate(${base + index * step}deg)"></span>`)}
+        </div>
+        ${style === "prop" ? html`<div class="cage"></div>` : ""} ${hub}
+      </div>
+    `;
+  }
+
+  /**
+   * The graphic slot hosts two families: mechanical rotor heads (blades,
+   * prop, turbine, minimal) and ambient styles that drop the rotor metaphor
+   * entirely (stream, drift, bars, plume). Dispatch keeps the rotor logic
+   * untouched while ambient styles render their own markup.
+   */
+  private renderGraphic(style: FanGraphicStyle): TemplateResult {
+    switch (style) {
+      case "stream":
+        return this.renderStream();
+      case "drift":
+        return this.renderDrift();
+      case "bars":
+        return this.renderBars();
+      case "plume":
+        return this.renderPlume();
+      default:
+        return this.renderRotor(style);
+    }
+  }
+
+  /** Wind field: layered streamlines flowing along the blow direction. */
+  private renderStream(): TemplateResult {
+    return html`
+      <div class="graphic stream" aria-hidden="true">
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none">
+          <path class="stream-line" d="M -5 28 Q 25 22, 50 28 T 105 28" />
+          <path class="stream-line" d="M -5 44 Q 25 38, 50 44 T 105 44" />
+          <path class="stream-line" d="M -5 60 Q 25 54, 50 60 T 105 60" />
+          <path class="stream-line" d="M -5 76 Q 25 70, 50 76 T 105 76" />
+        </svg>
+      </div>
+    `;
+  }
+
+  /** Particle carry: motes appear one by one as speed rises. */
+  private renderDrift(): TemplateResult {
+    return html`
+      <div class="graphic drift" aria-hidden="true">
+        ${Array.from({ length: 8 }, (_, index) => html`<span class="mote" style="--i:${index}"></span>`)}
+      </div>
+    `;
+  }
+
+  /** Airflow equalizer: bar height follows speed, swing moves the peak. */
+  private renderBars(): TemplateResult {
+    return html`
+      <div class="graphic bars" aria-hidden="true">
+        ${Array.from({ length: 12 }, (_, index) => html`<span class="bar" style="--i:${index}"></span>`)}
+      </div>
+    `;
+  }
+
+  /** Thermal plume: soft puffs rise faster and denser with speed. */
+  private renderPlume(): TemplateResult {
+    return html`
+      <div class="graphic plume" aria-hidden="true">
+        ${Array.from({ length: 5 }, (_, index) => html`<span class="puff" style="--i:${index}"></span>`)}
+      </div>
+    `;
+  }
+
+  /**
+   * Chevron gates only make sense while a swing axis is active, and each axis
+   * renders its own pair so "dual" shows all four directions at once.
+   */
+  private renderChevronGates(axis: AirflowAxis, mode: FanOscillationAnimation): TemplateResult | "" {
+    if (mode !== "chevrons" || axis === "still") {
+      return "";
+    }
+
+    const gate = (direction: "right" | "left" | "down" | "up", alternatePhase: boolean): TemplateResult => {
+      const suffix = { right: "r", left: "l", down: "d", up: "u" }[direction];
+      return html`
+        <div class="gate gate-${direction} ${alternatePhase ? "gate-alt" : ""}" aria-hidden="true">
+          <span class="chev ${direction} chev-${suffix}1"></span>
+          <span class="chev ${direction} chev-${suffix}2"></span>
+          <span class="chev ${direction} chev-${suffix}3"></span>
+        </div>
+      `;
+    };
+
+    const horizontal = axis === "horizontal" || axis === "dual";
+    const vertical = axis === "vertical" || axis === "dual";
+
+    return html`
+      ${horizontal ? gate("right", false) : ""} ${horizontal ? gate("left", true) : ""}
+      ${vertical ? gate("down", false) : ""} ${vertical ? gate("up", true) : ""}
     `;
   }
 
@@ -1482,6 +1606,11 @@ export class XiaomiFanCard extends LitElement {
       aspect-ratio: 1;
       margin: 0 auto;
       isolation: isolate;
+      /* Chevron offsets are authored for a 250px visual, so every other size
+         scales them through this unit instead of re-deriving px positions.
+         Dividing by 250px keeps the ratio unitless, because calc() cannot
+         multiply two lengths. */
+      --chev-unit: calc(var(--fan-visual-size) / 250px);
     }
 
     .airflow-visual::before {
@@ -1570,6 +1699,163 @@ export class XiaomiFanCard extends LitElement {
       animation-delay: -0.7s;
     }
 
+    /* Gust comet: an air jet chasing itself around the speed ring track. */
+    .gust {
+      position: absolute;
+      inset: 6%;
+      z-index: 1;
+      border-radius: 50%;
+      background: conic-gradient(from 0deg, transparent 0 55%, var(--fan-accent) 100%);
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 9px), #000 calc(100% - 8px));
+      mask: radial-gradient(farthest-side, transparent calc(100% - 9px), #000 calc(100% - 8px));
+      opacity: 0;
+      transition: opacity var(--fan-transition);
+    }
+
+    .running .gust {
+      opacity: 0.9;
+      animation: gust-spin calc(var(--spin-duration) * 0.35) linear infinite;
+    }
+
+    /* Direction chevrons: air markers that alternate sides along the live
+       oscillation axis, gated per half of the swing period. */
+    .gate {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      animation: gate 8s linear infinite;
+    }
+
+    .gate-alt {
+      animation-delay: -4s;
+    }
+
+    .chev {
+      position: absolute;
+      width: calc(18px * var(--chev-unit));
+      height: calc(28px * var(--chev-unit));
+      background: var(--fan-accent);
+      opacity: 0;
+      animation: chev-h 2s ease-out infinite;
+    }
+
+    .chev.right {
+      clip-path: polygon(0 0, 100% 50%, 0 100%, 30% 50%);
+    }
+
+    .chev.left {
+      clip-path: polygon(100% 0, 0 50%, 100% 100%, 70% 50%);
+      animation-name: chev-h-rev;
+    }
+
+    .chev.down {
+      clip-path: polygon(0 0, 50% 100%, 100% 0, 50% 30%);
+      animation-name: chev-v;
+    }
+
+    .chev.up {
+      clip-path: polygon(0 100%, 50% 0, 100% 100%, 50% 70%);
+      animation-name: chev-v-rev;
+    }
+
+    .chev-r1,
+    .chev-l1 {
+      top: 50%;
+      margin-top: calc(-14px * var(--chev-unit));
+    }
+
+    .chev-r2,
+    .chev-l2 {
+      top: 50%;
+      margin-top: calc(-14px * var(--chev-unit));
+    }
+
+    .chev-r3,
+    .chev-l3 {
+      top: 50%;
+      margin-top: calc(-14px * var(--chev-unit));
+    }
+
+    .chev-r1 {
+      left: calc(50% + 74px * var(--chev-unit));
+      animation-delay: -0.1s;
+    }
+
+    .chev-r2 {
+      left: calc(50% + 94px * var(--chev-unit));
+      animation-delay: -0.6s;
+    }
+
+    .chev-r3 {
+      left: calc(50% + 114px * var(--chev-unit));
+      animation-delay: -1.1s;
+    }
+
+    .chev-l1 {
+      left: calc(50% - 92px * var(--chev-unit));
+      animation-delay: -0.1s;
+    }
+
+    .chev-l2 {
+      left: calc(50% - 112px * var(--chev-unit));
+      animation-delay: -0.6s;
+    }
+
+    .chev-l3 {
+      left: calc(50% - 132px * var(--chev-unit));
+      animation-delay: -1.1s;
+    }
+
+    .chev-d1,
+    .chev-d2,
+    .chev-d3,
+    .chev-u1,
+    .chev-u2,
+    .chev-u3 {
+      left: 50%;
+      margin-left: calc(-9px * var(--chev-unit));
+    }
+
+    .chev-d1 {
+      top: calc(50% + 74px * var(--chev-unit));
+      animation-delay: -0.1s;
+    }
+
+    .chev-d2 {
+      top: calc(50% + 94px * var(--chev-unit));
+      animation-delay: -0.6s;
+    }
+
+    .chev-d3 {
+      top: calc(50% + 114px * var(--chev-unit));
+      animation-delay: -1.1s;
+    }
+
+    .chev-u1 {
+      top: calc(50% - 102px * var(--chev-unit));
+      animation-delay: -0.1s;
+    }
+
+    .chev-u2 {
+      top: calc(50% - 122px * var(--chev-unit));
+      animation-delay: -0.6s;
+    }
+
+    .chev-u3 {
+      top: calc(50% - 142px * var(--chev-unit));
+      animation-delay: -1.1s;
+    }
+
+    /* Frozen-motion pose: keyframes own opacity while they run, so
+       animation: none (no-motion / prefers-reduced-motion) still leaves
+       the lead marker of each gate visible. */
+    .chev-r1,
+    .chev-l1,
+    .chev-d1,
+    .chev-u1 {
+      opacity: 0.85;
+    }
+
     .rotor {
       position: relative;
       z-index: 2;
@@ -1583,7 +1869,14 @@ export class XiaomiFanCard extends LitElement {
         0 16px 36px rgb(0 0 0 / 16%);
     }
 
-    .running .rotor {
+    /* The rotor is the static mount; only the blade disc rotates so overlays
+       like the prop cage stay still while the blades spin. */
+    .blade-disc {
+      position: absolute;
+      inset: 0;
+    }
+
+    .running .blade-disc {
       animation: rotor-spin var(--spin-duration) linear infinite;
     }
 
@@ -1603,20 +1896,62 @@ export class XiaomiFanCard extends LitElement {
       opacity: 0.88;
     }
 
-    .blade-one {
-      transform: translateY(-50%) rotate(-10deg);
+    /* Graphic styles: each design pairs its head shape with matching motion.
+       Blade rotation comes from inline transforms, so these rules shape the
+       blades, add overlays, and tune the per-style rhythm. */
+    .graphic-prop .rotor {
+      border-width: 2px;
     }
 
-    .blade-two {
-      transform: translateY(-50%) rotate(80deg);
+    .graphic-prop .blade {
+      width: 42%;
+      height: 9%;
+      border-radius: 50% 10% 50% 10%;
+      opacity: 0.92;
     }
 
-    .blade-three {
-      transform: translateY(-50%) rotate(170deg);
+    .graphic-prop .cage {
+      position: absolute;
+      inset: -7%;
+      border-radius: 50%;
+      background: repeating-conic-gradient(
+        color-mix(in srgb, var(--fan-accent) 30%, transparent) 0 1.4deg,
+        transparent 1.4deg 22.5deg
+      );
+      -webkit-mask: radial-gradient(farthest-side, transparent 58%, #000 59%, #000 94%, transparent 95%);
+      mask: radial-gradient(farthest-side, transparent 58%, #000 59%, #000 94%, transparent 95%);
     }
 
-    .blade-four {
-      transform: translateY(-50%) rotate(260deg);
+    .graphic-turbine .blade {
+      width: 44%;
+      height: 12%;
+      border-radius: 100% 4% 100% 4%;
+      opacity: 0.72;
+    }
+
+    .graphic-turbine .hub {
+      inset: 42%;
+    }
+
+    .airflow-visual.running.graphic-turbine .blade-disc {
+      animation-duration: calc(var(--spin-duration) * 0.6);
+    }
+
+    .graphic-minimal .rotor {
+      border: none;
+      background: transparent;
+      box-shadow: none;
+    }
+
+    .graphic-minimal .hub {
+      inset: 40%;
+      box-shadow:
+        0 0 0 8px var(--fan-accent-soft),
+        0 0 26px color-mix(in srgb, var(--fan-accent) 45%, transparent);
+    }
+
+    .airflow-visual.running.graphic-minimal .hub {
+      animation: hub-breathe var(--spin-duration) ease-in-out infinite;
     }
 
     .hub {
@@ -1625,6 +1960,159 @@ export class XiaomiFanCard extends LitElement {
       border-radius: 50%;
       background: var(--fan-surface);
       box-shadow: 0 0 0 5px var(--fan-accent-soft);
+    }
+
+    /* Ambient graphic styles: no rotor, the whole visual square carries the
+       motion. Each style reads speed from --speed and the swing axis from
+       the axis classes; .no-motion freezes them through the global rule. */
+    .graphic {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    .stream svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .stream-line {
+      fill: none;
+      stroke: var(--fan-accent);
+      stroke-width: 2.5;
+      stroke-linecap: round;
+      stroke-dasharray: 14 22;
+      opacity: 0.18;
+      transition: opacity var(--fan-transition);
+    }
+
+    .running .stream-line {
+      opacity: 0.75;
+      animation: stream-flow var(--spin-duration) linear infinite;
+    }
+
+    .running .stream-line:nth-child(2) {
+      animation-duration: calc(var(--spin-duration) * 0.85);
+    }
+
+    .running .stream-line:nth-child(3) {
+      animation-duration: calc(var(--spin-duration) * 1.15);
+    }
+
+    .running .stream-line:nth-child(4) {
+      animation-duration: calc(var(--spin-duration) * 0.95);
+    }
+
+    .axis-horizontal .stream svg {
+      animation: stream-sway 8s ease-in-out infinite;
+    }
+
+    .axis-vertical .stream svg {
+      animation: stream-bob 8s ease-in-out infinite;
+    }
+
+    .axis-dual .stream svg {
+      animation: stream-dual 8s ease-in-out infinite;
+    }
+
+    .mote {
+      position: absolute;
+      left: -4%;
+      top: calc(14% + var(--i) * 9%);
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--fan-accent);
+      opacity: 0;
+      /* Motes join one by one as speed climbs: mote i appears past i*11%. */
+      --gate: min(1, max(0, (var(--speed, 0) - var(--i) * 11) / 12));
+    }
+
+    .running .mote {
+      /* Static opacity so reduced-motion / no-motion still shows the field. */
+      opacity: calc(0.85 * var(--gate));
+      animation: drift-carry calc(var(--spin-duration) * 1.6) linear infinite;
+      animation-delay: calc(var(--i) * -0.7s);
+    }
+
+    .axis-horizontal .drift {
+      animation: drift-pan 8s ease-in-out infinite;
+    }
+
+    .axis-vertical .drift {
+      animation: drift-lift 8s ease-in-out infinite;
+    }
+
+    .axis-dual .drift {
+      animation: drift-dual 8s ease-in-out infinite;
+    }
+
+    .bars {
+      inset: 14% 10%;
+      display: flex;
+      align-items: flex-end;
+      gap: 4%;
+    }
+
+    .bar {
+      flex: 1;
+      height: calc(10% + var(--speed, 0) * 0.7%);
+      border-radius: 3px 3px 0 0;
+      background: linear-gradient(180deg, var(--fan-accent), color-mix(in srgb, var(--fan-accent) 35%, transparent));
+      opacity: 0.35;
+      transform-origin: bottom;
+      transition: height var(--fan-transition);
+    }
+
+    .running .bar {
+      opacity: 0.85;
+      animation: bars-pulse 1.6s ease-in-out infinite;
+      animation-delay: calc(var(--i) * -0.13s);
+    }
+
+    /* Horizontal swing turns the uniform pulse into a travelling peak.
+       Negative delays distribute the phase so the sweep loops seamlessly. */
+    .running.axis-horizontal .bar,
+    .running.axis-dual .bar {
+      animation: bars-peak 8s ease-in-out infinite;
+      animation-delay: calc(var(--i) * -0.66s);
+    }
+
+    .running.axis-vertical .bars {
+      transform-origin: bottom;
+      animation: bars-breathe 4s ease-in-out infinite;
+    }
+
+    .puff {
+      position: absolute;
+      left: 50%;
+      bottom: 16%;
+      width: 16%;
+      aspect-ratio: 1;
+      margin-left: -8%;
+      border-radius: 50%;
+      background: radial-gradient(circle, color-mix(in srgb, var(--fan-accent) 55%, transparent), transparent 70%);
+      filter: blur(2px);
+      opacity: 0;
+    }
+
+    .running .puff {
+      /* Static opacity so reduced-motion / no-motion still shows the column. */
+      opacity: calc(0.35 + var(--speed, 0) * 0.004);
+      animation: plume-rise calc(var(--spin-duration) * 1.4) ease-out infinite;
+      animation-delay: calc(var(--i) * var(--spin-duration) * -0.28);
+    }
+
+    .axis-horizontal .plume,
+    .axis-dual .plume {
+      animation: plume-drift 8s ease-in-out infinite;
+    }
+
+    /* Vertical swing is the plume's native direction: it just runs denser. */
+    .running.axis-vertical .puff,
+    .running.axis-dual .puff {
+      animation-duration: var(--spin-duration);
     }
 
     .airflow-visual.no-motion *,
@@ -2455,6 +2943,240 @@ export class XiaomiFanCard extends LitElement {
       }
       50% {
         transform: rotate(-26deg) scaleY(0.7);
+      }
+    }
+
+    @keyframes gust-spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @keyframes hub-breathe {
+      0%,
+      100% {
+        transform: scale(1);
+      }
+      50% {
+        transform: scale(1.12);
+      }
+    }
+
+    @keyframes gate {
+      0%,
+      40% {
+        opacity: 1;
+      }
+      60%,
+      100% {
+        opacity: 0;
+      }
+    }
+
+    @keyframes chev-h {
+      0% {
+        opacity: 0;
+        transform: translateX(0);
+      }
+      25% {
+        opacity: 0.85;
+      }
+      70%,
+      100% {
+        opacity: 0;
+        transform: translateX(calc(28px * var(--chev-unit)));
+      }
+    }
+
+    @keyframes chev-v {
+      0% {
+        opacity: 0;
+        transform: translateY(0);
+      }
+      25% {
+        opacity: 0.85;
+      }
+      70%,
+      100% {
+        opacity: 0;
+        transform: translateY(calc(28px * var(--chev-unit)));
+      }
+    }
+
+    /* Reverse variants: left and up markers must travel along their own
+       arrow direction, not toward the fan center. */
+    @keyframes chev-h-rev {
+      0% {
+        opacity: 0;
+        transform: translateX(0);
+      }
+      25% {
+        opacity: 0.85;
+      }
+      70%,
+      100% {
+        opacity: 0;
+        transform: translateX(calc(-28px * var(--chev-unit)));
+      }
+    }
+
+    @keyframes chev-v-rev {
+      0% {
+        opacity: 0;
+        transform: translateY(0);
+      }
+      25% {
+        opacity: 0.85;
+      }
+      70%,
+      100% {
+        opacity: 0;
+        transform: translateY(calc(-28px * var(--chev-unit)));
+      }
+    }
+
+    /* Ambient graphic style keyframes. Dash segment is 36 (14 + 22), so a
+       -72 offset loops seamlessly. */
+    @keyframes stream-flow {
+      to {
+        stroke-dashoffset: -72;
+      }
+    }
+
+    @keyframes stream-sway {
+      0%,
+      100% {
+        transform: translateX(-2%) skewY(-2deg);
+      }
+      50% {
+        transform: translateX(2%) skewY(2deg);
+      }
+    }
+
+    @keyframes stream-bob {
+      0%,
+      100% {
+        transform: translateY(-3%);
+      }
+      50% {
+        transform: translateY(3%);
+      }
+    }
+
+    @keyframes stream-dual {
+      0%,
+      100% {
+        transform: translate(-2%, -3%) skewY(-2deg);
+      }
+      50% {
+        transform: translate(2%, 3%) skewY(2deg);
+      }
+    }
+
+    @keyframes drift-carry {
+      0% {
+        opacity: 0;
+        transform: translate(0, 0) scale(0.6);
+      }
+      15% {
+        opacity: calc(0.85 * var(--gate));
+      }
+      80% {
+        opacity: calc(0.85 * var(--gate));
+      }
+      100% {
+        opacity: 0;
+        transform: translate(calc(var(--fan-visual-size) * 1.12), -12px) scale(1);
+      }
+    }
+
+    @keyframes drift-pan {
+      0%,
+      100% {
+        transform: translateX(-6%);
+      }
+      50% {
+        transform: translateX(6%);
+      }
+    }
+
+    @keyframes drift-lift {
+      0%,
+      100% {
+        transform: translateY(-5%);
+      }
+      50% {
+        transform: translateY(5%);
+      }
+    }
+
+    @keyframes drift-dual {
+      0%,
+      100% {
+        transform: translate(-6%, -5%);
+      }
+      50% {
+        transform: translate(6%, 5%);
+      }
+    }
+
+    @keyframes bars-pulse {
+      0%,
+      100% {
+        transform: scaleY(0.82);
+      }
+      50% {
+        transform: scaleY(1);
+      }
+    }
+
+    @keyframes bars-peak {
+      0%,
+      100% {
+        transform: scaleY(0.72);
+      }
+      25% {
+        transform: scaleY(1.06);
+      }
+      50% {
+        transform: scaleY(0.9);
+      }
+      75% {
+        transform: scaleY(1);
+      }
+    }
+
+    @keyframes bars-breathe {
+      0%,
+      100% {
+        transform: scaleY(0.94);
+      }
+      50% {
+        transform: scaleY(1.02);
+      }
+    }
+
+    @keyframes plume-rise {
+      0% {
+        opacity: 0;
+        transform: translateY(0) scale(0.5);
+      }
+      20% {
+        opacity: calc(0.35 + var(--speed, 0) * 0.004);
+      }
+      100% {
+        opacity: 0;
+        transform: translateY(calc(var(--fan-visual-size) * -0.55)) scale(1.7);
+      }
+    }
+
+    @keyframes plume-drift {
+      0%,
+      100% {
+        transform: translateX(-8%);
+      }
+      50% {
+        transform: translateX(8%);
       }
     }
 

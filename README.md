@@ -103,6 +103,54 @@ Slider feedback is immediate: the ring, the readout, and the level buttons
 follow your finger and the service call fires when you let go. Decorative
 motion stops completely under `prefers-reduced-motion`.
 
+### Optional animation styles
+
+Two visual options change how motion reads without touching anything else.
+`visual.running_animation: gust` adds an air arc that chases itself around
+the speed ring, and `visual.oscillation_animation: chevrons` replaces the
+pulsing orbit with air markers that alternate sides along the live swing
+axis. `visual.graphic_style` redraws the fan head itself: four wide
+`blades`, a caged three-blade `prop`, a dense nine-blade `turbine` with a
+faster spin, or a `minimal` bare hub that breathes instead of spinning.
+Four ambient styles drop the rotor completely: `stream` flows a wind field
+of lines, `drift` carries particles that join one by one as speed rises,
+`bars` grows an airflow equalizer whose peak travels with the swing, and
+`plume` rises a soft thermal column. Defaults stay untouched until you opt
+in.
+
+<div align="center">
+  <a href="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/animation-styles-compare.webp">
+    <img src="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/animation-styles-compare.webp" alt="Four cards side by side: the default rotor and orbit animations next to the gust arc and the oscillation chevrons" height="360">
+  </a>
+</div>
+
+```yaml
+visual:
+  running_animation: gust # rotor (default) | gust
+  oscillation_animation: chevrons # orbit (default) | chevrons
+  graphic_style: turbine # blades (default) | prop | turbine | minimal | stream | drift | bars | plume
+```
+
+The three fan head designs, rendered against the production card:
+
+<div align="center">
+  <a href="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/graphic-styles.webp">
+    <img src="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/graphic-styles.webp" alt="Three cards side by side: the default four-blade head, the nine-blade turbine, and the minimal breathing ring" height="360">
+  </a>
+</div>
+
+<div align="center">
+  <a href="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/animation-running-gust.webp">
+    <img src="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/animation-running-gust.webp" alt="The gust arc circling the speed ring while the rotor spins, as a loop" height="360">
+  </a>
+</div>
+
+<div align="center">
+  <a href="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/animation-oscillation-chevrons.webp">
+    <img src="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/animation-oscillation-chevrons.webp" alt="Air chevrons shooting alternately left and right while the fan oscillates, as a loop" height="360">
+  </a>
+</div>
+
 ## Style it your way
 
 `styles` exposes typed CSS tokens per block, so a personal look is a few lines
@@ -491,20 +539,23 @@ an advanced CSS value.
 Every option, default, and legacy alias is documented in
 **[docs/configuration.md](docs/configuration.md)**. The most useful ones:
 
-| Option                    | Values                                                              | Default       |
-| ------------------------- | ------------------------------------------------------------------- | ------------- |
-| `integration`             | `auto`, `standard`, `xiaomi_miio`, `xiaomi_miio_fan`, `xiaomi_miot` | `auto`        |
-| `layout.theme`            | `auto`, `mushroom`, `minimal`, `glass`, `industrial`                | `auto`        |
-| `layout.density`          | `comfortable`, `compact`                                            | `comfortable` |
-| `layout.columns`          | `auto`, `one`, `two`                                                | `auto`        |
-| `layout.order`            | any order of `header`, `visual`, `airflow`, `position`, `features`  | default order |
-| `header.variant`          | `full`, `compact`                                                   | `full`        |
-| `visual.size`             | `120`-`480` px                                                      | `300`         |
-| `details.position`        | `below`, `side`                                                     | `below`       |
-| `controls.selection_mode` | `auto`, `buttons`, `select`                                         | `auto`        |
-| `controls.timer_mode`     | `cycle`, `select`                                                   | `cycle`       |
-| `controls.angle_mode`     | `cycle`, `select`                                                   | `cycle`       |
-| `visual.animation`        | `auto`, `enabled`, `disabled`                                       | `auto`        |
+| Option                         | Values                                                                     | Default       |
+| ------------------------------ | -------------------------------------------------------------------------- | ------------- |
+| `integration`                  | `auto`, `standard`, `xiaomi_miio`, `xiaomi_miio_fan`, `xiaomi_miot`        | `auto`        |
+| `layout.theme`                 | `auto`, `mushroom`, `minimal`, `glass`, `industrial`                       | `auto`        |
+| `layout.density`               | `comfortable`, `compact`                                                   | `comfortable` |
+| `layout.columns`               | `auto`, `one`, `two`                                                       | `auto`        |
+| `layout.order`                 | any order of `header`, `visual`, `airflow`, `position`, `features`         | default order |
+| `header.variant`               | `full`, `compact`                                                          | `full`        |
+| `visual.size`                  | `120`-`480` px                                                             | `300`         |
+| `details.position`             | `below`, `side`                                                            | `below`       |
+| `controls.selection_mode`      | `auto`, `buttons`, `select`                                                | `auto`        |
+| `controls.timer_mode`          | `cycle`, `select`                                                          | `cycle`       |
+| `controls.angle_mode`          | `cycle`, `select`                                                          | `cycle`       |
+| `visual.animation`             | `auto`, `enabled`, `disabled`                                              | `auto`        |
+| `visual.running_animation`     | `rotor`, `gust`                                                            | `rotor`       |
+| `visual.oscillation_animation` | `orbit`, `chevrons`                                                        | `orbit`       |
+| `visual.graphic_style`         | `blades`, `prop`, `turbine`, `minimal`, `stream`, `drift`, `bars`, `plume` | `blades`      |
 
 Nested groups (`header`, `visual`, `controls`, `details`, `layout`, `styles`,
 `related_entities`) take precedence over the legacy top-level flags, which
