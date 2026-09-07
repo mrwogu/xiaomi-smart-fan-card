@@ -130,6 +130,18 @@ in.
   </a>
 </div>
 
+<div align="center">
+  <a href="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/animation-running-gust.webp">
+    <img src="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/animation-running-gust.webp" alt="The gust arc circling the speed ring while the rotor spins, as a loop" height="360">
+  </a>
+</div>
+
+<div align="center">
+  <a href="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/animation-oscillation-chevrons.webp">
+    <img src="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/animation-oscillation-chevrons.webp" alt="Air chevrons shooting alternately left and right while the fan oscillates, as a loop" height="360">
+  </a>
+</div>
+
 ```yaml
 visual:
   running_animation: gust # rotor (default) | gust
@@ -142,18 +154,6 @@ The graphic styles, cycling on the production card:
 <div align="center">
   <a href="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/graphic-styles.webp">
     <img src="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/graphic-styles.webp" alt="The production card looping blades, prop, turbine, minimal, stream, drift, bars, and plume graphic styles at live speed" height="360">
-  </a>
-</div>
-
-<div align="center">
-  <a href="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/animation-running-gust.webp">
-    <img src="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/animation-running-gust.webp" alt="The gust arc circling the speed ring while the rotor spins, as a loop" height="360">
-  </a>
-</div>
-
-<div align="center">
-  <a href="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/animation-oscillation-chevrons.webp">
-    <img src="https://raw.githubusercontent.com/mrwogu/xiaomi-smart-fan-card/main/docs/media/animation-oscillation-chevrons.webp" alt="Air chevrons shooting alternately left and right while the fan oscillates, as a loop" height="360">
   </a>
 </div>
 
