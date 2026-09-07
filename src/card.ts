@@ -486,18 +486,20 @@ export class XiaomiFanCard extends LitElement {
                 >
                   ${this.renderChevronGates(axis, oscillationAnimation)}
                   ${
-                    oscillationAnimation === "orbit" && !isAmbientGraphic(graphicStyle)
-                      ? html`<div class="orbit orbit-one"></div>
-                          <div class="orbit orbit-two"></div>`
-                      : ""
-                  }
-                  <div class="speed-ring" aria-hidden="true"></div>
-                  ${runningAnimation === "gust" ? html`<div class="gust" aria-hidden="true"></div>` : ""}
-                  ${
                     isAmbientGraphic(graphicStyle)
                       ? ""
-                      : html`<div class="wind wind-horizontal"></div>
-                          <div class="wind wind-vertical"></div>`
+                      : html`
+                          ${
+                            oscillationAnimation === "orbit"
+                              ? html`<div class="orbit orbit-one"></div>
+                                  <div class="orbit orbit-two"></div>`
+                              : ""
+                          }
+                          <div class="speed-ring" aria-hidden="true"></div>
+                          ${runningAnimation === "gust" ? html`<div class="gust" aria-hidden="true"></div>` : ""}
+                          <div class="wind wind-horizontal"></div>
+                          <div class="wind wind-vertical"></div>
+                        `
                   }
                   ${this.renderGraphic(graphicStyle)}
                   ${

@@ -3804,16 +3804,18 @@ class XiaomiFanCard extends i$2 {
                   style=${style}
                 >
                   ${this.renderChevronGates(axis, oscillationAnimation)}
-                  ${oscillationAnimation === "orbit" && !isAmbientGraphic(graphicStyle)
-                ? b `<div class="orbit orbit-one"></div>
-                          <div class="orbit orbit-two"></div>`
-                : ""}
-                  <div class="speed-ring" aria-hidden="true"></div>
-                  ${runningAnimation === "gust" ? b `<div class="gust" aria-hidden="true"></div>` : ""}
                   ${isAmbientGraphic(graphicStyle)
                 ? ""
-                : b `<div class="wind wind-horizontal"></div>
-                          <div class="wind wind-vertical"></div>`}
+                : b `
+                          ${oscillationAnimation === "orbit"
+                    ? b `<div class="orbit orbit-one"></div>
+                                  <div class="orbit orbit-two"></div>`
+                    : ""}
+                          <div class="speed-ring" aria-hidden="true"></div>
+                          ${runningAnimation === "gust" ? b `<div class="gust" aria-hidden="true"></div>` : ""}
+                          <div class="wind wind-horizontal"></div>
+                          <div class="wind wind-vertical"></div>
+                        `}
                   ${this.renderGraphic(graphicStyle)}
                   ${this.config.visual.show_power && adapter.capabilities.power
                 ? b `
