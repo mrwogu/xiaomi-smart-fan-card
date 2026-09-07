@@ -3452,6 +3452,8 @@ const GLOBAL_STYLE_VARIABLES = {
     accent: "--fan-accent",
 };
 const asHassLike = (hass) => hass;
+const AMBIENT_GRAPHIC_STYLES = new Set(["stream", "drift", "bars", "plume"]);
+const isAmbientGraphic = (style) => AMBIENT_GRAPHIC_STYLES.has(style);
 const styleMapFor = (group, prefix) => Object.entries(group).reduce((styles, [key, value]) => {
     const token = key;
     const variable = STYLE_VARIABLES[token];
@@ -3802,14 +3804,18 @@ class XiaomiFanCard extends i$2 {
                   style=${style}
                 >
                   ${this.renderChevronGates(axis, oscillationAnimation)}
-                  ${oscillationAnimation === "orbit"
-                ? b `<div class="orbit orbit-one"></div>
-                          <div class="orbit orbit-two"></div>`
-                : ""}
-                  <div class="speed-ring" aria-hidden="true"></div>
-                  ${runningAnimation === "gust" ? b `<div class="gust" aria-hidden="true"></div>` : ""}
-                  <div class="wind wind-horizontal"></div>
-                  <div class="wind wind-vertical"></div>
+                  ${isAmbientGraphic(graphicStyle)
+                ? ""
+                : b `
+                          ${oscillationAnimation === "orbit"
+                    ? b `<div class="orbit orbit-one"></div>
+                                  <div class="orbit orbit-two"></div>`
+                    : ""}
+                          <div class="speed-ring" aria-hidden="true"></div>
+                          ${runningAnimation === "gust" ? b `<div class="gust" aria-hidden="true"></div>` : ""}
+                          <div class="wind wind-horizontal"></div>
+                          <div class="wind wind-vertical"></div>
+                        `}
                   ${this.renderGraphic(graphicStyle)}
                   ${this.config.visual.show_power && adapter.capabilities.power
                 ? b `
@@ -5074,6 +5080,15 @@ class XiaomiFanCard extends i$2 {
       border-radius: 50%;
       background: var(--fan-surface);
       box-shadow: 0 0 0 5px var(--fan-accent-soft);
+    }
+
+    /* Ambient styles drop the rotor mount, so the inner circle that frames
+       blades would sit empty behind stream/drift/bars/plume. */
+    .airflow-visual.graphic-stream::before,
+    .airflow-visual.graphic-drift::before,
+    .airflow-visual.graphic-bars::before,
+    .airflow-visual.graphic-plume::before {
+      content: none;
     }
 
     /* Ambient graphic styles: no rotor, the whole visual square carries the
