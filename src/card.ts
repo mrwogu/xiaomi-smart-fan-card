@@ -57,6 +57,9 @@ const GLOBAL_STYLE_VARIABLES: Partial<Record<keyof FanStyleBlock, string>> = {
 
 const asHassLike = (hass: HomeAssistant): HassLike => hass as unknown as HassLike;
 
+const AMBIENT_GRAPHIC_STYLES: ReadonlySet<FanGraphicStyle> = new Set(["stream", "drift", "bars", "plume"]);
+const isAmbientGraphic = (style: FanGraphicStyle): boolean => AMBIENT_GRAPHIC_STYLES.has(style);
+
 const styleMapFor = (group: FanStyleBlock, prefix: string): Record<string, string> =>
   Object.entries(group).reduce<Record<string, string>>((styles, [key, value]) => {
     const token = key as keyof FanStyleBlock;
@@ -483,15 +486,19 @@ export class XiaomiFanCard extends LitElement {
                 >
                   ${this.renderChevronGates(axis, oscillationAnimation)}
                   ${
-                    oscillationAnimation === "orbit"
+                    oscillationAnimation === "orbit" && !isAmbientGraphic(graphicStyle)
                       ? html`<div class="orbit orbit-one"></div>
                           <div class="orbit orbit-two"></div>`
                       : ""
                   }
                   <div class="speed-ring" aria-hidden="true"></div>
                   ${runningAnimation === "gust" ? html`<div class="gust" aria-hidden="true"></div>` : ""}
-                  <div class="wind wind-horizontal"></div>
-                  <div class="wind wind-vertical"></div>
+                  ${
+                    isAmbientGraphic(graphicStyle)
+                      ? ""
+                      : html`<div class="wind wind-horizontal"></div>
+                          <div class="wind wind-vertical"></div>`
+                  }
                   ${this.renderGraphic(graphicStyle)}
                   ${
                     this.config.visual.show_power && adapter.capabilities.power
@@ -1960,6 +1967,15 @@ export class XiaomiFanCard extends LitElement {
       border-radius: 50%;
       background: var(--fan-surface);
       box-shadow: 0 0 0 5px var(--fan-accent-soft);
+    }
+
+    /* Ambient styles drop the rotor mount, so the inner circle that frames
+       blades would sit empty behind stream/drift/bars/plume. */
+    .airflow-visual.graphic-stream::before,
+    .airflow-visual.graphic-drift::before,
+    .airflow-visual.graphic-bars::before,
+    .airflow-visual.graphic-plume::before {
+      content: none;
     }
 
     /* Ambient graphic styles: no rotor, the whole visual square carries the

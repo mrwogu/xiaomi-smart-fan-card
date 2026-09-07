@@ -1231,18 +1231,26 @@ describe("XiaomiFanCard", () => {
     expect(stream?.querySelector(".airflow-visual")?.classList.contains("graphic-stream")).toBe(true);
     expect(stream?.querySelectorAll(".stream .stream-line").length).toBe(4);
     expect(stream?.querySelector(".rotor")).toBeNull();
+    expect(stream?.querySelector(".orbit")).toBeNull();
+    expect(stream?.querySelector(".wind")).toBeNull();
 
     const drift = await renderWithStyle("drift");
     expect(drift?.querySelectorAll(".drift .mote").length).toBe(8);
     expect(drift?.querySelector(".rotor")).toBeNull();
+    expect(drift?.querySelector(".orbit")).toBeNull();
+    expect(drift?.querySelector(".wind")).toBeNull();
 
     const bars = await renderWithStyle("bars");
     expect(bars?.querySelectorAll(".bars .bar").length).toBe(12);
     expect(bars?.querySelector(".rotor")).toBeNull();
+    expect(bars?.querySelector(".orbit")).toBeNull();
+    expect(bars?.querySelector(".wind")).toBeNull();
 
     const plume = await renderWithStyle("plume");
     expect(plume?.querySelectorAll(".plume .puff").length).toBe(5);
     expect(plume?.querySelector(".rotor")).toBeNull();
+    expect(plume?.querySelector(".orbit")).toBeNull();
+    expect(plume?.querySelector(".wind")).toBeNull();
   });
 
   it("keeps drift, plume, and chevron markers visible when animation is disabled", async () => {
